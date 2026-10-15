@@ -6,6 +6,10 @@
 
 端形态：运营后台只构建 H5（PC 工作台），其余三端只构建微信小程序。端形态、清理范围与命名口径以 [`功能清单-按端归组.docx`](功能清单-按端归组.docx) 为准。
 
+## 仓库与推送目标
+
+本仓库远端固定为 `https://github.com/Chenfan0211/agritainmen2.git`。请勿推送到同名的 `https://github.com/Chenfan0211/agritainmen.git`（另一个仓库，本工程已不再关联）。
+
 ## 应用
 
 - `apps/admin`：中选科技供应链管理后台（运营后台），仅构建 H5。
