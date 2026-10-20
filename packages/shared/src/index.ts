@@ -4,6 +4,7 @@ import { normalizeMediaReference, type MediaReference } from './media'
 import { defaultProductCategoryImage } from './product-category-images'
 import type { DictionaryPublishLock, PlatformDictionaryState } from './dictionaries'
 import type { FarmLocation } from './geocoding'
+import { getPlatformProviders } from './providers'
 export type Role = 'customer' | 'staff' | 'manager'
 export type ProductSource = 'platform' | 'farmhouse'
 export type ProductStatus = 'active' | 'pending' | 'offline' | 'rejected'
@@ -5039,8 +5040,8 @@ export async function ensurePublishedRoutesForDate(input: EnsurePublishedRoutesI
     const namedOrder = named ? orderStopsByNamedRoute(named.storeIds, stops) : { stops, warnings: [] as string[] }
     let optimized
     try {
-      const providers = await import('./providers')
-      optimized = await providers.getPlatformProviders().routeOptimization.optimize({ origin: warehouse!, stops: namedOrder.stops })
+      // providers 已由 `export * from './providers'` 静态引入，这里不再动态 import（避免重复入图告警）
+      optimized = await getPlatformProviders().routeOptimization.optimize({ origin: warehouse!, stops: namedOrder.stops })
     } catch {
       const local = optimizeDeliveryRoute({ origin: warehouse!, stops: namedOrder.stops })
       optimized = local ? { ok: true as const, value: local } : { ok: false as const, code: 'route_optimization_failed', message: '线路规划失败' }
