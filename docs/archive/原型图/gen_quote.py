@@ -131,10 +131,9 @@ para("大中台 ＋ 小前台 ＋ 联盟", size=11.5, bold=True, color=GRAY, ali
 para("甄选好物供应链中台  ＋  N 个农家乐小程序  ＋  农家乐联盟推客平台",
      size=10.5, color=GRAY, align=WD_ALIGN_PARAGRAPH.CENTER, after=24)
 
-info = doc.add_table(rows=4, cols=2); info.alignment = WD_TABLE_ALIGNMENT.CENTER
+info = doc.add_table(rows=3, cols=2); info.alignment = WD_TABLE_ALIGNMENT.CENTER
 info.style = 'Table Grid'
-rows_info = [("牵头单位", "湖南省电子商务协会"),
-             ("项目名称", "湖南农家乐数字供应链与引流服务平台"),
+rows_info = [("项目名称", "湖南农家乐数字供应链与引流服务平台"),
              ("方案日期", "2026 年 6 月 24 日"),
              ("报价有效期", "自方案出具之日起 30 日内")]
 for i, (k, v) in enumerate(rows_info):

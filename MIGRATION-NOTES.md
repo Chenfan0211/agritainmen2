@@ -15,7 +15,7 @@
 |---|---|
 | 应用 | `apps/admin`、`apps/store`、`apps/supplier`、`apps/user` |
 | 包 | `packages/shared`、`packages/ui`、`packages/tencent-map-gateway` |
-| 文档 | `docs/`（含 design tokens、integration、tencent-map、功能清单、superpowers 计划与规格）、`原型图/`、根级 `*.md`、`*.docx` |
+| 文档 | `docs/`（含 design tokens、integration、tencent-map、功能清单、superpowers 计划与规格）、`docs/archive/原型图/`（原 `原型图/`，2026-10-15 归档）、根级 `*.md`、`*.docx` |
 | 资源 | `assets/`、`artifacts/`、`types/`、`.idea/` |
 | 工具链 | `scripts/`（已裁剪端清单）、`tests/`（已裁剪端清单）、`pnpm-workspace.yaml` |
 
@@ -79,7 +79,7 @@
 
 - 看板内的预约 / 直播聚合逻辑与 `DashboardBooking` / `DashboardLiveRoom` 类型已彻底删除;`DashboardDataDomain` 为 7 项(farms/accounts/catalog/orders/vouchers/afterSales/settlements),预约与直播不再计入交易额、趋势与数据新鲜度。
 - 商品渠道位 `live`(代码语义为「用户端」渠道,显示文案已改为「用户端商品」)与 `VoucherOrder.liveId` 作为内部标识保留,避免牵动商品渠道枚举与历史数据;门店「人气值」`FarmStore.livePopularity` 与 `farmPopularity` 素材位已随产地直播一并删除。
-- `docs/`、`原型图/`、`验收报告-1比1还原.md`、`docs/superpowers/` 保留三端历史资料；`artifacts/` 保留三端 QA 截图。
+- `docs/`、`docs/archive/原型图/`、`docs/archive/验收报告-1比1还原.md`、`docs/superpowers/` 保留三端历史资料（2026-10-15 归档至 `docs/archive/`）；`artifacts/` 保留三端 QA 截图，已删端截图归入 `artifacts/archive/`。
 - 三端小程序 `appid` 仍为占位 `touristappid`，正式发布需替换为真实 appid 并在微信后台配置合法域名。
 
 ## 新增或恢复一端的操作规程

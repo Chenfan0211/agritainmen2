@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Generate the customer-facing Zhongxuan Technology feature list."""
+"""Generate the customer-facing digital supply chain feature list."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from docx.shared import Cm, Pt, RGBColor
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "中选科技-功能清单.docx"
+OUTPUT = ROOT / "功能清单.docx"
 
 GREEN = RGBColor(0x1D, 0x6B, 0x44)
 DARK_GREEN = RGBColor(0x13, 0x3F, 0x2B)
@@ -227,7 +227,7 @@ SECTIONS: list[tuple[str, str, list[Feature]]] = [
     ),
     (
         "平台上线基础能力",
-        "为中选科技各业务端提供统一、安全、稳定的数据、交易、消息、地图、文件及运维服务。",
+        "为各业务端提供统一、安全、稳定的数据、交易、消息、地图、文件及运维服务。",
         [
             ("业务服务", "统一业务后台", "提供统一业务服务承接各应用端的查询、交易和管理请求。", "平台运营、各业务端"),
             ("业务服务", "统一数据库", "集中存储用户、门店、商品、订单、库存、结算和履约数据。", "平台运营、各业务端"),
@@ -383,10 +383,10 @@ def add_body(doc: Document, text: str, *, bold: bool = False, color: RGBColor = 
 
 
 def configure_document(doc: Document) -> None:
-    doc.core_properties.title = "中选科技功能清单"
-    doc.core_properties.subject = "中选科技正式上线功能范围说明"
-    doc.core_properties.author = "中选科技"
-    doc.core_properties.keywords = "中选科技,功能清单,供应链,农家乐,商城,履约"
+    doc.core_properties.title = "功能清单"
+    doc.core_properties.subject = "正式上线功能范围说明"
+    doc.core_properties.author = "数字供应链平台"
+    doc.core_properties.keywords = "功能清单,供应链,农家乐,商城,履约"
 
     normal = doc.styles["Normal"]
     normal.font.name = "微软雅黑"
@@ -416,14 +416,14 @@ def configure_body_header_footer(section) -> None:
     header.is_linked_to_previous = False
     header_p = header.paragraphs[0]
     header_p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    header_run = header_p.add_run("中选科技  |  功能范围说明")
+    header_run = header_p.add_run("数字供应链平台  |  功能范围说明")
     set_font(header_run, 8.5, bold=True, color=GREEN)
 
     footer = section.footer
     footer.is_linked_to_previous = False
     footer_p = footer.paragraphs[0]
     footer_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    footer_run = footer_p.add_run("中选科技功能清单  ·  第 ")
+    footer_run = footer_p.add_run("功能清单  ·  第 ")
     set_font(footer_run, 8.5, color=GRAY)
     add_page_number(footer_p)
     footer_end = footer_p.add_run(" 页")
@@ -444,13 +444,13 @@ def add_cover(doc: Document) -> None:
     eyebrow = doc.add_paragraph()
     eyebrow.alignment = WD_ALIGN_PARAGRAPH.CENTER
     eyebrow.paragraph_format.space_after = Pt(12)
-    run = eyebrow.add_run("ZHONGXUAN TECHNOLOGY")
+    run = eyebrow.add_run("DIGITAL SUPPLY CHAIN")
     set_font(run, 10, bold=True, color=GOLD)
 
     title = doc.add_paragraph()
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     title.paragraph_format.space_after = Pt(8)
-    run = title.add_run("中选科技")
+    run = title.add_run("数字供应链平台")
     set_font(run, 28, bold=True, color=GREEN)
 
     subtitle = doc.add_paragraph()
@@ -480,8 +480,8 @@ def add_cover(doc: Document) -> None:
     info.columns[0].width = Cm(3.5)
     info.columns[1].width = Cm(9.5)
     cover_info = [
-        ("项目名称", "中选科技"),
-        ("文档名称", "中选科技功能清单"),
+        ("项目名称", "数字供应链平台"),
+        ("文档名称", "功能清单"),
         ("编制日期", f"{date.today().year} 年 {date.today().month} 月 {date.today().day} 日"),
     ]
     for row, (label, value) in zip(info.rows, cover_info):
@@ -496,11 +496,11 @@ def add_overview(doc: Document) -> None:
     add_heading(doc, "一、项目概述")
     add_body(
         doc,
-        "中选科技围绕农家乐经营主体，建设覆盖供应链集采、门店经营、推客推广、直播推广、用户商城、配送履约、售后结算和数据服务的一体化平台。平台连接运营方、农家乐门店、供应商、推客、消费者和配送司机，形成从商品供给到消费履约的完整业务闭环。",
+        "数字供应链平台围绕农家乐经营主体，建设覆盖供应链集采、门店经营、推客推广、直播推广、用户商城、配送履约、售后结算和数据服务的一体化平台。平台连接运营方、农家乐门店、供应商、推客、消费者和配送司机，形成从商品供给到消费履约的完整业务闭环。",
     )
     add_body(
         doc,
-        "本清单面向客户、合作方及项目相关单位，用于说明中选科技正式上线后的完整功能范围。具体功能配置、业务规则和交付边界以最终需求确认结果为准。",
+        "本清单面向客户、合作方及项目相关单位，用于说明正式上线后的完整功能范围。具体功能配置、业务规则和交付边界以最终需求确认结果为准。",
         color=GRAY,
     )
 
@@ -596,7 +596,7 @@ def add_feature_table(doc: Document, rows: list[Feature], start_number: int) -> 
 def add_feature_sections(doc: Document) -> int:
     doc.add_page_break()
     add_heading(doc, "四、详细功能清单")
-    add_body(doc, "以下功能按系统端划分，序号全文连续。各模块共同组成中选科技正式上线后的完整产品能力。", color=GRAY)
+    add_body(doc, "以下功能按系统端划分，序号全文连续。各模块共同组成正式上线后的完整产品能力。", color=GRAY)
     next_number = 1
     for section_index, (name, summary, features) in enumerate(SECTIONS, start=1):
         if section_index > 1:
@@ -673,7 +673,7 @@ def validate_output(path: Path, feature_count: int) -> None:
     found = [term for term in forbidden_terms if term in full_text]
     if found:
         raise ValueError(f"Forbidden terms found in output: {found}")
-    if "中选科技功能清单" not in full_text:
+    if "功能清单" not in full_text:
         raise ValueError("Document title is missing")
     for section, _, _ in SECTIONS:
         if section not in full_text:
