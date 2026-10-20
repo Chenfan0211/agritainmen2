@@ -5,5 +5,5 @@
   "versionName": "0.1.0",
   "versionCode": 100,
   "transformPx": false,
-  "mp-weixin": { "appid": "touristappid", "setting": { "urlCheck": false }, "usingComponents": true }
+  "mp-weixin": { "appid": "wx4942e19ae41bc1b4", "setting": { "urlCheck": false }, "usingComponents": true }
 }

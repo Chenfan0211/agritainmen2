@@ -71,7 +71,7 @@ pnpm build && pnpm check:mp-size
 
 ## 发布前检查清单
 
-1. **每端独立真实 AppID**：`pnpm mp:appid <app> <appid>` 写入 `apps/<app>/src/manifest.json`（`store` / `supplier` / `user` 三端**禁止共用同一个 AppID**，否则三端本地存储串端）；当前 `store` 是测试号、`supplier` / `user` 仍是 `touristappid`，仅用于本地演示。
+1. **每端独立真实 AppID**：`pnpm mp:appid <app> <appid>` 写入 `apps/<app>/src/manifest.json`（命令支持 `--dry-run`），改完重新 `pnpm build:<app>`。当前三端**统一使用测试号 `wx4942e19ae41bc1b4`**，仅用于本地 / 体验版测试：共用同一 AppID 会让三端微信侧本地存储互通，逐端验收前请在开发者工具执行 `wx.clearStorageSync()` 或清缓存。正式发布必须逐端替换为各自真实 AppID，**三端禁止共用**。
 2. **微信后台配置合法域名**：`VITE_TENCENT_MAP_GATEWAY` 指向的网关域名需加 request 合法域名；网关部署与 Nginx 反代见 [`docs/tencent-map.md`](docs/tencent-map.md)。
 3. **重新生成腾讯地图 Key**：本地 `apps/supplier/.env.local` 存过真实 Key/Secret（已 gitignore），正式环境请改用服务端环境变量并轮换密钥。
 4. **包体与样式门禁**：`pnpm compress:images` → `pnpm sync:category-images` → `pnpm build` → `pnpm check:mp-size` 全绿后再上传。
