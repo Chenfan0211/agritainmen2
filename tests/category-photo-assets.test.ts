@@ -53,12 +53,12 @@ describe('商品品类实拍图资产', () => {
     }
   })
 
-  it('母版和四端资源均为 512 方形 WebP、大小合规且哈希一致', () => {
+  it('母版和四端资源均为 128 方形 WebP、大小合规且哈希一致', () => {
     for (const file of files) {
       const master = resolve(root, 'assets/product-categories/master', file)
       expect(existsSync(master), `缺少母版 ${file}`).toBe(true)
-      expect(webpDimensions(master)).toEqual({ width: 512, height: 512 })
-      expect(statSync(master).size, `${file} 超过 150KB`).toBeLessThanOrEqual(150 * 1024)
+      expect(webpDimensions(master)).toEqual({ width: 128, height: 128 })
+      expect(statSync(master).size, `${file} 超过 24KB`).toBeLessThanOrEqual(24 * 1024)
       const expectedHash = createHash('sha256').update(readFileSync(master)).digest('hex')
       for (const app of apps) {
         const target = resolve(root, 'apps', app, 'src/static/images/categories', file)

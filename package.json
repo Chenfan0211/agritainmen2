@@ -13,6 +13,8 @@
     "audit:interfaces": "node scripts/audit-interfaces.mjs",
     "audit:mp-styles": "node scripts/audit-mp-styles.mjs",
     "audit:tokens": "node scripts/audit-tokens.mjs",
+    "check:mp-size": "node scripts/check-mp-bundle-size.mjs",
+    "compress:images": "node scripts/compress-static-images.mjs",
     "mp:appid": "node scripts/set-mp-appid.mjs",
     "check:supplier-assets": "node scripts/check-supplier-assets.mjs",
     "prepare:category-images": "python scripts/prepare-product-category-images.py",
