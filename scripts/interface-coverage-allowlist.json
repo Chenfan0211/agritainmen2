@@ -1,0 +1,16 @@
+{
+  "sharedConstants": [],
+  "functionReasons": {
+    "enableKeyboardButtons": "H5 键盘可点击性运行时辅助，由页面运行时与 audit:buttons 门禁覆盖，无独立业务语义",
+    "focusFirstInteractive": "H5 弹层焦点运行时辅助，由页面契约测试覆盖，无独立业务语义",
+    "installKeyboardButtonSupport": "H5 键盘事件安装辅助，由页面运行时覆盖，无独立业务语义",
+    "resolveChromiumExecutable": "图标生成脚本的本地浏览器探测，依赖开发机安装路径，无法在 CI 中稳定断言"
+  },
+  "storeNoNegativePath": {
+    "persistSession": "会话写入无失败分支（本地存储直写），失败路径由写事务接口覆盖",
+    "wechatLogin": "微信登录入口无失败分支（演示态 mock openid），异常由共享 simulateWechatLogin 覆盖",
+    "removeFromCart": "购物车删除无校验分支，幂等删除由成功路径断言覆盖",
+    "recoverCatalogTransactions": "恢复入口无失败返回（逐条尝试、失败跳过），异常由事务恢复用例覆盖"
+  },
+  "storeGetterExempt": {}
+}

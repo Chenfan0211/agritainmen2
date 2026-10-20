@@ -1,7 +1,9 @@
 @use "../../../../packages/ui/src/typography.scss";
 @use "../../../../packages/ui/src/mobile-theme.scss";
+@import "../../../../packages/ui/src/design-tokens.css";
 
-:root {
+:root,
+page {
   --farm-green: var(--mobile-brand);
   --farm-green-deep: var(--mobile-brand-deep);
   --farm-green-soft: var(--mobile-brand-soft);
@@ -57,7 +59,8 @@ page, body, #app {
   letter-spacing: 0;
 }
 
-* { box-sizing: border-box; }
+/* WXSS 不支持通配符 `*` 选择器，显式列出小程序原生组件 */
+page, view, text, image, button, input, textarea, navigator, scroll-view, swiper, swiper-item, cover-view, cover-image, label, form, picker, canvas, map, video, rich-text, movable-view, movable-area { box-sizing: border-box; }
 button, input, textarea { font: inherit; letter-spacing: 0; }
 button { border: 0; transition: background-color .16s ease, color .16s ease, border-color .16s ease, opacity .16s ease, transform .12s ease; }
 button:not(:disabled):active { transform: scale(.98); }

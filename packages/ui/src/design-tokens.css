@@ -7,6 +7,7 @@ page {
   --color-brand-primary-soft: #E9F3ED;
   --gradient-brand: linear-gradient(140deg, #3E9B62, #2F7A4D);
   --color-on-brand: #FFFFFF;
+  --color-on-brand-rgb: 255, 255, 255;
 
   /* semantic */
   --color-success: #2F7A4D;
@@ -81,6 +82,7 @@ page {
   /* user mall — 仅用户端消费，不改全站主色 */
   --color-user-brand: #17633F;
   --color-user-brand-deep: #0F4A31;
+  --color-user-brand-deep-rgb: 15, 74, 49;
   --color-user-brand-soft: #E7F2EB;
   --gradient-user: linear-gradient(140deg, #3E9B62, #2F7A4D 55%, #17633F);
   --gradient-user-login: linear-gradient(168deg, #3E9B62 0%, #2F7A4D 46%, #1E6B45 74%, #14532F 100%);
@@ -91,6 +93,8 @@ page {
   --color-user-line-light: #ECF1EA;
   --color-user-subtle: #EEF3EC;
   --color-user-price: #E8501E;
+  --color-user-price-rgb: 232, 80, 30;
+  --color-user-hero-muted: #D3DFD8;
   --color-user-warning: #C77A1E;
   --color-user-danger: #B83532;
   --color-user-badge: #D92C20;

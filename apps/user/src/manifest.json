@@ -1,7 +1,7 @@
 {
-  "name": "中选科技商城",
+  "name": "商城",
   "appid": "__UNI__AGRITAINMENT_USER",
-  "description": "中选科技 C 端分销商城：快递直发商品、分销身份价格、订单和佣金演示",
+  "description": "C 端分销商城：快递直发商品、分销身份价格、订单和佣金演示",
   "versionName": "0.1.0",
   "versionCode": 100,
   "transformPx": false,

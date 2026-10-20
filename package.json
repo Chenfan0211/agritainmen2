@@ -10,6 +10,9 @@
     "test": "vitest run --exclude apps/**/e2e/**",
     "audit:typography": "node scripts/audit-typography.mjs",
     "audit:buttons": "node scripts/audit-buttons.mjs",
+    "audit:interfaces": "node scripts/audit-interfaces.mjs",
+    "audit:mp-styles": "node scripts/audit-mp-styles.mjs",
+    "mp:appid": "node scripts/set-mp-appid.mjs",
     "check:supplier-assets": "node scripts/check-supplier-assets.mjs",
     "prepare:category-images": "python scripts/prepare-product-category-images.py",
     "sync:category-images": "node scripts/sync-product-category-images.mjs",
@@ -26,6 +29,7 @@
     "@types/qrcode-generator": "^1.0.6",
     "fake-indexeddb": "^6.2.5",
     "lucide-static": "^0.468.0",
+    "playwright-core": "1.55.0",
     "typescript": "^5.4.5",
     "vitest": "^2.1.9"
   },

@@ -2,7 +2,7 @@
   <view class="store-subpage checkout-page">
     <view class="subpage-hero">
       <button class="hero-back" aria-label="返回" @click="goBack"><UiIcon name="arrow-left" :size="20" /></button>
-      <view class="hero-copy"><text class="hero-title">确认订单</text><text class="hero-sub">中选科技供应链 · 中台直配到店</text></view>
+      <view class="hero-copy"><text class="hero-title">确认订单</text><text class="hero-sub">供应链 · 中台直配到店</text></view>
     </view>
 
     <view class="page-body">
@@ -21,7 +21,7 @@
           <view v-for="item in store.checkoutLines" :key="`${item.productId}-${item.skuId}`" class="checkout-line">
             <BusinessImage class="line-image" :src="item.image" mode="aspectFill" />
             <view class="line-main"><text class="line-name">{{ item.name }}</text><text class="line-spec">{{ item.skuName }} × {{ item.quantity }}</text><text class="line-unit">{{ money(item.price) }} / 件</text></view>
-            <strong class="line-amount">{{ money(item.price * item.quantity) }}</strong>
+            <strong class="line-amount val">{{ money(item.price * item.quantity) }}</strong>
           </view>
         </view>
       </view>
@@ -33,19 +33,19 @@
 
       <view class="detail-card">
         <view class="section-head"><text class="card-title">支付方式</text><text class="section-meta">仅支持微信支付</text></view>
-        <view class="payment-row"><view class="payment-icon"><UiIcon name="credit-card" :size="19" /></view><view class="payment-main"><text>微信支付（演示）</text><small>提交后 15 分钟内完成支付，支付后进入待接单</small></view><text class="payment-selected">已选</text></view>
+        <view class="payment-row"><view class="payment-icon"><UiIcon name="credit-card" :size="19" /></view><view class="payment-main"><text>微信支付（演示）</text><small class="meta">提交后 15 分钟内完成支付，支付后进入待接单</small></view><text class="payment-selected">已选</text></view>
       </view>
 
       <view class="detail-card amount-card">
-        <view class="amount-row"><text>商品金额</text><strong>{{ money(store.checkoutTotal) }}</strong></view>
-        <view class="amount-row"><text>较零售节省</text><strong class="saving">-{{ money(store.checkoutSaved) }}</strong></view>
-        <view class="amount-row"><text>配送费</text><strong>¥0</strong></view>
-        <view class="amount-row total"><text>应付金额</text><strong>{{ money(store.checkoutTotal) }}</strong></view>
+        <view class="amount-row"><text>商品金额</text><strong class="val">{{ money(store.checkoutTotal) }}</strong></view>
+        <view class="amount-row"><text>较零售节省</text><strong class="saving val">-{{ money(store.checkoutSaved) }}</strong></view>
+        <view class="amount-row"><text>配送费</text><strong class="val">¥0</strong></view>
+        <view class="amount-row total"><text>应付金额</text><strong class="val">{{ money(store.checkoutTotal) }}</strong></view>
       </view>
     </view>
 
     <view class="submit-bar">
-      <view class="submit-total"><small>应付金额</small><strong>{{ money(store.checkoutTotal) }}</strong></view>
+      <view class="submit-total"><small class="meta">应付金额</small><strong class="val">{{ money(store.checkoutTotal) }}</strong></view>
       <button class="submit-button" :disabled="submitting || !store.checkoutCount || store.checkoutHasUnavailable" @click="submit">{{ submitting ? '提交中...' : '提交订单' }}</button>
     </view>
   </view>
@@ -122,20 +122,20 @@ async function submit() {
 .remark-input { width:100%;min-height:94px;padding:11px 12px;border:1px solid var(--store-line);border-radius:12px;background:var(--mobile-surface-subtle);font-size:13px;line-height:1.6;box-sizing:border-box; }
 .payment-row { min-height:58px;padding:10px 12px;border:1.5px solid var(--farm-green);border-radius:12px;background:var(--farm-green-soft);display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:9px;box-sizing:border-box; }
 .payment-icon { width:34px;height:34px;border-radius:10px;background:var(--mobile-surface);color:var(--farm-green);display:grid;place-items:center; }
-.payment-main text,.payment-main small { display:block; }
+.payment-main text,.payment-main .meta { display:block; }
 .payment-main text { font-size:13px;font-weight:800; }
-.payment-main small { margin-top:3px;color:var(--farm-muted);font-size:12px;line-height:1.4; }
+.payment-main .meta { margin-top:3px;color:var(--farm-muted);font-size:12px;line-height:1.4; }
 .payment-selected { color:var(--farm-green);font-size:13px;font-weight:800; }
 .amount-card { display:grid;gap:11px; }
 .amount-row { display:flex;align-items:center;justify-content:space-between;gap:12px;color:var(--farm-muted);font-size:13px; }
-.amount-row strong { color:var(--farm-ink);font-size:14px;font-weight:800; }
+.amount-row .val { color:var(--farm-ink);font-size:14px;font-weight:800; }
 .amount-row .saving { color:var(--farm-green); }
 .amount-row.total { padding-top:11px;border-top:1px solid var(--store-line-light);color:var(--farm-ink);font-weight:800; }
-.amount-row.total strong { color:var(--farm-red);font-size:19px; }
+.amount-row.total .val { color:var(--farm-red);font-size:19px; }
 .submit-bar { position:fixed;left:0;right:0;bottom:0;z-index:20;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:var(--mobile-surface);border-top:1px solid var(--store-line-light);display:flex;align-items:center;gap:14px;box-shadow:0 -10px 24px -18px rgba(90,50,10,.45); }
 .submit-total { flex:1;min-width:0; }
-.submit-total small { display:block;color:var(--farm-muted);font-size:12px; }
-.submit-total strong { display:block;margin-top:2px;color:var(--farm-red);font-size:19px;font-weight:800; }
+.submit-total .meta { display:block;color:var(--farm-muted);font-size:12px; }
+.submit-total .val { display:block;margin-top:2px;color:var(--farm-red);font-size:19px;font-weight:800; }
 .submit-button { min-width:160px;height:46px;padding:0 20px;border-radius:var(--mobile-radius-pill);background:var(--store-gradient);color:var(--store-on-brand);font-size:15px;font-weight:800;display:inline-flex;align-items:center;justify-content:center; }
 @media (min-width:431px) { .store-subpage { max-width:430px;margin:0 auto;box-shadow:var(--store-shadow-hero); } .submit-bar { left:50%;right:auto;width:430px;transform:translateX(-50%); } }
 /* #ifdef MP-WEIXIN */

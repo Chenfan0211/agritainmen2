@@ -18,6 +18,7 @@ import {
   updateDictItem
 } from './index'
 import type { DictionaryPublishLock, PlatformDictionaryState } from './index'
+import { createInitialPlatformDictionaries, migratePlatformDictionaries, selectDictOptions, builtInDictLabel } from './index'
 
 if (!globalThis.localStorage) {
   const storage = new Map<string, string>()
@@ -232,7 +233,7 @@ describe('platform dictionaries', () => {
       'supplierStatus', 'productStatus', 'farmStatus', 'orderStatus', 'fulfillmentStatus', 'afterSaleStatus',
       'promoterStatus', 'voucherStatus', 'settlementStatus', 'commissionStatus',
       'productSource', 'productType', 'catalogChannel', 'deliveryMode', 'afterSaleType', 'refundMethod',
-      'refundMode', 'pricePolicyType', 'accountRole', 'memberLevel', 'commissionTargetType'
+      'refundMode', 'pricePolicyType', 'accountRole', 'commissionTargetType'
     ]))
   })
 
@@ -383,4 +384,30 @@ it('seeds business dictionary items so editor options are readable out of the bo
     expect(options.every((item) => item.enabled)).toBe(true)
   }
 })
+})
+
+describe('dictionary migration entry points', () => {
+  const groups = [{ id: 'DG-T', type: 'afterSaleReason', name: '售后原因', enabled: true }]
+  const items = [
+    { id: 'DIR-T1', type: 'afterSaleReason', code: 'quality', label: '质量问题', enabled: true, sort: 2 },
+    { id: 'DIR-T2', type: 'afterSaleReason', code: 'taste', label: '口感不符', enabled: true, sort: 1 },
+    { id: 'DICITY', type: 'city', code: 'changsha', label: '长沙市', enabled: true, sort: 1 }
+  ]
+
+  it('seeds initial dictionaries without city groups and keeps items sorted', () => {
+    const seeded = createInitialPlatformDictionaries(groups, items)
+    expect(seeded.schemaVersion).toBe(DICTIONARY_SCHEMA_VERSION)
+    expect(seeded.items.map((item) => item.id)).toEqual(['DIR-T1', 'DIR-T2'])
+    expect(selectDictOptions(seeded, 'afterSaleReason').map((item) => item.label)).toEqual(['口感不符', '质量问题'])
+    expect(selectDictOptions(seeded, 'missingType')).toEqual([])
+    expect(builtInDictLabel('afterSaleStatus', 'refunded')).toBe('已退款')
+    expect(builtInDictLabel('afterSaleStatus', 'unknown-code')).toBeUndefined()
+  })
+
+  it('migrates persisted dictionaries and falls back for invalid payloads', () => {
+    const migrated = migratePlatformDictionaries({ schemaVersion: 1, groups, items }, groups, items)
+    expect(migrated.groups.some((group) => group.type === 'afterSaleReason')).toBe(true)
+    expect(migrated.items.some((item) => item.id === 'DIR-T1')).toBe(true)
+    expect(migratePlatformDictionaries(null, groups, items).items.map((item) => item.id)).toEqual(['DIR-T1', 'DIR-T2'])
+  })
 })

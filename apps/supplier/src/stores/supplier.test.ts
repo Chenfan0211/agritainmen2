@@ -619,6 +619,86 @@ describe('supplier store interactions', () => {
     expect(store.drivers.some((driver) => driver.id === 'D-EXTERNAL')).toBe(true)
   })
 
+  it('F0: keeps warehouse contacts when the supplier saves the depot', async () => {
+    const store = useSupplierStore()
+    await store.initialize()
+    expect(store.loginSupplier('13787366688', '13787366688')).toBe(true)
+    const saved = await store.updateWarehouse({ address: '湖南省湘西州永顺县石板溪村 1 号', longitude: 110.1, latitude: 28.7, contactName: '王仓管', contactPhone: '13900001234' })
+    expect(saved.ok).toBe(true)
+    expect(shared.readPlatformEntities()?.suppliers?.S002?.warehouse).toMatchObject({ address: '湖南省湘西州永顺县石板溪村 1 号', contactName: '王仓管', contactPhone: '13900001234' })
+    expect(supplierWarehouseOf('S002', store.suppliers)).toMatchObject({ contact: '王仓管', phone: '13900001234' })
+    expect(await store.updateWarehouse({ address: '湖南省湘西州永顺县石板溪村 1 号', contactName: '王仓管', contactPhone: '1390000123' })).toMatchObject({ ok: false })
+  })
+
+  it('F0-read: scopes orders, handovers, settlements and catalog to the current supplier', async () => {
+    const store = useSupplierStore()
+    await store.initialize()
+    expect(store.loginSupplier('13787366688', '13787366688')).toBe(true)
+    store.$patch({
+      orders: [
+        { id: 'SO-R1', supplierId: 'S002', channel: 'purchase', customer: '甲店', productName: '腊肉', quantity: 1, amount: 10, status: 'accepted', createdAt: '2026-10-16T09:00:00.000Z', supplierFulfillment: { status: 'accepted', shortages: [], handovers: [{ id: 'H-R1', orderId: 'SO-R1', time: '2026-10-16T10:00:00.000Z', operatorId: 'D001', operatorName: '张伟', operatorRole: 'driver' }], updatedAt: '2026-10-16T10:00:00.000Z' } },
+        { id: 'SO-R2', supplierId: 'S003', channel: 'purchase', customer: '乙店', productName: '茶叶', quantity: 1, amount: 10, status: 'accepted', createdAt: '2026-10-16T09:00:00.000Z', supplierFulfillment: { status: 'accepted', shortages: [], handovers: [], updatedAt: '2026-10-16T10:00:00.000Z' } }
+      ] as never,
+      settlements: [
+        { id: 'ST-R1', period: '2026-10', supplierIds: ['S002'], orderIds: ['SO-R1'], amount: 10, createdAt: '2026-10-16T09:00:00.000Z', items: [] },
+        { id: 'ST-R2', period: '2026-10', supplierIds: ['S003'], orderIds: ['SO-R2'], amount: 10, createdAt: '2026-10-17T09:00:00.000Z', items: [] }
+      ] as never,
+      catalogProducts: [
+        { id: 'CP-R1', supplierId: 'S002', skus: [] },
+        { id: 'CP-R2', supplierId: 'S003', skus: [] }
+      ] as never,
+      productSubmissions: [
+        { id: 'SUB-R1', supplierId: 'S002' },
+        { id: 'SUB-R2', supplierId: 'S003' }
+      ] as never
+    })
+
+    expect(store.statusText('accepted')).toBe('待发货')
+    expect(store.statusText('unknown-status')).toBe('unknown-status')
+    expect(store.allHandovers.map((item) => item.id)).toEqual(['H-R1'])
+    expect(store.allHandovers[0]).toMatchObject({ customer: '甲店' })
+    expect(store.mySettlements.map((item) => item.id)).toEqual(['ST-R1'])
+    expect(store.myCatalogProducts.map((item) => item.id)).toEqual(['CP-R1'])
+    expect(store.myProductSubmissions.map((item) => item.id)).toEqual(['SUB-R1'])
+    expect(store.todayDeliveryOrders.every((order) => order.supplierId === 'S002' && order.channel === 'purchase')).toBe(true)
+  })
+
+  it('F0-deny: rejects route actions across roles and unknown routes', async () => {
+    const store = useSupplierStore()
+    await store.initialize()
+    expect(store.loginSupplier('13787366688', '13787366688')).toBe(true)
+    expect(await store.checkInWarehouse('ROUTE-MISSING', { longitude: 110, latitude: 28 })).toMatchObject({ ok: false, code: 'permission_denied' })
+    expect(await store.markRouteShortages('ROUTE-MISSING', [])).toMatchObject({ ok: false, code: 'permission_denied' })
+    expect(await store.reorderRouteStops('ROUTE-MISSING', [])).toMatchObject({ ok: false, code: 'permission_denied' })
+    expect(await store.dispatchRoute('ROUTE-MISSING')).toMatchObject({ ok: false, code: 'permission_denied' })
+
+    store.logout()
+    expect(store.loginDriver('driver01', '123456')).toBe(true)
+    expect(await store.reviewRouteOutbound('ROUTE-MISSING', { decision: 'confirm' })).toMatchObject({ ok: false, code: 'permission_denied' })
+    expect(await store.checkInWarehouse('ROUTE-MISSING', { longitude: 110, latitude: 28 })).toMatchObject({ ok: false, code: 'no_route' })
+    expect(await store.reorderRouteStops('ROUTE-MISSING', [])).toMatchObject({ ok: false, code: 'no_route' })
+  })
+
+  it('F0-route: saves, updates and rejects conflicting named delivery routes', async () => {
+    const store = useSupplierStore()
+    await store.initialize()
+    expect(store.loginSupplier('13787366688', '13787366688')).toBe(true)
+
+    // 演示目录只有 F001~F003 三个门店，先释放西线占用的 F003 再验证新建路径
+    expect(await store.saveNamedRoute({ id: 'NR-S002-WEST', name: '西线', storeIds: [], driverId: 'D002' })).toMatchObject({ ok: true })
+    const created = await store.saveNamedRoute({ name: '联调线路', storeIds: ['F003'], driverId: 'D001' })
+    expect(created).toMatchObject({ ok: true })
+    const route = store.namedRoutes.find((item) => item.name === '联调线路')!
+    expect(route.storeIds).toEqual(['F003'])
+
+    expect(await store.saveNamedRoute({ id: route.id, name: '联调线路（改）', storeIds: ['F003'], driverId: 'D002' })).toMatchObject({ ok: true })
+    expect(store.namedRoutes.find((item) => item.id === route.id)).toMatchObject({ name: '联调线路（改）', driverId: 'D002' })
+
+    expect(await store.saveNamedRoute({ name: '冲突线路', storeIds: ['F001'] })).toMatchObject({ ok: false, code: 'route_store_conflict' })
+    expect(await store.saveNamedRoute({ name: '   ', storeIds: ['F003'] })).toMatchObject({ ok: false, code: 'invalid_route' })
+    expect(await store.saveNamedRoute({ name: '无效司机线路', storeIds: ['F003'], driverId: 'D-MISSING' })).toMatchObject({ ok: false, code: 'invalid_driver' })
+  })
+
   it('F1: logs in as supplier and active driver, rejects disabled driver and wrong password', async () => {
     const store = useSupplierStore()
     await store.initialize()

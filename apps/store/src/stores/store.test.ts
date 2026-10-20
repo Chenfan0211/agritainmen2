@@ -219,6 +219,36 @@ describe('store ordering store interactions', () => {
     expect(readPendingCatalogTransactions('store')).toEqual([expect.objectContaining({ id: 'SO-RECOVER:reserve', status: 'stock-applied' })])
   })
 
+  it('exposes the checkout saving amount for the selected lines', async () => {
+    const store = useStoreStore()
+    await store.initialize()
+    const product = store.products[0]
+    store.addToCart(product, product.skus[0].id)
+    expect(store.cart).toHaveLength(1)
+    const line = store.cart[0]
+    store.$patch({ checkoutLineKeys: [`${line.productId}:${line.skuId}`] })
+    expect(store.checkoutSaved).toBe(Math.round((line.retail - line.price) * line.quantity * 100) / 100)
+    store.$patch({ checkoutLineKeys: [] })
+    expect(store.checkoutSaved).toBe(0)
+  })
+
+  it('replays a prepared catalog ordering journal through the store recovery entry point', async () => {
+    writeCatalog([catalogProduct({ id: 'ORDER-RECOVER-ENTRY', channel: 'store' })])
+    const order = { id: 'SO-RECOVER-ENTRY', amount: 20, saved: 25, itemCount: 1, status: 'submitted' as const, createdAt: '2026-08-24 12:00', logistics: [], items: [{ productId: 'ORDER-RECOVER-ENTRY', skuId: 'ORDER-RECOVER-ENTRY-SKU', name: '恢复订单', skuName: '默认规格', image: '', quantity: 1, price: 20 }] }
+    const inventoryChanges = [{ productId: 'ORDER-RECOVER-ENTRY', skuId: 'ORDER-RECOVER-ENTRY-SKU', quantity: -1 }]
+    expect(prepareCatalogTransaction({ id: 'SO-RECOVER-ENTRY:reserve', channel: 'store', action: 'reserve', inventoryChanges, payload: { order } })).toBe(true)
+    const store = useStoreStore()
+    await store.initialize()
+    store.orders = []
+
+    store.recoverCatalogTransactions()
+
+    expect(store.orders.some((item) => item.id === order.id)).toBe(true)
+    expect(readCatalogState()?.products[0].skus[0].stock).toBe(7)
+    expect(readPendingCatalogTransactions('store')).toEqual([])
+    expect(Object.values(readPlatformOrders() || {}).some((platformOrder) => platformOrder.supplierOrderLink?.sourceOrderId === order.id)).toBe(true)
+  })
+
   it('does not replay a legacy catalog return journal during initialize', async () => {
     writeCatalog([catalogProduct({ id: 'RETURN-RECOVER', channel: 'store' })])
     const order = {

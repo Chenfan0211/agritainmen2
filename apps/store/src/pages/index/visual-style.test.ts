@@ -76,9 +76,9 @@ describe('门店端现代供应链视觉契约', () => {
     expectRule('.waterfall-grid', /grid-template-columns:\s*1fr\s+1fr/)
     expectRule('.product-image', /aspect-ratio:\s*1\s*\/\s*1/)
     expectRule('.page-pad', /padding:\s*0 16px/)
-    expect(template).toContain('class="mall-hero-sub">中选科技供应链 · 供货价直采 · 中台直配到店')
-    expect(template).not.toContain('class="mall-hero-sub">中选科技供应链 · 供货价直采 · 中台直配到店 · 中台统一维护商品状态与库存')
-    expect(template).toContain('class="member-footer">平台支持 · 湖南省电子商务协会 · 中选科技供应链中台 · 中台统一维护商品状态与库存')
+    expect(template).toContain('class="mall-hero-sub">供应链 · 供货价直采 · 中台直配到店')
+    expect(template).not.toContain('class="mall-hero-sub">供应链 · 供货价直采 · 中台直配到店 · 中台统一维护商品状态与库存')
+    expect(template).toContain('class="member-footer">平台支持 · 供应链中台 · 中台统一维护商品状态与库存')
     expect(template).toContain('class="result-count">共 {{ visibleProducts.length }} 款商品 · 中台直配到店')
     expect(template).not.toContain('class="result-count">共 {{ visibleProducts.length }} 款商品 · 中台直配到店 · 中台统一维护商品状态与库存')
     expect(styles).toMatch(/\.cat-card \.category-grid-img\s*\{[^}]*width:\s*44px/)
@@ -147,10 +147,10 @@ describe('门店端现代供应链视觉契约', () => {
 
   it('商品列表辅助价格和购物车角标保持移动端可读字号', () => {
     expectRule('.muted', /font-size:\s*12px/)
-    expectRule('.cost-line del,.cost-prices del', /font-size:\s*12px/)
-    expectRule('.cost-line span,.cost-prices span', /font-size:\s*12px/)
+    expectRule('.cost-line .strike,.cost-prices .strike', /font-size:\s*12px/)
+    expectRule('.cost-line .chip,.cost-prices .chip', /font-size:\s*12px/)
     expectRule('.side-item', /font-size:\s*13px/)
-    expectRule('.cart-count span', /font-size:\s*13px/)
+    expectRule('.cart-count .chip', /font-size:\s*13px/)
     expectRule('.tab-badge', /font-size:\s*13px/)
     expectRule('.cart-all', /font-size:\s*13px/)
     expectRule('.cart-del', /font-size:\s*13px/)
@@ -160,7 +160,7 @@ describe('门店端现代供应链视觉契约', () => {
 
   it('分类和购物车页头使用渐变头，商品卡底行是圆形加购', () => {
     expect(template).toContain('class="mall-hero-title">商品分类')
-    expect(template).toContain('class="mall-hero-title">购物车')
+    expect(template).toContain('class="mall-hero-title">进货车')
     expect(template).not.toContain('>加购<')
     expect(template).toContain('class="add-btn"')
     expect(template).toContain('<UiIcon name="plus"')
@@ -190,8 +190,8 @@ describe('门店端现代供应链视觉契约', () => {
     expectRule('.tab-icon-wrap', /height:\s*32px/)
     expectRule('.tab-badge', /top:\s*-2px/)
     expectRule('.tab-badge', /right:\s*-4px/)
-    expectRule('.cart-count span', /top:\s*-2px/)
-    expectRule('.cart-count span', /right:\s*-4px/)
+    expectRule('.cart-count .chip', /top:\s*-2px/)
+    expectRule('.cart-count .chip', /right:\s*-4px/)
     expectRule('.primary-button', /border-radius:\s*var\(--mobile-radius-pill\)/)
   })
 

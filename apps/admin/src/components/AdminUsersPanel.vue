@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAdminStore } from '../stores/admin'
+import { BusinessImage } from '@agritainment/ui'
 import { buildAdminUsers, buildUserConsumptionRows } from '../data/user-operations'
 import type { AdminUserConsumptionRow, AdminUserRow } from '../data/user-operations'
 
@@ -69,19 +70,21 @@ function money(value: number) {
     <template v-else>
       <view class="table-row table-head user-grid"><text>用户</text><text>手机号</text><text>团长归属</text><text>订单 / 累计消费</text><text>来源渠道</text><text>操作</text></view>
       <view v-for="row in filtered" :key="row.id" class="table-row user-grid">
-        <view><strong>{{ row.name }}</strong><small>{{ row.id }} · {{ row.levelLabel }}</small></view>
+        <view class="user-cell"><BusinessImage v-if="row.avatar" class="user-avatar" :src="row.avatar" mode="aspectFill" /><span v-else class="user-avatar user-avatar--fallback">{{ row.name.slice(0, 1) }}</span><view><strong>{{ row.name }}</strong><small>{{ row.id }} · {{ row.levelLabel }}</small></view></view>
         <text>{{ row.phone }}</text>
         <view><strong>一级：{{ row.level1Leader }}</strong><small>二级：{{ row.level2Leader }}</small></view>
         <view><strong>{{ row.orderCount }} 单 · {{ money(row.consumedAmount) }}</strong><small>注册 {{ row.registeredAt }}</small></view>
         <text>{{ row.sourceChannel }}</text>
         <view class="row-actions"><button @click="openDetail(row)">详情</button></view>
       </view>
-      <view v-if="!filtered.length" class="empty-state">{{ initialized ? '没有符合条件的用户' : '正在准备中选科技用户数据...' }}</view>
+      <view v-if="!filtered.length" class="empty-state">{{ initialized ? '没有符合条件的用户' : '正在准备用户数据...' }}</view>
     </template>
 
     <view v-if="selected" class="user-detail-drawer">
-      <view class="panel-head"><view><h2>{{ selected.name }}</h2><text>{{ selected.id }} · {{ selected.levelLabel }} · {{ selected.bindingStatusLabel }}</text></view><button class="button secondary" @click="closeDetail">关闭</button></view>
+      <view class="panel-head"><view class="user-head"><BusinessImage v-if="selected.avatar" class="user-avatar" :src="selected.avatar" mode="aspectFill" /><span v-else class="user-avatar user-avatar--fallback">{{ selected.name.slice(0, 1) }}</span><view><h2>{{ selected.name }}</h2><text>{{ selected.id }} · {{ selected.levelLabel }} · {{ selected.bindingStatusLabel }}</text></view></view><button class="button secondary" @click="closeDetail">关闭</button></view>
       <view class="detail-block">
+        <view><small>用户昵称</small><strong>{{ selected.name }}</strong></view>
+        <view><small>头像</small><strong>{{ selected.avatar ? '演示头像' : '默认首字头像' }}</strong></view>
         <view><small>手机号</small><strong>{{ selected.phone }}</strong></view>
         <view><small>注册时间</small><strong>{{ selected.registeredAt }}</strong></view>
         <view><small>来源渠道</small><strong>{{ selected.sourceChannel }}</strong></view>
@@ -116,6 +119,9 @@ function money(value: number) {
 .table-row strong,.table-row small{display:block}
 .table-row small{color:var(--admin-muted);font-size:12px;margin-top:2px}
 .user-grid{grid-template-columns:1.3fr .9fr 1.4fr 1.2fr .8fr .5fr}
+.user-cell,.user-head{display:flex;align-items:center;gap:10px}
+.user-avatar{width:36px;height:36px;border-radius:50%;flex:none}
+.user-avatar--fallback{display:grid;place-items:center;background:var(--color-brand-primary-soft);color:var(--color-brand-primary-dark);font-weight:800}
 .row-actions button{min-height:32px;padding:0 12px;border:1px solid var(--admin-line);border-radius:var(--admin-radius-control);background:var(--color-card);color:var(--admin-ink);cursor:pointer}
 .empty-state{min-height:120px;display:grid;place-items:center;color:var(--admin-muted);font-size:13px}
 .user-detail-drawer{margin:16px;padding:16px;border:1px solid var(--admin-line);border-radius:var(--admin-radius-panel);background:var(--color-card);box-shadow:var(--shadow-card)}

@@ -46,7 +46,8 @@ page, body, #app {
   letter-spacing: 0;
 }
 
-* { box-sizing: border-box; }
+/* WXSS 不支持通配符 `*` 选择器，显式列出小程序原生组件 */
+page, view, text, image, button, input, textarea, navigator, scroll-view, swiper, swiper-item, cover-view, cover-image, label, form, picker, canvas, map, video, rich-text, movable-view, movable-area { box-sizing: border-box; }
 button, input, textarea { font: inherit; letter-spacing: 0; }
 button { line-height: var(--line-compact); }
 button::after { border: none; }
@@ -109,9 +110,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--color-brand
 .chips.scroll-x { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
 .order-filter-scroll { width: 100%; white-space: nowrap; }
 .order-filter-scroll,
-.order-filter-scroll * { scrollbar-width: none; }
+.order-filter-scroll button { scrollbar-width: none; }
 .order-filter-scroll::-webkit-scrollbar,
-.order-filter-scroll *::-webkit-scrollbar { display: none; width: 0; height: 0; }
+.order-filter-scroll button::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .chip { position: relative; padding: 0 10px 8px; border-radius: 0; background: transparent; border: 0; font-size: var(--text-body); color: var(--color-ink-2); flex: none; min-height: var(--control-size); display: inline-flex; align-items: center; margin-left: 0; margin-right: 0; }
 .chip.active { background: transparent; color: var(--color-brand-primary); border: 0; font-weight: 800; }
 .chip.active::after { content: ''; position: absolute; left: 50%; bottom: 2px; width: 20px; height: 3px; border: none; border-radius: var(--mobile-radius-pill); background: currentColor; transform: translateX(-50%); }

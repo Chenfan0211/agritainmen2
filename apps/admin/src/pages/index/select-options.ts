@@ -40,9 +40,6 @@ export const promoterSettleFilterOptions = options([
 export const farmStatusFilterOptions = options([
   ['全部门店', '全部门店'], ['经营中', '经营中'], ['筹备中', '筹备中'], ['已停用', '已停用'], ['试点样板', '试点样板']
 ])
-export const promoterTypeOptions = options([
-  ['全部', '全部类型'], ['业务员', '业务员'], ['主播', '主播'], ['达人', '达人']
-])
 export const commissionStatusOptions = options([
   ['全部', '全部结算状态'], ['未结算', '未结算'], ['已结算', '已结算']
 ])
@@ -62,13 +59,10 @@ export const accountPromotionOptions = options<boolean>([
   [true, '开启（可生成推广码）'], [false, '关闭']
 ])
 export const policyTypeOptions = options([
-  ['group', '集采价'], ['ladder', '阶梯价']
+  ['group', '分销价格'], ['ladder', '阶梯价']
 ])
 export const afterSaleTypeOptions = options([
   ['refund', '退款'], ['reship', '补发'], ['claim', '理赔']
-])
-export const promoterFormTypeOptions = options([
-  ['业务员', '业务员'], ['主播', '主播'], ['达人', '达人']
 ])
 export const promoterStatusOptions = options([
   ['active', '启用'], ['paused', '停用']

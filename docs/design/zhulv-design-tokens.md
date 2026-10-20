@@ -6,7 +6,7 @@
 
 ## 产品口径
 
-- 这是什么：中选科技供应链，供应商与司机双角色配送履约
+- 这是什么：供应链平台，供应商与司机双角色配送履约
 - 视觉方向：竹青绿田园自然风，作业区扁平，登录/身份卡可用品牌渐变
 - 桌面：供应商 H5 ≥431px 保持 430px 手机框居中；768 / 1440 只验收框与背景，不做宽屏多列
 - Admin：1280 / 1440 多列工作台，卡片 padding 用 `--space-card-pc`
@@ -65,6 +65,7 @@
 - `--color-tabbar-default`: `#9AA8A0` — 仅图标；Tab 文字用 `--color-text-nav`
 - `--color-tabbar-active`: `#245E3B`
 - `--color-on-brand`: `#FFFFFF`
+- `--color-on-brand-rgb`: `255, 255, 255` — 供 `rgba(var(--color-on-brand-rgb), α)` 混色使用（替代小程序不支持的 `color-mix()`）
 
 ### 圆角 / 阴影 / 间距 / 控件
 
@@ -138,6 +139,9 @@ Admin **不用** reserved 深色侧栏。参考浅色 SaaS 控制台：白侧栏
 - `--color-user-badge`: `#D92C20`
 - `--color-user-wx`: `#1B9D55` — 登录微信标
 - `--color-user-wx-soft`: `#E8F5EE`
+- `--color-user-brand-deep-rgb`: `15, 74, 49` — 阴影/遮罩混色通道
+- `--color-user-price-rgb`: `232, 80, 30` — 价格投影混色通道
+- `--color-user-hero-muted`: `#D3DFD8` — hero 辅助文字（= 白色 80% + 品牌深色 20%）
 - `--radius-user-pill`: `24px` — 主按钮满圆
 - `--radius-user-sheet`: `20px`
 - `--radius-user-login`: `26px`
@@ -172,7 +176,9 @@ Admin **不用** reserved 深色侧栏。参考浅色 SaaS 控制台：白侧栏
 
 ## 微信小程序
 
-- 选择器必须是 `:root, page`
+- 选择器必须是 `:root, page`（三端 App 级主题变量都必须在 `page` 上再声明一次）
+- 禁用 HTML 标签选择器：`<small>/<strong>/<span>/<del>` 等会被编译成 `<view>`，`small{}` 这类规则永远匹配不到；改用语义 class（`.meta` / `.val` / `.chip` / `.strike`）
+- 禁用 `color-mix()` 与 `:has()`：老微信内核会整条丢弃声明；混色改用 `rgba(var(--x-rgb), α)`，条件样式改用状态 class
 - 公共类放 App 级 `global.scss`，自定义组件不继承页面变量
 - 阶段内不改 rpx
 - 无 hover：只在 `hover` 媒体查询里写 hover
@@ -195,3 +201,7 @@ Admin **不用** reserved 深色侧栏。参考浅色 SaaS 控制台：白侧栏
 | 2026-09-12 | Admin 用浅色侧栏 | 用户参考图是浅色 SaaS；reserved 深色侧栏不启用 |
 | 2026-09-12 | Admin 圆角跟 `--radius-card` / `--radius-button` | 旧契约锁 8/6，对不上参考图留白与卡片 |
 | 2026-09-13 | 用户端新增 `--color-user-*` 别名 | 商城设计稿主色更深、价格更橙、主按钮满圆；不改全站主色 |
+| 2026-10-16 | 移动三端禁用 `small/strong/span/del` 标签选择器 | 小程序把它们编译成 `view`，标签规则全部失效，价格/辅文字号与配色丢失；统一改语义 class |
+| 2026-10-16 | 门店端主题变量改 `:root, page` | 与供应商/用户端对齐，避免小程序根节点读不到变量导致整端掉色 |
+| 2026-10-16 | `color-mix()` 改 `rgba(var(--x-rgb), α)`、`:has()` 改状态 class | 老微信内核不支持这两个特性，购物车底部留白与半透明底会失效 |
+| 2026-10-16 | 新增 `pnpm audit:mp-styles` 门禁 | 源码 + 构建产物双重校验：标签选择器、`page` 作用域、兼容语法、`!important` 白名单 |

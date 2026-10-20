@@ -277,7 +277,7 @@ const logisticsEventFor = (status: StoreOrderStatus, order: StoreOrder): Logisti
   const now = new Date().toLocaleString('zh-CN')
   switch (status) {
     case 'pending-payment': return { time: now, title: '订单待付款', detail: '请在 15 分钟内完成支付，支付后进入待接单' }
-    case 'submitted': return { time: now, title: '订单已提交', detail: '已提交至中选科技供应链中台，等待接单' }
+    case 'submitted': return { time: now, title: '订单已提交', detail: '已提交至供应链中台，等待接单' }
     case 'accepted': return { time: now, title: '中台已接单', detail: '仓库备货中，预计 24 小时内出库' }
     case 'shipped': return { time: now, title: '商品已出库', detail: `顺丰速运 ${order.trackingNo || '待生成'} 揽收，直配到店` }
     case 'delivering': return { time: now, title: '配送中', detail: '已到达中转场，预计 1-2 天送达门店' }
@@ -297,7 +297,7 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
     ],
     status: 'delivering', createdAt: '2026-08-10 09:24', trackingNo: 'SF7788990012',
     logistics: [
-      { time: '2026-08-10 09:24', title: '订单已提交', detail: '已提交至中选科技供应链中台，等待接单' },
+      { time: '2026-08-10 09:24', title: '订单已提交', detail: '已提交至供应链中台，等待接单' },
       { time: '2026-08-10 11:02', title: '中台已接单', detail: '仓库备货中，预计 24 小时内出库' },
       { time: '2026-08-11 08:40', title: '商品已出库', detail: '顺丰速运 SF7788990012 揽收，直配到店' },
       { time: '2026-08-12 14:20', title: '配送中', detail: '已到达湘西州中转场，预计明日送达门店' }
@@ -308,7 +308,7 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
     items: [{ productId: 'P002', skuId: 'P002-5J', name: '炎陵黄桃', skuName: '5斤礼盒', image: '/static/images/peach.webp', quantity: 20, price: 42 }],
     status: 'received', createdAt: '2026-08-02 15:08', trackingNo: 'SF7788900123',
     logistics: [
-      { time: '2026-08-02 15:08', title: '订单已提交', detail: '已提交至中选科技供应链中台，等待接单' },
+      { time: '2026-08-02 15:08', title: '订单已提交', detail: '已提交至供应链中台，等待接单' },
       { time: '2026-08-02 16:30', title: '中台已接单', detail: '仓库备货中，预计 24 小时内出库' },
       { time: '2026-08-03 09:12', title: '商品已出库', detail: '顺丰速运 SF7788900123 揽收，直配到店' },
       { time: '2026-08-04 11:45', title: '配送中', detail: '已到达湘西州中转场' },
@@ -319,7 +319,7 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
     id: 'SO2026081401', amount: 430, saved: 210, itemCount: 5,
     items: [{ productId: 'P003', skuId: 'P003-GIFT', name: '安化黑茶礼盒装', skuName: '雅藏礼盒', image: '/static/images/tea.webp', quantity: 5, price: 86 }],
     status: 'submitted', createdAt: '2026-08-14 16:42',
-    logistics: [{ time: '2026-08-14 16:42', title: '订单已提交', detail: '已提交至中选科技供应链中台，等待接单' }],
+    logistics: [{ time: '2026-08-14 16:42', title: '订单已提交', detail: '已提交至供应链中台，等待接单' }],
     remark: '周末到货后电话联系'
   },
   {
@@ -327,7 +327,7 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
     items: [{ productId: 'SP02', skuId: 'SP02-2', name: '山泉土鸡汤礼盒', skuName: '2 只装', image: '/static/images/field.webp', quantity: 3, price: 66 }],
     status: 'accepted', createdAt: '2026-08-13 10:05',
     logistics: [
-      { time: '2026-08-13 10:05', title: '订单已提交', detail: '已提交至中选科技供应链中台，等待接单' },
+      { time: '2026-08-13 10:05', title: '订单已提交', detail: '已提交至供应链中台，等待接单' },
       { time: '2026-08-13 11:20', title: '中台已接单', detail: '仓库备货中，预计 24 小时内出库' }
     ]
   },
@@ -339,7 +339,7 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
     ],
     status: 'shipped', createdAt: '2026-08-11 09:18', trackingNo: 'SF7788994501',
     logistics: [
-      { time: '2026-08-11 09:18', title: '订单已提交', detail: '已提交至中选科技供应链中台，等待接单' },
+      { time: '2026-08-11 09:18', title: '订单已提交', detail: '已提交至供应链中台，等待接单' },
       { time: '2026-08-11 10:42', title: '中台已接单', detail: '仓库备货中，预计 24 小时内出库' },
       { time: '2026-08-12 08:36', title: '商品已出库', detail: '顺丰速运 SF7788994501 揽收，直配到店' }
     ]
@@ -349,7 +349,7 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
     items: [{ productId: 'PP05', skuId: 'PP05-1', name: '生态富硒米', skuName: '25kg', image: '/static/images/rice.webp', quantity: 10, price: 168 }],
     status: 'completed', createdAt: '2026-07-28 14:30', trackingNo: 'SF7788100221',
     logistics: [
-      { time: '2026-07-28 14:30', title: '订单已提交', detail: '已提交至中选科技供应链中台，等待接单' },
+      { time: '2026-07-28 14:30', title: '订单已提交', detail: '已提交至供应链中台，等待接单' },
       { time: '2026-07-28 16:05', title: '中台已接单', detail: '仓库备货中，预计 24 小时内出库' },
       { time: '2026-07-29 09:12', title: '商品已出库', detail: '顺丰速运 SF7788100221 揽收，直配到店' },
       { time: '2026-07-30 10:48', title: '配送中', detail: '已到达湘西州中转场' },
@@ -361,7 +361,7 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
     id: 'SO2026081501', amount: 640, saved: 400, itemCount: 20,
     items: [{ productId: 'SP09', skuId: 'SP09-30', name: '高山土鸡蛋', skuName: '30 枚装', image: '/static/images/field.webp', quantity: 20, price: 32 }],
     status: 'submitted', createdAt: '2026-08-15 09:12',
-    logistics: [{ time: '2026-08-15 09:12', title: '订单已提交', detail: '已提交至中选科技供应链中台，等待接单' }]
+    logistics: [{ time: '2026-08-15 09:12', title: '订单已提交', detail: '已提交至供应链中台，等待接单' }]
   },
   {
     id: 'SO2026081502', amount: 417, saved: 303, itemCount: 5,
@@ -370,7 +370,7 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
       { productId: 'SP17', skuId: 'SP17-1', name: '古丈毛尖绿茶', skuName: '250g 罐装', image: '/static/images/tea.webp', quantity: 3, price: 75 }
     ],
     status: 'submitted', createdAt: '2026-08-15 10:35',
-    logistics: [{ time: '2026-08-15 10:35', title: '订单已提交', detail: '已提交至中选科技供应链中台，等待接单' }],
+    logistics: [{ time: '2026-08-15 10:35', title: '订单已提交', detail: '已提交至供应链中台，等待接单' }],
     remark: '茶叶怕压，请轻拿轻放'
   },
   {
@@ -381,7 +381,7 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
     ],
     status: 'accepted', createdAt: '2026-08-14 11:20',
     logistics: [
-      { time: '2026-08-14 11:20', title: '订单已提交', detail: '已提交至中选科技供应链中台，等待接单' },
+      { time: '2026-08-14 11:20', title: '订单已提交', detail: '已提交至供应链中台，等待接单' },
       { time: '2026-08-14 13:05', title: '中台已接单', detail: '仓库备货中，预计 24 小时内出库' }
     ]
   },
@@ -390,7 +390,7 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
     items: [{ productId: 'SP20', skuId: 'SP20-1', name: '土榨菜籽油', skuName: '5L 装', image: '/static/images/field.webp', quantity: 4, price: 70 }],
     status: 'accepted', createdAt: '2026-08-14 15:48',
     logistics: [
-      { time: '2026-08-14 15:48', title: '订单已提交', detail: '已提交至中选科技供应链中台，等待接单' },
+      { time: '2026-08-14 15:48', title: '订单已提交', detail: '已提交至供应链中台，等待接单' },
       { time: '2026-08-14 17:30', title: '中台已接单', detail: '仓库备货中，预计 24 小时内出库' }
     ]
   },
@@ -399,7 +399,7 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
     items: [{ productId: 'SP10', skuId: 'SP10-5J', name: '时令鲜果礼盒', skuName: '5 斤礼盒', image: '/static/images/peach.webp', quantity: 10, price: 45 }],
     status: 'shipped', createdAt: '2026-08-12 10:05', trackingNo: 'SF7788995502',
     logistics: [
-      { time: '2026-08-12 10:05', title: '订单已提交', detail: '已提交至中选科技供应链中台，等待接单' },
+      { time: '2026-08-12 10:05', title: '订单已提交', detail: '已提交至供应链中台，等待接单' },
       { time: '2026-08-12 11:40', title: '中台已接单', detail: '仓库备货中，预计 24 小时内出库' },
       { time: '2026-08-13 08:50', title: '商品已出库', detail: '顺丰速运 SF7788995502 揽收，直配到店' }
     ]
@@ -409,7 +409,7 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
     items: [{ productId: 'SP11', skuId: 'SP11-2K', name: '农家土猪肉', skuName: '2kg 装', image: '/static/images/bacon.webp', quantity: 8, price: 68 }],
     status: 'delivering', createdAt: '2026-08-12 16:30', trackingNo: 'SF7788996623',
     logistics: [
-      { time: '2026-08-12 16:30', title: '订单已提交', detail: '已提交至中选科技供应链中台，等待接单' },
+      { time: '2026-08-12 16:30', title: '订单已提交', detail: '已提交至供应链中台，等待接单' },
       { time: '2026-08-13 09:12', title: '中台已接单', detail: '仓库备货中，预计 24 小时内出库' },
       { time: '2026-08-13 15:20', title: '商品已出库', detail: '顺丰速运 SF7788996623 揽收，直配到店' },
       { time: '2026-08-14 11:45', title: '配送中', detail: '已到达湘西州中转场，预计明日送达门店' }
@@ -420,7 +420,7 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
     items: [{ productId: 'SP22', skuId: 'SP22-1', name: '杨梅果酒', skuName: '750ml 单瓶', image: '/static/images/field.webp', quantity: 6, price: 42 }],
     status: 'received', createdAt: '2026-08-05 14:22', trackingNo: 'SF7788003310',
     logistics: [
-      { time: '2026-08-05 14:22', title: '订单已提交', detail: '已提交至中选科技供应链中台，等待接单' },
+      { time: '2026-08-05 14:22', title: '订单已提交', detail: '已提交至供应链中台，等待接单' },
       { time: '2026-08-05 16:10', title: '中台已接单', detail: '仓库备货中，预计 24 小时内出库' },
       { time: '2026-08-06 09:30', title: '商品已出库', detail: '顺丰速运 SF7788003310 揽收，直配到店' },
       { time: '2026-08-07 10:20', title: '配送中', detail: '已到达湘西州中转场' },
@@ -435,7 +435,7 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
     ],
     status: 'completed', createdAt: '2026-07-20 09:50', trackingNo: 'SF7786112201',
     logistics: [
-      { time: '2026-07-20 09:50', title: '订单已提交', detail: '已提交至中选科技供应链中台，等待接单' },
+      { time: '2026-07-20 09:50', title: '订单已提交', detail: '已提交至供应链中台，等待接单' },
       { time: '2026-07-20 11:25', title: '中台已接单', detail: '仓库备货中，预计 24 小时内出库' },
       { time: '2026-07-21 08:40', title: '商品已出库', detail: '顺丰速运 SF7786112201 揽收，直配到店' },
       { time: '2026-07-22 10:15', title: '配送中', detail: '已到达湘西州中转场' },
@@ -451,7 +451,7 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
     ],
     status: 'completed', createdAt: '2026-07-15 11:05', trackingNo: 'SF7785113302',
     logistics: [
-      { time: '2026-07-15 11:05', title: '订单已提交', detail: '已提交至中选科技供应链中台，等待接单' },
+      { time: '2026-07-15 11:05', title: '订单已提交', detail: '已提交至供应链中台，等待接单' },
       { time: '2026-07-15 14:20', title: '中台已接单', detail: '仓库备货中，预计 24 小时内出库' },
       { time: '2026-07-16 09:10', title: '商品已出库', detail: '顺丰速运 SF7785113302 揽收，直配到店' },
       { time: '2026-07-17 10:40', title: '配送中', detail: '已到达湘西州中转场' },

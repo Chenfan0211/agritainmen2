@@ -60,7 +60,7 @@ export const SYSTEM_DICTIONARY_TYPES = [
   'supplierStatus', 'productStatus', 'farmStatus', 'orderStatus', 'fulfillmentStatus', 'afterSaleStatus',
   'promoterStatus', 'voucherStatus', 'settlementStatus', 'commissionStatus',
   'productSource', 'productType', 'catalogChannel', 'deliveryMode', 'afterSaleType', 'refundMethod',
-  'refundMode', 'pricePolicyType', 'accountRole', 'memberLevel', 'commissionTargetType'
+  'refundMode', 'pricePolicyType', 'accountRole', 'commissionTargetType'
 ] as const
 
 const systemTypes = new Set<string>(SYSTEM_DICTIONARY_TYPES)
@@ -91,7 +91,6 @@ const builtInLabels: Readonly<Record<string, Readonly<Record<string, string>>>> 
   refundMode: { full: '全额退款', ratio: '按比例退款', custom: '自定义退款' },
   pricePolicyType: { normal: '普通策略', tiered: '阶梯策略' },
   accountRole: { owner: '店主', staff: '店员', customer: '客户', manager: '管理员' },
-  memberLevel: { normal: '普通会员', silver: '银卡会员', gold: '金卡会员' },
   commissionTargetType: { farm: '门店', product: '商品' }
 }
 

@@ -19,6 +19,9 @@ export interface DeliveryLocation {
   address: string
   contact: string
   phone: string
+  /** 仓点维护人（清单「仓点设置」：供应商仓点 / 联系人维护），未维护时回落到供应商主体 */
+  contactName?: string
+  contactPhone?: string
   longitude?: number
   latitude?: number
 }
@@ -74,7 +77,7 @@ export function deliveryDistanceKm(origin: { longitude?: number; latitude?: numb
 /** 返回当前供应商的仓点；未配置坐标时由调用方按未知距离处理。 */
 export function supplierWarehouseOf(supplierId: string, supplierDirectory?: readonly Supplier[]): DeliveryLocation | undefined {
   const supplier = supplierDirectory?.find((item) => item.id === supplierId)
-  if (supplier?.warehouse) return { ...supplier.warehouse, contact: supplier.name, phone: supplier.contactPhone || '' }
+  if (supplier?.warehouse) return { ...supplier.warehouse, contact: supplier.warehouse.contactName || supplier.name, phone: supplier.warehouse.contactPhone || supplier.contactPhone || '', contactName: supplier.warehouse.contactName, contactPhone: supplier.warehouse.contactPhone }
   return supplierId === supplierInfo.id
     ? { address: `湖南省${supplierInfo.region}仓点`, contact: supplierInfo.name, phone: supplierInfo.phone, longitude: supplierInfo.longitude, latitude: supplierInfo.latitude }
     : undefined

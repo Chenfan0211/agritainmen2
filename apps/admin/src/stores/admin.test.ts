@@ -793,6 +793,89 @@ describe('admin store interactions', () => {
     expect(readPlatformEntities()?.farms?.[store.farms[0].id]).toMatchObject({ location: { longitude: 112.9388, latitude: 28.2282 } })
   })
 
+  it('exposes derived read interfaces for dashboards and the todo center', async () => {
+    const store = useAdminStore()
+    await store.initialize()
+    store.$patch({
+      suppliers: [
+        { ...cloneSeed(suppliers[0]), id: 'S-R1', status: 'pending' },
+        { ...cloneSeed(suppliers[1]), id: 'S-R2', status: 'cooperating' }
+      ],
+      farms: [
+        { ...cloneSeed(farms[0]), id: 'F-R1', status: 'active' },
+        { ...cloneSeed(farms[1]), id: 'F-R2', status: 'pending' }
+      ],
+      afterSales: [
+        { id: 'AS-R1', orderId: 'O-R1', productName: '待处理售后', applicant: '甲店', type: 'refund', amount: 10, status: 'processing' },
+        { id: 'AS-R2', orderId: 'O-R2', productName: '已退款售后', applicant: '乙店', type: 'refund', amount: 10, status: 'refunded' }
+      ],
+      orders: [
+        { id: 'O-R1', productName: 'A', quantity: 1, amount: 10, customer: '甲店', channel: 'purchase', status: 'shipping', createdAt: '2026-10-16T09:00:00.000Z' },
+        { id: 'O-R2', productName: 'B', quantity: 1, amount: 10, customer: '乙店', channel: 'purchase', status: 'delivered', createdAt: '2026-10-16T09:00:00.000Z' },
+        { id: 'O-R3', productName: 'C', quantity: 1, amount: 10, customer: '丙店', channel: 'purchase', status: 'pending', createdAt: '2026-10-16T09:00:00.000Z' }
+      ] as never
+    })
+    expect(store.pendingSuppliers).toBe(1)
+    expect(store.pendingAfterSales).toBe(1)
+    expect(store.activeFarmCount).toBe(1)
+    expect(store.activeSupplierCount).toBe(1)
+    expect(store.shippedOrderCount).toBe(2)
+
+    expect(writePlatformWithdrawal({ id: 'W-R1', requesterType: 'user', requesterId: 'U-R1', amount: 5, method: '微信', status: 'pending', requestKey: 'read-key', createdAt: '2026-10-16T09:00:00.000Z' })).toBe(true)
+    localStorage.setItem('agritainment-platform-recovery-queue', JSON.stringify([{ id: 'RQ-R1', operationId: 'OP-R1', failedStep: 'x', reason: 'x', retryCount: 0, createdAt: '2026-10-16T09:00:00.000Z', status: 'pending' }]))
+    expect(store.pendingWithdrawals).toBe(Object.values(shared.readPlatformWithdrawals() || {}).filter((item) => item.status === 'pending').length)
+    expect(store.pendingWithdrawals).toBeGreaterThan(0)
+    expect(store.pendingRecovery).toBe(shared.readPlatformRecoveryQueue().filter((item) => item.status === 'pending').length)
+    expect(store.pendingRecovery).toBeGreaterThan(0)
+    expect(store.totalCommission).toBe(shared.pendingShareTotal())
+  })
+
+  it('rejects invalid leader pricing, unknown leaders and empty promoter payloads', async () => {
+    const store = useAdminStore()
+    await store.initialize()
+    expect(await store.updateLeaderPricing({ ...store.pricingDefaults, level1Amount: -1, level2Amount: 5 })).toBe(false)
+    expect(await store.setLeaderStatus('U-MISSING', false)).toBeFalsy()
+    expect(await store.updatePromoter('T-MISSING', { name: '', level: '', status: 'active' })).toBeFalsy()
+  })
+
+  it('creates, updates and toggles price policies through the audited write interfaces', async () => {
+    const store = useAdminStore()
+    await store.initialize()
+
+    expect(await store.createPolicy('联调分销价', 'group', '全部门店', 12)).toBe(true)
+    const policy = store.policies.find((item) => item.name === '联调分销价')!
+    expect(policy).toMatchObject({ type: 'group', scope: '全部门店', discount: 12, enabled: true })
+
+    expect(await store.updatePolicy(policy.id, '联调分销价（改）', '长沙市区', 15, true)).toBe(true)
+    expect(store.policies.find((item) => item.id === policy.id)).toMatchObject({ name: '联调分销价（改）', scope: '长沙市区', discount: 15 })
+
+    expect(await store.togglePolicy(policy.id)).toBe(true)
+    expect(store.policies.find((item) => item.id === policy.id)?.enabled).toBe(false)
+    expect(readPlatformEntities()?.policies?.[policy.id]).toMatchObject({ name: '联调分销价（改）', enabled: false })
+
+    expect(await store.updatePolicy('MISSING-POLICY', '不存在', '全部门店', 10)).toBe(false)
+    expect(await store.togglePolicy('MISSING-POLICY')).toBe(false)
+  })
+
+  it('新增与修改门店时保留联系人信息', async () => {
+    const store = useAdminStore()
+    await store.initialize()
+    const geocode = vi.fn<() => Promise<GeocodeResult>>().mockResolvedValue({
+      status: 'resolved', provider: 'amap', coordinate: { longitude: 112.9388, latitude: 28.2282 },
+      location: { longitude: 112.9388, latitude: 28.2282, coordinateSystem: 'GCJ-02', provider: 'amap', geocodedAt: '2026-08-25T00:00:00.000Z', adCode: '430104', province: '湖南省', city: '长沙市', district: '岳麓区', formattedAddress: '湖南省长沙市岳麓区潇湘中路' }
+    })
+
+    await expect(store.addFarm({ name: '联系人门店', contact: '赵店长', contactPhone: '13911112222', region: '长沙市岳麓区', address: '湖南省长沙市岳麓区潇湘中路', city: '长沙市' }, geocode)).resolves.toBe(true)
+    const created = store.farms.find((farm) => farm.name === '联系人门店')!
+    expect(created).toMatchObject({ contact: '赵店长', contactPhone: '13911112222' })
+    expect(readPlatformEntities()?.farms?.[created.id]).toMatchObject({ contact: '赵店长', contactPhone: '13911112222' })
+
+    const seedFarm = store.farms.find((farm) => farm.id === 'F001')!
+    await expect(store.updateFarm('F001', { name: seedFarm.name, contact: '王经理', contactPhone: '', region: seedFarm.region, address: seedFarm.address }, geocode)).resolves.toBe(true)
+    expect(store.farms.find((farm) => farm.id === 'F001')).toMatchObject({ contact: '王经理', contactPhone: '' })
+    expect(readPlatformEntities()?.farms?.F001).toMatchObject({ contact: '王经理', contactPhone: '' })
+  })
+
   it('按县区和详细地址构建并保存结构化门店地址', async () => {
     const store = useAdminStore()
     const geocode = vi.fn<() => Promise<GeocodeResult>>().mockResolvedValue({
@@ -1011,10 +1094,87 @@ describe('admin store interactions', () => {
     expect(writePricingDefaults({ promoterCommissionRate: 6, storeCommissionRate: 4, level1Amount: 12, level2Amount: 18 })).toBe(true)
     const store = useAdminStore()
     await store.initialize()
-    expect(store.pricingDefaults).toEqual({ promoterCommissionRate: 6, storeCommissionRate: 4, level1Amount: 12, level2Amount: 18 })
+    expect(store.pricingDefaults).toEqual({ promoterCommissionRate: 6, storeCommissionRate: 4, level1Amount: 12, level2Amount: 18, storePriceLevelDiscounts: { A: 0.95, B: 0.97, C: 1 } })
 
     expect(await store.updatePricingDefaults({ promoterCommissionRate: 7, storeCommissionRate: 5, level1Amount: 8, level2Amount: 11 })).toBe(true)
-    expect(readPricingDefaults()).toEqual({ promoterCommissionRate: 7, storeCommissionRate: 5, level1Amount: 8, level2Amount: 11 })
+    expect(readPricingDefaults()).toEqual({ promoterCommissionRate: 7, storeCommissionRate: 5, level1Amount: 8, level2Amount: 11, storePriceLevelDiscounts: { A: 0.95, B: 0.97, C: 1 } })
+  })
+
+  it('persists store price level discounts and supplier brands through admin actions', async () => {
+    const store = useAdminStore()
+    await store.initialize()
+    expect(await store.updatePricingDefaults({ ...store.pricingDefaults, storePriceLevelDiscounts: { A: 0.9, B: 0.97, C: 1 } })).toBe(true)
+    expect(shared.readStorePriceLevelDiscounts()).toEqual({ A: 0.9, B: 0.97, C: 1 })
+    expect(await store.updatePricingDefaults({ ...store.pricingDefaults, storePriceLevelDiscounts: { A: 1.5, B: 0.97, C: 1 } })).toBe(false)
+    expect(shared.readStorePriceLevelDiscounts()).toEqual({ A: 0.9, B: 0.97, C: 1 })
+
+    const supplier = store.suppliers.find((item) => item.id === 'S002')!
+    expect(supplier.brands).toEqual(['湘西腊味', '柴火腊味'])
+    expect(store.afterSales.find((item) => item.id === 'SH20609')?.responsibleSupplierId).toBe('S009')
+    expect(await store.updateSupplier('S002', {
+      name: supplier.name, category: supplier.category, region: supplier.region, contactPhone: supplier.contactPhone,
+      brands: ['湘西腊味', '新品牌'], serviceRegions: ['湘西州', '长沙']
+    })).toMatchObject({ ok: true })
+    expect(store.suppliers.find((item) => item.id === 'S002')).toMatchObject({ brands: ['湘西腊味', '新品牌'], serviceRegions: ['湘西州', '长沙'] })
+  })
+
+  it('converges promoter type to 业务员 and persists the responsible region', async () => {
+    const store = useAdminStore()
+    await store.initialize()
+    const promoter = store.promoters.find((item) => item.id === 'T001')!
+    expect(promoter.type).toBe('业务员')
+    expect(promoter.region).toBe('湘西州')
+    expect(await store.updatePromoter('T001', { name: promoter.name, level: promoter.level, type: '业务员', region: ' 益阳市 ', status: 'active' })).toBe(true)
+    expect(store.promoters.find((item) => item.id === 'T001')?.region).toBe('益阳市')
+    expect(shared.readPlatformEntities()?.promoters?.T001?.region).toBe('益阳市')
+  })
+
+  it('logs catalog stock changes only when a sku stock value changes', async () => {
+    const store = useAdminStore()
+    await store.initialize()
+    const product = cloneSeed(store.catalogProducts[0])
+    const sku = product.skus[0]
+    const before = shared.readCatalogStockLogs().length
+    expect(await store.saveCatalogProduct({ ...product, skus: product.skus.map((item) => ({ ...item, stock: item.id === sku.id ? item.stock + 12 : item.stock })) })).toEqual({ ok: true })
+    const logs = shared.readCatalogStockLogs()
+    expect(logs.length).toBe(before + 1)
+    expect(logs[0]).toMatchObject({ productId: product.id, skuId: sku.id, before: sku.stock, after: sku.stock + 12, delta: 12, reason: '商品库库存调整' })
+
+    const unchanged = cloneSeed(store.catalogProducts.find((item) => item.id === product.id)!)
+    expect(await store.saveCatalogProduct(unchanged)).toEqual({ ok: true })
+    expect(shared.readCatalogStockLogs().length).toBe(before + 1)
+  })
+
+  it('raises a product-level stock warning todo whose visible rows match count and objectIds', async () => {
+    const store = useAdminStore()
+    await store.initialize()
+    const warningProducts = store.catalogProducts.filter((item) => shared.catalogProductStockWarnings(item).length > 0)
+    expect(warningProducts.length).toBeGreaterThan(0)
+    const todo = store.queryAdminTodos().find((item) => item.type === 'stock-warning')
+    expect(todo).toMatchObject({
+      route: 'products',
+      count: warningProducts.length,
+      filters: { stock: 'warning' },
+      objectIds: warningProducts.map((item) => item.id)
+    })
+    const visible = store.catalogProducts.filter((item) => adminStoreModule.matchesAdminTodoItem(todo, 'products', item))
+    expect(visible.map((item) => item.id)).toEqual(todo?.objectIds)
+    expect(visible.length).toBe(todo?.count)
+  })
+
+  it('records the return tracking number with history and rejects terminal after-sale states', async () => {
+    const store = useAdminStore()
+    await store.initialize()
+    const work = cloneSeed(store.afterSales.find((item) => item.status === 'processing')!)
+    store.$patch({ afterSales: [work] })
+    expect(await store.recordAfterSaleReturnTracking(work.id, 'SF1234567890')).toBe(true)
+    expect(store.afterSales.find((item) => item.id === work.id)?.returnTrackingNo).toBe('SF1234567890')
+    expect(store.afterSales.find((item) => item.id === work.id)?.history?.at(-1)?.action).toContain('SF1234567890')
+    expect(shared.readPlatformAfterSales()?.[work.id]?.returnTrackingNo).toBe('SF1234567890')
+    expect(await store.recordAfterSaleReturnTracking(work.id, '123')).toBe(false)
+
+    expect(shared.writePlatformAfterSales({ [work.id]: { ...work, status: 'refunded' } })).toBe(true)
+    expect(await store.recordAfterSaleReturnTracking(work.id, 'SF1234567890')).toBe(false)
   })
 
   it('ships without inventing a driver assignment and confirms receipt', async () => {

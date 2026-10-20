@@ -3,8 +3,8 @@
     <view class="login-card">
       <view class="pc-login-hero login-hero">
         <view class="pc-login-mark"><UiIcon name="shopping-bag" :size="26" /></view>
-        <text class="pc-login-brand">中选科技门店订货商城</text>
-        <text class="pc-login-sub">中选科技供应链 · 供货价直采 · 中台直配到店</text>
+        <text class="pc-login-brand">门店订货商城</text>
+        <text class="pc-login-sub">供应链 · 供货价直采 · 中台直配到店</text>
       </view>
       <view class="login-panel">
       <view class="login-body">
@@ -28,7 +28,7 @@
     </view>
   </view>
   <view v-else class="app-shell" :class="{ 'has-cart-bar': (activeTab === 'home' || activeTab === 'category') && store.cartCount }">
-    <view v-if="store.loading" class="loading pc-loading">正在准备中选科技门店订货商城...</view>
+    <view v-if="store.loading" class="loading pc-loading">正在准备门店订货商城...</view>
     <view v-else-if="store.error" class="state-page pc-empty">
       <view class="pc-state-icon"><UiIcon name="radio" :size="28" /></view>
       <text>{{ store.error }}</text>
@@ -53,8 +53,8 @@
         <view class="detail-summary detail-section" data-visual-state="store-product">
           <view class="detail-price-row">
             <view class="detail-current-price">
-              <strong>{{ money(detailUnitPrice) }}</strong>
-              <del v-if="selectedSku && detailUnitPrice !== levelPrice(selectedSku.cost)">{{ money(levelPrice(selectedSku.cost)) }}</del>
+              <strong class="val">{{ money(detailUnitPrice) }}</strong>
+              <del v-if="selectedSku && detailUnitPrice !== levelPrice(selectedSku.cost)" class="strike">{{ money(levelPrice(selectedSku.cost)) }}</del>
             </view>
             <text v-if="detailSavePercent > 0" class="detail-saving">较零售价省 {{ detailSavePercent }}%</text>
           </view>
@@ -72,30 +72,30 @@
         </view>
 
         <view class="detail-purchase detail-section">
-          <view class="detail-section-heading"><text>商品规格</text><small>{{ selectedProduct.skus.length }} 个可选规格</small></view>
+          <view class="detail-section-heading"><text>商品规格</text><small class="meta">{{ selectedProduct.skus.length }} 个可选规格</small></view>
           <view class="detail-sku-options" role="radiogroup" aria-label="商品规格">
             <button v-for="sku in selectedProduct.skus" :key="sku.id" class="detail-sku-option" :class="{ active: selectedSkuId === sku.id }" :disabled="!canStartOrder(sku)" role="radio" :aria-checked="selectedSkuId === sku.id" @click="selectDetailSku(sku.id)">
               <text>{{ sku.name }}</text>
-              <small>{{ money(levelPrice(sku.cost)) }} · 库存 {{ sku.stock }} · 起订 {{ effectiveMinimumOrderQuantity(sku) }} 件</small>
+              <small class="meta">{{ money(levelPrice(sku.cost)) }} · 库存 {{ sku.stock }} · 起订 {{ effectiveMinimumOrderQuantity(sku) }} 件</small>
             </button>
           </view>
           <view class="detail-quantity-row">
-            <view><text>采购数量</text><small>当前规格起订量 {{ detailMinimumQuantity }} 件 · 可加 {{ detailRemainingStock }} 件</small></view>
+            <view><text>采购数量</text><small class="meta">当前规格起订量 {{ detailMinimumQuantity }} 件 · 可加 {{ detailRemainingStock }} 件</small></view>
             <view class="detail-quantity-stepper">
               <button aria-label="减少采购数量" :disabled="detailQuantity <= detailMinimumQuantity" @click="changeDetailQuantity(-1)">−</button>
               <input class="detail-quantity-input" type="number" inputmode="numeric" :value="detailQuantityText" @input="onDetailQuantityInput" @blur="commitDetailQuantity" @confirm="commitDetailQuantity" />
               <button aria-label="增加采购数量" :disabled="!selectedSku || detailQuantity >= detailRemainingStock" @click="changeDetailQuantity(1)">+</button>
             </view>
           </view>
-          <view class="detail-purchase-total"><text>当前小计</text><strong>{{ money(detailSubtotal) }}</strong></view>
-          <small v-if="selectedSku && !detailCanAdd" class="stock-warning">库存不足或购买数量未达要求</small>
+          <view class="detail-purchase-total"><text>当前小计</text><strong class="val">{{ money(detailSubtotal) }}</strong></view>
+          <small v-if="selectedSku && !detailCanAdd" class="stock-warning meta">库存不足或购买数量未达要求</small>
         </view>
 
         <view v-if="detailLadderTiers.length" class="detail-ladder-section detail-section">
-          <view class="detail-section-heading"><text>阶梯采购价</text><small>数量越多，采购单价越低</small></view>
+          <view class="detail-section-heading"><text>阶梯采购价</text><small class="meta">数量越多，采购单价越低</small></view>
           <view class="detail-ladder-list">
             <view v-for="tier in detailLadderTiers" :key="tier.minQty" class="detail-ladder-row" :class="{ active: detailActiveTier?.minQty === tier.minQty }">
-              <text>{{ tierRange(tier) }}</text><strong>{{ money(tier.price) }} / 件</strong><small>让利 {{ tier.discountOff }}%</small>
+              <text>{{ tierRange(tier) }}</text><strong class="val">{{ money(tier.price) }} / 件</strong><small class="meta">让利 {{ tier.discountOff }}%</small>
             </view>
           </view>
           <text v-if="detailNextTier" class="detail-next-tier">再购 {{ detailNextTier.minQty - detailPricingQuantity }} 件，可享 {{ money(detailNextTier.price) }} / 件</text>
@@ -116,8 +116,8 @@
       <template v-else>
       <view v-if="activeTab === 'home'" class="tab-page shop-page">
         <view class="mall-hero">
-          <text class="mall-hero-title">中选科技门店订货商城</text>
-          <text class="mall-hero-sub">中选科技供应链 · 供货价直采 · 中台直配到店</text>
+          <text class="mall-hero-title">门店订货商城</text>
+          <text class="mall-hero-sub">供应链 · 供货价直采 · 中台直配到店</text>
         </view>
         <view class="page-pad">
           <view class="search-bar"><UiIcon name="search" :size="18" /><input v-model="keyword" placeholder="搜索供应链商品 / 供应商" confirm-type="search" /></view>
@@ -135,13 +135,13 @@
                 <text class="item-title">{{ product.name }}</text>
                 <text class="muted">已售 {{ product.sales.toLocaleString('zh-CN') }} · {{ canStartProductOrder(product) ? stockText(product) : '库存不足' }}</text>
                 <view class="product-foot">
-                  <view class="cost-prices"><strong>{{ money(levelPrice(product.cost)) }}</strong><del v-if="product.price > product.cost">{{ money(product.price) }}</del><span v-if="product.price > product.cost">省 {{ savePercent(product) }}%</span></view>
+                  <view class="cost-prices"><strong class="val">{{ money(levelPrice(product.cost)) }}</strong><del v-if="product.price > product.cost" class="strike">{{ money(product.price) }}</del><span v-if="product.price > product.cost" class="chip">省 {{ savePercent(product) }}%</span></view>
                   <button class="add-btn" :aria-label="`加入${product.name}到进货单`" :disabled="!canStartProductOrder(product)" @click="addProduct(product)"><UiIcon name="plus" :size="16" /></button>
                 </view>
               </view>
             </view>
           </view>
-          <view v-else class="empty-page pc-empty"><view class="pc-state-icon"><UiIcon name="search" :size="26" /></view><text>没有找到相关商品</text><small class="pc-state-note">试试其他关键词或分类</small></view>
+          <view v-else class="empty-page pc-empty"><view class="pc-state-icon"><UiIcon name="search" :size="26" /></view><text>没有找到相关商品</text><small class="pc-state-note meta">试试其他关键词或分类</small></view>
         </view>
       </view>
 
@@ -164,7 +164,7 @@
                     <view class="tag-row"><text v-for="tag in product.tags.slice(0, 2)" :key="tag" class="tag" data-typography-compact>{{ tag }}</text></view>
                     <text class="cat-product-name">{{ product.name }}</text>
                     <text class="cat-stock">已售 {{ product.sales.toLocaleString('zh-CN') }} | 剩余 {{ product.stock }}</text>
-                    <view class="cat-foot"><view class="cat-price-box"><strong class="cat-price">{{ money(levelPrice(product.cost)) }}</strong><del v-if="product.price > product.cost" class="cat-original">{{ money(product.price) }}</del></view><button class="cat-add add-btn" :disabled="!canStartProductOrder(product)" :aria-label="`加入${product.name}到进货单`" @click.stop="addProduct(product)"><UiIcon name="plus" :size="16" /></button></view>
+                    <view class="cat-foot"><view class="cat-price-box"><strong class="cat-price val">{{ money(levelPrice(product.cost)) }}</strong><del v-if="product.price > product.cost" class="cat-original strike">{{ money(product.price) }}</del></view><button class="cat-add add-btn" :disabled="!canStartProductOrder(product)" :aria-label="`加入${product.name}到进货单`" @click.stop="addProduct(product)"><UiIcon name="plus" :size="16" /></button></view>
                   </view>
                 </view>
               </view>
@@ -176,11 +176,11 @@
 
       <view v-else-if="activeTab === 'cart'" class="tab-page cart-page">
         <view class="mall-hero">
-          <text class="mall-hero-title">购物车</text>
+          <text class="mall-hero-title">进货车</text>
           <text class="mall-hero-sub">共 {{ store.cartCount }} 件 · 供货价直采</text>
         </view>
         <view class="page-pad cart-page-content">
-          <view v-if="!store.cart.length" class="empty-page pc-empty"><view class="pc-state-icon"><UiIcon name="shopping-cart" :size="26" /></view><text>进货单还是空的</text><small class="pc-state-note">去首页下一单吧～</small></view>
+          <view v-if="!store.cart.length" class="empty-page pc-empty"><view class="pc-state-icon"><UiIcon name="shopping-cart" :size="26" /></view><text>进货单还是空的</text><small class="pc-state-note meta">去首页下一单吧～</small></view>
           <template v-else>
             <view v-for="item in store.cart" :key="`${item.productId}-${item.skuId}`" class="cart-row" :class="{ unavailable: item.unavailable }">
               <button class="cart-check" :class="{ on: store.isCheckoutSelected(item) }" :aria-label="`选择${item.name}`" @click="store.toggleCheckoutSelection(item)"><UiIcon name="check" :size="14" /></button>
@@ -188,98 +188,98 @@
               <view class="cart-row-main">
                 <text class="cart-row-name">{{ item.name }}</text>
                 <view class="cart-row-meta">
-                  <small class="cart-row-sub">{{ item.skuName }}</small>
-                  <small class="cart-row-stock" :class="{ warn: item.unavailable }">剩余库存 {{ item.stock }}</small>
+                  <small class="cart-row-sub meta">{{ item.skuName }}</small>
+                  <small class="cart-row-stock meta" :class="{ warn: item.unavailable }">剩余库存 {{ item.stock }}</small>
                 </view>
-                <view class="cart-row-bottom"><strong class="cart-row-price">{{ money(item.price) }}</strong><view class="stepper"><button aria-label="减少数量" @click="changeCartQuantity(item, -1)">−</button><input class="cart-quantity-input" type="number" inputmode="numeric" :value="cartQuantityText(item)" @input="onCartQuantityInput(item, $event)" @blur="commitCartQuantity(item)" @confirm="commitCartQuantity(item)" /><button aria-label="增加数量" :disabled="item.quantity >= item.stock" @click="changeCartQuantity(item, 1)">+</button></view></view>
+                <view class="cart-row-bottom"><strong class="cart-row-price val">{{ money(item.price) }}</strong><view class="stepper"><button aria-label="减少数量" @click="changeCartQuantity(item, -1)">−</button><input class="cart-quantity-input" type="number" inputmode="numeric" :value="cartQuantityText(item)" @input="onCartQuantityInput(item, $event)" @blur="commitCartQuantity(item)" @confirm="commitCartQuantity(item)" /><button aria-label="增加数量" :disabled="item.quantity >= item.stock" @click="changeCartQuantity(item, 1)">+</button></view></view>
               </view>
             </view>
           </template>
         </view>
         <view v-if="store.cart.length" class="cart-footer">
-          <button class="cart-all" @click="toggleCartAll"><span class="cart-all-check" :class="{ on: cartAllSelected }"><UiIcon name="check" :size="14" /></span><text>{{ cartAllSelected ? '取消全选' : '全选' }}</text></button>
-          <view class="cart-footer-total"><text>已选</text><strong class="cart-selected-count">{{ store.checkoutCount }} 件</strong><text>合计</text><strong class="cart-total-amount">{{ money(store.checkoutTotal) }}</strong></view>
+          <button class="cart-all" @click="toggleCartAll"><span class="cart-all-check chip" :class="{ on: cartAllSelected }"><UiIcon name="check" :size="14" /></span><text>{{ cartAllSelected ? '取消全选' : '全选' }}</text></button>
+          <view class="cart-footer-total"><text>已选</text><strong class="cart-selected-count val">{{ store.checkoutCount }} 件</strong><text>合计</text><strong class="cart-total-amount val">{{ money(store.checkoutTotal) }}</strong></view>
           <button class="cart-del" @click="removeSelectedCart">删除</button>
           <button class="cart-checkout" :disabled="!store.checkoutCount || store.checkoutHasUnavailable" @click="goCheckout">结算({{ store.checkoutCount }})</button>
         </view>
       </view>
 
       <view v-else-if="activeTab === 'mine' && mineSection === 'orders'" class="tab-page orders-page">
-        <view class="mall-hero heading-with-back"><button class="page-back" aria-label="返回" @click="mineSection = 'main'"><UiIcon name="arrow-left" :size="20" /></button><view><text class="mall-hero-title">我的订货单</text><text class="mall-hero-sub">中选科技供应链中台统一履约 · 直配到店</text></view></view>
+        <view class="mall-hero heading-with-back"><button class="page-back" aria-label="返回" @click="mineSection = 'main'"><UiIcon name="arrow-left" :size="20" /></button><view><text class="mall-hero-title">我的订货单</text><text class="mall-hero-sub">供应链中台统一履约 · 直配到店</text></view></view>
         <view class="page-pad">
         <view class="order-summary">
-          <view class="order-stat"><small>采购订单数</small><strong>{{ store.orders.length }} 单</strong></view>
-          <view class="order-stat"><small>待收货数量</small><strong>{{ store.orderMetrics.pendingReceipt }}</strong></view>
-          <view class="order-stat order-stat--amount"><small>月采购额</small><strong>{{ money(store.orderMetrics.monthAmount) }}</strong></view>
+          <view class="order-stat"><small class="meta">采购订单数</small><strong class="val">{{ store.orders.length }} 单</strong></view>
+          <view class="order-stat"><small class="meta">待收货数量</small><strong class="val">{{ store.orderMetrics.pendingReceipt }}</strong></view>
+          <view class="order-stat order-stat--amount"><small class="meta">月采购额</small><strong class="val">{{ money(store.orderMetrics.monthAmount) }}</strong></view>
         </view>
         <view class="chip-scroll"><view class="chips order-chips"><button v-for="item in orderFilters" :key="item.key" :class="{ active: orderFilter === item.key }" @click="orderFilter = item.key">{{ item.label }}<text class="chip-count" data-typography-compact>{{ item.count }}</text></button></view></view>
         <view v-if="filteredOrders.length" class="order-list">
           <button v-for="order in filteredOrders" :key="order.id" class="order-card" data-typography-compact @click="openOrder(order.id)">
-            <span class="order-accent" :class="order.status" aria-hidden="true"></span>
-            <view class="order-head"><text class="order-no">订单号 {{ order.id }}</text><span class="status-badge" :class="order.status">{{ displayStatus(order) }}</span></view>
+            <span class="order-accent chip" :class="order.status" aria-hidden="true"></span>
+            <view class="order-head"><text class="order-no">订单号 {{ order.id }}</text><span class="status-badge chip" :class="order.status">{{ displayStatus(order) }}</span></view>
             <view class="order-main">
               <BusinessImage class="order-thumb" :src="order.items[0]?.image" mode="aspectFill" />
               <view class="order-info">
                 <text class="order-title">{{ orderTitle(order) }}</text>
-                <small class="order-sub">共 {{ order.itemCount }} 件 · {{ order.items.length }} 款商品</small>
-                <small class="order-meta">{{ order.createdAt }}<template v-if="order.trackingNo"> · 运单 {{ order.trackingNo }}</template></small>
+                <small class="order-sub meta">共 {{ order.itemCount }} 件 · {{ order.items.length }} 款商品</small>
+                <small class="order-meta meta">{{ order.createdAt }}<template v-if="order.trackingNo"> · 运单 {{ order.trackingNo }}</template></small>
               </view>
             </view>
             <view class="order-bottom">
-              <small v-if="order.saved" class="order-saved">较零售省 {{ money(order.saved) }}</small>
-              <view class="order-amount"><small>合计</small><strong>{{ money(order.amount) }}</strong></view>
+              <small v-if="order.saved" class="order-saved meta">较零售省 {{ money(order.saved) }}</small>
+              <view class="order-amount"><small class="meta">合计</small><strong class="val">{{ money(order.amount) }}</strong></view>
               <UiIcon name="chevron-right" :size="17" />
             </view>
           </button>
         </view>
-        <view v-else class="empty-page pc-empty"><view class="pc-state-icon"><UiIcon name="package" :size="26" /></view><text>暂无相关订货单</text><small class="pc-state-note">去商城下一单吧～</small></view>
+        <view v-else class="empty-page pc-empty"><view class="pc-state-icon"><UiIcon name="package" :size="26" /></view><text>暂无相关订货单</text><small class="pc-state-note meta">去商城下一单吧～</small></view>
         </view>
       </view>
 
       <view v-else class="tab-page store-page">
         <view class="store-hero">
-          <view class="store-hero-top"><text class="mall-hero-title">门店工作台</text><text class="mall-hero-sub">供货价直采 · 中选科技供应链中台直配</text></view>
+          <view class="store-hero-top"><text class="mall-hero-title">门店工作台</text><text class="mall-hero-sub">供货价直采 · 供应链中台直配</text></view>
           <view class="store-identity">
             <BusinessImage class="store-emoji" :src="store.info.image" mode="aspectFit" />
             <view class="store-identity-main">
               <text>{{ store.info.name }}</text>
-              <small>{{ store.info.region }} · {{ store.info.contact }}</small>
-              <small class="store-identity-address">地址 {{ store.info.address }}</small>
-              <small class="store-identity-level">{{ store.isStoreOwner ? '门店账号 · 门店价' : `业务员账号 · ${store.priceLevelLabel}` }}</small>
+              <small class="meta">{{ store.info.region }} · {{ store.info.contact }}</small>
+              <small class="store-identity-address meta">地址 {{ store.info.address }}</small>
+              <small class="store-identity-level meta">{{ store.isStoreOwner ? '门店账号 · 门店价' : `业务员账号 · ${store.priceLevelLabel}` }}</small>
             </view>
           </view>
         </view>
         <view class="metric-band store-metrics">
-          <view><small>月采购额</small><strong>{{ money(store.orderMetrics.monthAmount) }}</strong></view>
-          <view><small>采购订单数</small><strong>{{ store.orderMetrics.orderCount }}</strong></view>
-          <view><small>待收货数量</small><strong>{{ store.orderMetrics.pendingReceipt }}</strong></view>
-          <view><small>节省金额</small><strong>{{ money(store.orderMetrics.savedAmount) }}</strong></view>
+          <view><small class="meta">月采购额</small><strong class="val">{{ money(store.orderMetrics.monthAmount) }}</strong></view>
+          <view><small class="meta">采购订单数</small><strong class="val">{{ store.orderMetrics.orderCount }}</strong></view>
+          <view><small class="meta">待收货数量</small><strong class="val">{{ store.orderMetrics.pendingReceipt }}</strong></view>
+          <view><small class="meta">节省金额</small><strong class="val">{{ money(store.orderMetrics.savedAmount) }}</strong></view>
         </view>
         <view class="page-pad store-body">
-          <view class="section-head compact"><view><span></span><text>快捷入口</text></view></view>
+          <view class="section-head compact"><view><span class="chip"></span><text>快捷入口</text></view></view>
 <view class="quick-grid pc-tile-grid">
   <button class="pc-tile pc-tile--amber" @click="goOrders"><view class="pc-tile-icon"><UiIcon name="package-check" :size="26" /><text v-if="store.orders.length" class="pc-tile-badge">{{ store.orders.length > 99 ? '99+' : store.orders.length }}</text></view><text class="pc-tile-label">我的订单</text></button>
   <button class="pc-tile pc-tile--coral" @click="sheet = 'address'"><view class="pc-tile-icon"><UiIcon name="map-pin" :size="26" /></view><text class="pc-tile-label">收货地址</text></button>
   <button class="pc-tile pc-tile--blue" @click="sheet = 'contact'"><view class="pc-tile-icon"><UiIcon name="headset" :size="26" /></view><text class="pc-tile-label">联系客服</text></button>
 </view>
-          <view class="section-head compact"><view><span></span><text>热销常订</text></view><small>按进货次数</small></view>
+          <view class="section-head compact"><view><span class="chip"></span><text>热销常订</text></view><small class="meta">按进货次数</small></view>
           <view v-if="!storeMetrics.hotOrders.length" class="hot-list pc-empty"><view class="pc-state-icon"><UiIcon name="package-check" :size="26" /></view><text>暂无常订商品</text></view>
           <view v-else class="hot-list">
             <view v-for="(item, index) in storeMetrics.hotOrders" :key="item.id" class="hot-item">
               <text class="hot-rank">{{ index + 1 }}</text>
               <BusinessImage class="hot-emoji" :src="item.image" mode="aspectFill" />
-              <view class="hot-main"><text>{{ item.name }}</text><small>已订 {{ item.times }} 次</small></view>
-              <strong>{{ money(item.amount) }}</strong>
+              <view class="hot-main"><text>{{ item.name }}</text><small class="meta">已订 {{ item.times }} 次</small></view>
+              <strong class="val">{{ money(item.amount) }}</strong>
             </view>
           </view>
           <button class="logout-button logout-danger" @click="logout">退出登录</button>
-          <view class="member-footer">平台支持 · 湖南省电子商务协会 · 中选科技供应链中台 · 中台统一维护商品状态与库存</view>
+          <view class="member-footer">平台支持 · 供应链中台 · 中台统一维护商品状态与库存</view>
         </view>
       </view>
 
       <view v-if="(activeTab === 'home' || activeTab === 'category') && store.cartCount" class="cart-bar">
-        <button class="cart-count" @click="openCart"><UiIcon name="shopping-cart" :size="21" /><span>{{ store.cartCount }}</span></button>
-        <view><small>合计</small><strong>{{ money(store.checkoutTotal) }}</strong></view>
+        <button class="cart-count" @click="openCart"><UiIcon name="shopping-cart" :size="21" /><span class="chip">{{ store.cartCount }}</span></button>
+        <view><small class="meta">合计</small><strong class="val">{{ money(store.checkoutTotal) }}</strong></view>
         <button @click="openCart">去结算</button>
       </view>
       </template>
@@ -301,7 +301,7 @@
               <BusinessImage class="sku-sum-img" :src="selectedProduct.image" mode="aspectFill" />
               <view class="sku-sum-main">
                 <text class="sku-sum-name">{{ selectedProduct.name }}</text>
-                <view class="sku-sum-price"><strong>{{ money(selectedSku?.cost ?? selectedProduct.cost) }}</strong><del v-if="(selectedSku?.price ?? selectedProduct.price) > (selectedSku?.cost ?? selectedProduct.cost)">{{ money(selectedSku?.price ?? selectedProduct.price) }}</del></view>
+                <view class="sku-sum-price"><strong class="val">{{ money(selectedSku?.cost ?? selectedProduct.cost) }}</strong><del v-if="(selectedSku?.price ?? selectedProduct.price) > (selectedSku?.cost ?? selectedProduct.cost)" class="strike">{{ money(selectedSku?.price ?? selectedProduct.price) }}</del></view>
                 <text class="sku-sum-meta">库存 {{ selectedSku?.stock ?? 0 }} · 已选：{{ selectedSku?.name }}</text>
               </view>
             </view>
@@ -309,19 +309,19 @@
             <view class="sku-options">
               <button v-for="sku in selectedProduct.skus" :key="sku.id" :class="{ active: selectedSkuId === sku.id }" :disabled="!canStartOrder(sku)" @click="selectDetailSku(sku.id)">
                 <text>{{ sku.name }}</text>
-                <small>{{ money(sku.cost) }} · 库存 {{ sku.stock }} · 起订 {{ effectiveMinimumOrderQuantity(sku) }} 件</small>
+                <small class="meta">{{ money(sku.cost) }} · 库存 {{ sku.stock }} · 起订 {{ effectiveMinimumOrderQuantity(sku) }} 件</small>
               </button>
             </view>
             <view class="sku-qty-row">
-              <view><text>采购数量</text><small>起订 {{ detailMinimumQuantity }} 件 · 当前库存 {{ selectedSku?.stock ?? 0 }}</small></view>
+              <view><text>采购数量</text><small class="meta">起订 {{ detailMinimumQuantity }} 件 · 当前库存 {{ selectedSku?.stock ?? 0 }}</small></view>
               <view class="stepper">
                 <button aria-label="减少采购数量" :disabled="detailQuantity <= detailMinimumQuantity" @click="changeDetailQuantity(-1)">−</button>
                 <input class="detail-quantity-input" type="number" inputmode="numeric" :value="detailQuantityText" @input="onDetailQuantityInput" @blur="commitDetailQuantity" @confirm="commitDetailQuantity" />
                 <button aria-label="增加采购数量" :disabled="!selectedSku || detailQuantity >= detailRemainingStock" @click="changeDetailQuantity(1)">+</button>
               </view>
             </view>
-            <view class="sku-sum-total"><text>当前小计</text><strong>{{ money(detailSubtotal) }}</strong></view>
-            <small v-if="selectedSku && !canStartOrder(selectedSku)" class="stock-warning">库存不足或数量未达要求</small>
+            <view class="sku-sum-total"><text>当前小计</text><strong class="val">{{ money(detailSubtotal) }}</strong></view>
+            <small v-if="selectedSku && !canStartOrder(selectedSku)" class="stock-warning meta">库存不足或数量未达要求</small>
           </view>
 
           <view v-else-if="sheet === 'cart'" class="sheet-list" data-visual-state="store-cart">
@@ -331,10 +331,10 @@
               <BusinessImage :src="item.image" mode="aspectFill" />
               <view class="sheet-line-main">
                 <text>{{ item.name }}</text>
-                <small>{{ item.skuName }} · 库存 {{ item.stock }}</small>
-                <small v-if="item.unavailable" class="stock-warning">库存不足或购买数量未达要求，不可结算</small>
+                <small class="meta">{{ item.skuName }} · 库存 {{ item.stock }}</small>
+                <small v-if="item.unavailable" class="stock-warning meta">库存不足或购买数量未达要求，不可结算</small>
                 <view class="sheet-line-foot">
-                  <strong>{{ money(item.price) }}</strong>
+                  <strong class="val">{{ money(item.price) }}</strong>
                   <view class="stepper">
                     <button aria-label="减少数量" @click="changeCartQuantity(item, -1)">−</button>
                     <input class="cart-quantity-input" type="number" inputmode="numeric" :value="cartQuantityText(item)" @input="onCartQuantityInput(item, $event)" @blur="commitCartQuantity(item)" @confirm="commitCartQuantity(item)" />
@@ -348,25 +348,25 @@
 
           <view v-else-if="sheet === 'contact'" class="contact-sheet" data-visual-state="store-contact">
             <view class="contact-hero">
-              <text>中选科技供应链 · 门店客服</text>
-              <small>统一品控 · 统一履约 · 工作日 {{ store.info.hours }} 在线</small>
+              <text>供应链 · 门店客服</text>
+              <small class="meta">统一品控 · 统一履约 · 工作日 {{ store.info.hours }} 在线</small>
               <view class="contact-phone-mark"><UiIcon name="phone" :size="26" /></view>
             </view>
             <view class="contact-rows">
-              <view class="contact-row"><small>客服电话</small><text>{{ store.info.phone }}</text></view>
-              <view class="contact-row"><small>门店对接人</small><text>{{ store.info.contact }}</text></view>
-              <view class="contact-row"><small>营业时间</small><text>{{ store.info.hours }}</text></view>
-              <view class="contact-row"><small>收货地址</small><text>{{ store.info.address }}</text></view>
+              <view class="contact-row"><small class="meta">客服电话</small><text>{{ store.info.phone }}</text></view>
+              <view class="contact-row"><small class="meta">门店对接人</small><text>{{ store.info.contact }}</text></view>
+              <view class="contact-row"><small class="meta">营业时间</small><text>{{ store.info.hours }}</text></view>
+              <view class="contact-row"><small class="meta">收货地址</small><text>{{ store.info.address }}</text></view>
             </view>
           </view>
 
           <view v-else-if="sheet === 'address'" class="address-sheet" data-visual-state="store-address">
             <view class="address-card">
-              <small>收货门店</small><text>{{ store.info.name }}</text>
-              <small>收货人</small><text>{{ store.info.contact }} {{ store.info.phone }}</text>
-              <small>收货地址</small><text>{{ store.info.address }}</text>
+              <small class="meta">收货门店</small><text>{{ store.info.name }}</text>
+              <small class="meta">收货人</small><text>{{ store.info.contact }} {{ store.info.phone }}</text>
+              <small class="meta">收货地址</small><text>{{ store.info.address }}</text>
             </view>
-            <text class="address-note">订单由中选科技供应链中台统一直配到店，到货后请当面验货签收。</text>
+            <text class="address-note">订单由供应链中台统一直配到店，到货后请当面验货签收。</text>
           </view>
           </scroll-view>
           <view v-if="sheet === 'product' && selectedProduct" class="product-detail-actions sheet-foot">
@@ -375,8 +375,8 @@
           </view>
           <view v-else-if="sheet === 'cart' && store.cart.length" class="sheet-foot cart-sheet-foot">
             <view class="cart-sheet-summary">
-              <button class="cart-all" @click="toggleCartAll"><span class="cart-all-check" :class="{ on: cartAllSelected }"><UiIcon name="check" :size="14" /></span><text>{{ cartAllSelected ? '取消全选' : '全选' }}</text></button>
-              <view class="cart-footer-total"><text>已选</text><strong class="cart-selected-count">{{ store.checkoutCount }} 件</strong><text>合计</text><strong class="cart-total-amount">{{ money(store.checkoutTotal) }}</strong></view>
+              <button class="cart-all" @click="toggleCartAll"><span class="cart-all-check chip" :class="{ on: cartAllSelected }"><UiIcon name="check" :size="14" /></span><text>{{ cartAllSelected ? '取消全选' : '全选' }}</text></button>
+              <view class="cart-footer-total"><text>已选</text><strong class="cart-selected-count val">{{ store.checkoutCount }} 件</strong><text>合计</text><strong class="cart-total-amount val">{{ money(store.checkoutTotal) }}</strong></view>
             </view>
             <button class="primary-button" :disabled="!store.checkoutCount || store.checkoutHasUnavailable" @click="goCheckout">确认下单</button>
           </view>
@@ -421,7 +421,7 @@ const activePolicies = computed(() => {
 const tabs: Array<{ key: TabKey; label: string; icon: string }> = [
   { key: 'home', label: '首页', icon: 'house' },
   { key: 'category', label: '商品分类', icon: 'layout-dashboard' },
-  { key: 'cart', label: '购物车', icon: 'shopping-cart' },
+  { key: 'cart', label: '进货车', icon: 'shopping-cart' },
   { key: 'mine', label: '我的', icon: 'user-round' }
 ]
 
@@ -896,7 +896,7 @@ onMounted(async () => {
     disposeVisibilitySync = () => document.removeEventListener('visibilitychange', onVisibilityChange)
   }
   if (typeof document !== 'undefined') {
-    document.title = '中选科技门店订货商城'
+    document.title = '门店订货商城'
   }
 })
 onBeforeUnmount(() => {
@@ -950,9 +950,9 @@ onBeforeUnmount(() => {
 /* ===== 订单汇总 ===== */
 .order-summary { position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:-14px 0 0;padding:13px 0;background:var(--farm-panel);border:1px solid var(--store-line);border-radius:16px;box-shadow:var(--store-shadow-hero); }
 .order-summary .order-stat { min-width:0;display:grid;gap:4px;justify-items:center;text-align:center; }
-.order-summary .order-stat small { color:var(--farm-muted);font-size:12px; }
-.order-summary .order-stat strong { font-size:16px;font-weight:800;color:var(--farm-ink);word-break:break-all; }
-.order-summary .order-stat--amount strong { color:var(--farm-red); }
+.order-summary .order-stat .meta { color:var(--farm-muted);font-size:12px; }
+.order-summary .order-stat .val { font-size:16px;font-weight:800;color:var(--farm-ink);word-break:break-all; }
+.order-summary .order-stat--amount .val { color:var(--farm-red); }
 .chip-count { display:inline;min-width:0;height:auto;margin-left:4px;padding:0;border-radius:0;background:transparent;color:inherit;font-size:12px;font-weight:600;vertical-align:middle; }
 .chips button.active .chip-count { background:transparent;color:inherit; }
 
@@ -977,9 +977,9 @@ onBeforeUnmount(() => {
 .muted { display:block;min-width:0;color:var(--farm-muted);font-size:12px;margin-top:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
 .cost-line { display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin-top:0; }
 .cost-prices { display:flex;align-items:baseline;gap:4px;min-width:0;flex-wrap:wrap; }
-.cost-line strong,.cost-prices strong { font-size:17px;font-weight:800;color:var(--farm-red); }
-.cost-line del,.cost-prices del { font-size:12px;color:var(--farm-muted); }
-.cost-line span,.cost-prices span { font-size:12px;font-weight:800;color:var(--farm-green);background:var(--farm-green-soft);border-radius:5px;padding:2px 5px; }
+.cost-line .val,.cost-prices .val { font-size:17px;font-weight:800;color:var(--farm-red); }
+.cost-line .strike,.cost-prices .strike { font-size:12px;color:var(--farm-muted); }
+.cost-line .chip,.cost-prices .chip { font-size:12px;font-weight:800;color:var(--farm-green);background:var(--farm-green-soft);border-radius:5px;padding:2px 5px; }
 .product-foot { min-height:0;margin-top:8px;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:8px; }
 .product-divider { height:1px;background:var(--store-line-light);margin:8px 0; }
 .ladder-hint { margin-top:4px;font-size:12px;color:var(--farm-green);font-weight:700; }
@@ -999,14 +999,14 @@ onBeforeUnmount(() => {
 .product-foot uni-button[disabled],
 .product-foot button[disabled] { background:var(--store-disabled);box-shadow:none; }
 
-/* ===== 底部购物车栏 ===== */
+/* ===== 底部进货车栏 ===== */
 .cart-bar { position:fixed;left:12px;right:12px;bottom:calc(var(--mobile-tab-height) + 8px + env(safe-area-inset-bottom));height:56px;padding:6px 10px;overflow:visible;background:var(--store-gradient);color:var(--store-on-brand);border-radius:24px;z-index:22;display:flex;align-items:center;gap:10px;box-shadow:var(--store-shadow-cart); }
 .cart-count { width:44px;height:44px;position:relative;overflow:visible;border-radius:50%;background:var(--store-glass);color:var(--store-on-brand);display:grid;place-items:center;padding:0; }
-.cart-count span { position:absolute;right:-4px;top:-2px;z-index:1;min-width:17px;height:17px;border-radius:9px;border:1.5px solid var(--store-on-brand);background:var(--farm-red);color:var(--store-on-brand);display:grid;place-items:center;font-size:13px;font-weight:800; }
+.cart-count .chip { position:absolute;right:-4px;top:-2px;z-index:1;min-width:17px;height:17px;border-radius:9px;border:1.5px solid var(--store-on-brand);background:var(--farm-red);color:var(--store-on-brand);display:grid;place-items:center;font-size:13px;font-weight:800; }
 .cart-bar>view { flex:1; }
-.cart-bar small,.cart-bar strong { display:block; }
-.cart-bar small { opacity:.85;font-size:12px; }
-.cart-bar strong { font-size:16px; }
+.cart-bar .meta,.cart-bar .val { display:block; }
+.cart-bar .meta { opacity:.85;font-size:12px; }
+.cart-bar .val { font-size:16px; }
 .cart-bar>button:last-child { min-height:var(--mobile-touch-target);padding:0 16px;border-radius:var(--mobile-radius-pill);background:var(--store-on-brand);color:var(--farm-green-deep);font-weight:800;font-size:13px;display:inline-flex;align-items:center;justify-content:center; }
 
 /* ===== 底部 tab ===== */
@@ -1036,11 +1036,11 @@ onBeforeUnmount(() => {
 .sheet-line--selectable.selected { border:1px solid var(--farm-green); }
 .sheet-line-main { min-width:0; }
 .sheet-line image,.sheet-line .business-image { width:64px;height:64px;border-radius:10px; }
-.sheet-line text,.sheet-line strong { display:block; }
+.sheet-line text,.sheet-line .val { display:block; }
 .sheet-line text { font-size:13px;font-weight:800;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden; }
-.sheet-line small { display:block;margin-top:4px;color:var(--farm-muted);font-size:12px; }
+.sheet-line .meta { display:block;margin-top:4px;color:var(--farm-muted);font-size:12px; }
 .sheet-line-foot { margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:8px; }
-.sheet-line strong { margin-top:0;color:var(--farm-red);font-size:16px;font-weight:800; }
+.sheet-line .val { margin-top:0;color:var(--farm-red);font-size:16px;font-weight:800; }
 .sheet-line.shortage { background:var(--color-danger-soft, var(--mobile-surface-subtle)); }
 .stepper { height:32px;display:flex;align-items:center;gap:0;border:1px solid var(--store-line);border-radius:16px;overflow:hidden; }
 .stepper button { width:30px;height:32px;padding:0;border:0;border-radius:0;background:var(--mobile-surface);display:grid;place-items:center;font-size:15px;margin:0;color:var(--farm-muted); }
@@ -1052,15 +1052,15 @@ onBeforeUnmount(() => {
 .checkout-summary .primary-button { margin-top:8px; }
 .checkout-summary .save { color:var(--store-ok); }
 .checkout-summary .remark { color:var(--farm-muted);font-size:12px;font-weight:600;text-align:right; }
-.stock-list{max-height:320px;overflow-y:auto;border:1px solid var(--farm-line);border-radius:8px;padding:4px 10px;background:var(--mobile-surface)}.stock-row{display:grid;grid-template-columns:1fr auto;gap:8px;padding:9px 0;border-bottom:1px solid var(--store-line-light)}.stock-row:last-child{border-bottom:0}.stock-main text{font-size:12px;font-weight:800;display:block}.stock-main small{display:block;margin-top:3px;color:var(--farm-muted);font-size:12px}.stock-skus{display:flex;gap:6px;flex-wrap:wrap}.stock-sku{display:flex;align-items:center;gap:4px}.stock-sku text{font-size:12px;color:var(--farm-muted)}.stock-sku input{width:52px;height:28px;border:1px solid var(--farm-line);border-radius:5px;padding:0 6px;font-size:13px}.stock-actions{display:flex;gap:6px;align-items:center}.stock-actions .compact-button{min-height:var(--mobile-control-compact);padding:0 8px;border-radius:var(--mobile-radius-pill);background:var(--farm-panel);color:var(--farm-green);border:1px solid var(--farm-green);font-size:13px;font-weight:700}.stock-actions .compact-button.off{background:var(--farm-panel);color:var(--farm-muted);border-color:var(--farm-line)}
+.stock-list{max-height:320px;overflow-y:auto;border:1px solid var(--farm-line);border-radius:8px;padding:4px 10px;background:var(--mobile-surface)}.stock-row{display:grid;grid-template-columns:1fr auto;gap:8px;padding:9px 0;border-bottom:1px solid var(--store-line-light)}.stock-row:last-child{border-bottom:0}.stock-main text{font-size:12px;font-weight:800;display:block}.stock-main .meta{display:block;margin-top:3px;color:var(--farm-muted);font-size:12px}.stock-skus{display:flex;gap:6px;flex-wrap:wrap}.stock-sku{display:flex;align-items:center;gap:4px}.stock-sku text{font-size:12px;color:var(--farm-muted)}.stock-sku input{width:52px;height:28px;border:1px solid var(--farm-line);border-radius:5px;padding:0 6px;font-size:13px}.stock-actions{display:flex;gap:6px;align-items:center}.stock-actions .compact-button{min-height:var(--mobile-control-compact);padding:0 8px;border-radius:var(--mobile-radius-pill);background:var(--farm-panel);color:var(--farm-green);border:1px solid var(--farm-green);font-size:13px;font-weight:700}.stock-actions .compact-button.off{background:var(--farm-panel);color:var(--farm-muted);border-color:var(--farm-line)}
 .primary-button { width:100%;height:48px;border-radius:var(--mobile-radius-pill);background:var(--store-gradient);color:var(--store-on-brand);font-weight:800;font-size:15px;box-shadow:var(--store-shadow-cart); }
 .outline-button { width:100%;min-height:var(--mobile-touch-target);height:auto;border-radius:var(--mobile-radius-pill);background:var(--mobile-surface);color:var(--farm-ink);border:1.5px solid var(--store-line);font-size:13px;font-weight:700; }
 .empty { padding:28px 0;text-align:center;color:var(--farm-muted);font-size:12px; }
 .empty-page { min-height:132px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--farm-muted); }
 .cart-page-content > .empty-page { flex:1; }
-.empty-page text,.empty-page small { display:block; }
+.empty-page text,.empty-page .meta { display:block; }
 .empty-page text { margin-top:10px;font-size:12px;font-weight:800; }
-.empty-page small { margin-top:5px;font-size:12px; }
+.empty-page .meta { margin-top:5px;font-size:12px; }
 
 /* ===== 商品详情 ===== */
 .product-view { min-height:100vh;padding-bottom:calc(96px + env(safe-area-inset-bottom));background:var(--farm-bg);overflow-x:hidden;box-sizing:border-box; }
@@ -1078,8 +1078,8 @@ onBeforeUnmount(() => {
 .detail-summary { position:relative;padding-top:14px; }
 .detail-price-row { display:flex;align-items:flex-end;justify-content:flex-start;gap:8px; }
 .detail-current-price { min-width:0;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap; }
-.detail-current-price strong { color:var(--farm-red);font-size:28px;font-weight:800;line-height:1.1; }
-.detail-current-price del { color:var(--farm-muted);font-size:13px; }
+.detail-current-price .val { color:var(--farm-red);font-size:28px;font-weight:800;line-height:1.1; }
+.detail-current-price .strike { color:var(--farm-muted);font-size:13px; }
 .detail-saving { flex:none;padding:4px 7px;border-radius:4px;background:var(--farm-green-soft);color:var(--farm-red);font-size:12px;font-weight:800; }
 .detail-retail-price { display:block;margin-top:4px;color:var(--farm-muted);font-size:12px; }
 .detail-level-badge { display:inline-block;margin-top:6px;padding:3px 8px;border-radius:var(--radius-icon);background:var(--farm-green-soft);color:var(--farm-green);font-size:12px;font-weight:800; }
@@ -1090,35 +1090,35 @@ onBeforeUnmount(() => {
 .detail-tag-row text { padding:3px 8px;border:1px solid var(--store-line);border-radius:6px;background:var(--farm-green-soft);color:var(--farm-green-deep);font-size:12px;font-weight:700; }
 .detail-section-heading { min-height:24px;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px; }
 .detail-section-heading>text { color:var(--farm-ink);font-size:14px;font-weight:800; }
-.detail-section-heading>small { color:var(--farm-muted);font-size:12px;text-align:right; }
+.detail-section-heading>.meta { color:var(--farm-muted);font-size:12px;text-align:right; }
 .detail-sku-options { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px; }
 .detail-sku-option { min-width:0;min-height:var(--mobile-touch-target);padding:9px 11px;border:1.5px solid var(--store-line);border-radius:11px;background:var(--mobile-surface);color:var(--farm-ink);text-align:left;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;line-height:1.35; }
 .detail-sku-option>text { width:100%;font-size:13px;font-weight:700;white-space:normal;word-break:break-all; }
-.detail-sku-option>small { width:100%;margin-top:3px;color:var(--farm-muted);font-size:12px;font-weight:600;white-space:normal;word-break:break-all; }
+.detail-sku-option>.meta { width:100%;margin-top:3px;color:var(--farm-muted);font-size:12px;font-weight:600;white-space:normal;word-break:break-all; }
 .detail-sku-option.active { border-color:var(--farm-green);background:var(--farm-green-soft);color:var(--farm-green-deep); }
-.detail-sku-option.active>small { color:var(--farm-muted); }
+.detail-sku-option.active>.meta { color:var(--farm-muted); }
 .detail-sku-option:disabled { background:var(--store-line-light);color:var(--farm-muted);opacity:.72; }
 .detail-quantity-row { min-height:60px;margin-top:12px;padding-top:11px;border-top:1px solid var(--store-line-light);display:flex;align-items:center;justify-content:space-between;gap:12px; }
 .detail-quantity-row>view:first-child { min-width:0; }
-.detail-quantity-row>view:first-child text,.detail-quantity-row>view:first-child small { display:block; }
+.detail-quantity-row>view:first-child text,.detail-quantity-row>view:first-child .meta { display:block; }
 .detail-quantity-row>view:first-child text { font-size:13px;font-weight:800; }
-.detail-quantity-row>view:first-child small { margin-top:3px;color:var(--farm-muted);font-size:12px; }
+.detail-quantity-row>view:first-child .meta { margin-top:3px;color:var(--farm-muted);font-size:12px; }
 .detail-quantity-stepper { width:150px;flex:none;display:grid;grid-template-columns:44px minmax(52px,1fr) 44px;border:1px solid var(--store-line);border-radius:16px;overflow:hidden;background:var(--mobile-surface); }
 .detail-quantity-stepper button { width:44px;height:44px;margin:0;padding:0;border:0;border-radius:0;background:var(--mobile-surface);color:var(--farm-green-deep);font-size:20px;font-weight:700;display:grid;place-items:center; }
 .detail-quantity-stepper button:disabled { color:var(--farm-muted);background:var(--store-line-light); }
 .detail-quantity-input { min-width:0;width:100%;height:44px;padding:0 4px;border:0;border-left:1px solid var(--store-line);border-right:1px solid var(--store-line);background:var(--mobile-surface);color:var(--farm-ink);text-align:center;font-size:14px;font-weight:800;box-sizing:border-box; }
 .detail-purchase-total { margin-top:12px;padding-top:11px;border-top:1px solid var(--store-line-light);display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;color:var(--farm-muted); }
-.detail-purchase-total strong { color:var(--farm-red);font-size:18px;font-weight:800; }
+.detail-purchase-total .val { color:var(--farm-red);font-size:18px;font-weight:800; }
 .detail-ladder-list { border-top:1px solid var(--store-line-light); }
 .detail-ladder-row { min-height:45px;padding:0 8px;display:grid;grid-template-columns:minmax(72px,1fr) auto auto;align-items:center;gap:8px;border-bottom:1px solid var(--store-line-light);font-size:12px; }
-.detail-ladder-row>strong { color:var(--farm-red);font-size:13px;white-space:nowrap; }
-.detail-ladder-row>small { color:var(--farm-muted);font-size:12px;white-space:nowrap; }
+.detail-ladder-row>.val { color:var(--farm-red);font-size:13px;white-space:nowrap; }
+.detail-ladder-row>.meta { color:var(--farm-muted);font-size:12px;white-space:nowrap; }
 .detail-ladder-row.active { background:var(--farm-green-soft);box-shadow:inset 3px 0 0 var(--farm-green); }
-.detail-ladder-row.active>text,.detail-ladder-row.active>small { color:var(--farm-green-deep);font-weight:800; }
+.detail-ladder-row.active>text,.detail-ladder-row.active>.meta { color:var(--farm-green-deep);font-weight:800; }
 .detail-next-tier { display:block;margin-top:10px;color:var(--farm-green-deep);font-size:12px;font-weight:700; }
 .detail-info-row { min-height:36px;padding:8px 0;display:grid;grid-template-columns:92px minmax(0,1fr);align-items:start;gap:12px;border-bottom:1px solid var(--store-line-light); }
 .detail-info-row:last-child { border-bottom:0; }
-.detail-info-row>small { color:var(--farm-muted);font-size:12px; }
+.detail-info-row>.meta { color:var(--farm-muted);font-size:12px; }
 .detail-info-row>text { min-width:0;color:var(--farm-ink);font-size:12px;font-weight:700;text-align:right;word-break:break-all; }
 .detail-rich-images { padding-left:0;padding-right:0;padding-bottom:0;overflow:hidden; }
 .detail-rich-images .detail-section-heading { padding:0 14px; }
@@ -1137,22 +1137,22 @@ onBeforeUnmount(() => {
 .sku-sum-main { min-width:0;flex:1; }
 .sku-sum-name { display:block;font-size:14px;font-weight:800;line-height:1.35; }
 .sku-sum-price { margin-top:4px;display:flex;align-items:baseline;gap:6px; }
-.sku-sum-price strong { font-size:19px;font-weight:800;color:var(--farm-red); }
-.sku-sum-price del { font-size:12px;color:var(--farm-muted); }
+.sku-sum-price .val { font-size:19px;font-weight:800;color:var(--farm-red); }
+.sku-sum-price .strike { font-size:12px;color:var(--farm-muted); }
 .sku-sum-meta { display:block;margin-top:4px;font-size:12px;color:var(--farm-muted); }
 .sku-label { display:block;margin-top:14px;font-size:12px;font-weight:800; }
 .sku-options { display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px; }
 .sku-options button { min-height:var(--mobile-touch-target);padding:9px 11px;border:1.5px solid var(--store-line);border-radius:11px;background:var(--mobile-surface);color:var(--farm-ink);font-size:13px;font-weight:700;text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:3px; }
-.sku-options button small { display:block;font-size:13px;color:var(--farm-muted);font-weight:600; }
+.sku-options button .meta { display:block;font-size:13px;color:var(--farm-muted);font-weight:600; }
 .sku-options button.active { border-color:var(--farm-green);background:var(--farm-green-soft);color:var(--farm-green-deep); }
 .sku-options button:disabled { opacity:.5; }
 .sku-qty-row { display:flex;align-items:center;margin-top:12px;padding-top:11px;border-top:1px solid var(--store-line-light);gap:12px; }
 .sku-qty-row>view:first-child { flex:1;min-width:0; }
-.sku-qty-row text,.sku-qty-row small { display:block; }
+.sku-qty-row text,.sku-qty-row .meta { display:block; }
 .sku-qty-row text { font-size:13px;font-weight:800; }
-.sku-qty-row small { margin-top:3px;font-size:12px;color:var(--farm-muted); }
+.sku-qty-row .meta { margin-top:3px;font-size:12px;color:var(--farm-muted); }
 .sku-sum-total { display:flex;align-items:center;margin-top:12px;padding-top:11px;border-top:1px solid var(--store-line-light);font-size:13px;color:var(--farm-muted); }
-.sku-sum-total strong { margin-left:auto;font-size:18px;font-weight:800;color:var(--farm-red); }
+.sku-sum-total .val { margin-left:auto;font-size:18px;font-weight:800;color:var(--farm-red); }
 .product-detail-actions { display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:0; }
 .product-detail-actions .outline-button { margin:0;height:44px; }
 .product-detail-actions .primary-button { margin:0;height:44px;font-size:14px; }
@@ -1161,13 +1161,13 @@ onBeforeUnmount(() => {
 .checkout-form { padding-top:12px; }
 .checkout-payment-fixed { min-height:54px; margin:10px 0; padding:11px 13px; display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:9px; border:1.5px solid var(--farm-green); border-radius:12px; background:var(--farm-green-soft); }
 .checkout-payment-fixed view { min-width:0; }
-.checkout-payment-fixed text,.checkout-payment-fixed small { display:block; }
+.checkout-payment-fixed text,.checkout-payment-fixed .meta { display:block; }
 .checkout-payment-fixed text { font-size:13px; font-weight:800; }
-.checkout-payment-fixed small { margin-top:2px; color:var(--farm-muted); font-size:12px; }
-.checkout-payment-fixed span { color:var(--farm-green); font-size:12px; font-weight:800; white-space:nowrap; }
+.checkout-payment-fixed .meta { margin-top:2px; color:var(--farm-muted); font-size:12px; }
+.checkout-payment-fixed .chip { color:var(--farm-green); font-size:12px; font-weight:800; white-space:nowrap; }
 .checkout-store { padding:11px 13px;background:var(--mobile-surface-subtle);border:0;border-radius:12px;display:grid;gap:9px; }
 .checkout-store view { display:flex;justify-content:space-between;align-items:center;gap:12px; }
-.checkout-store small { color:var(--farm-muted);font-size:13px;flex:none; }
+.checkout-store .meta { color:var(--farm-muted);font-size:13px;flex:none; }
 .checkout-store text { font-size:13px;font-weight:800;text-align:right; }
 .form-group { margin-top:14px; }
 .form-group>text { display:block;margin-bottom:8px;font-size:12px;font-weight:800; }
@@ -1175,7 +1175,7 @@ onBeforeUnmount(() => {
 .checkout-items { margin-top:10px;display:grid;gap:9px; }
 .checkout-line { padding:10px 13px;background:var(--mobile-surface-subtle);border:0;border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:10px; }
 .checkout-line > text { min-width:0;word-break:break-all;font-size:12px; }
-.checkout-line strong { color:var(--farm-red);font-size:12px;white-space:nowrap; }
+.checkout-line .val { color:var(--farm-red);font-size:12px;white-space:nowrap; }
 
 /* ===== 订单 ===== */
 .order-chips { padding:0; }
@@ -1209,8 +1209,8 @@ onBeforeUnmount(() => {
 .order-bottom { margin-top:10px;padding-top:9px;border-top:1px solid var(--store-line-light);display:flex;align-items:center;gap:8px; }
 .order-saved { color:var(--farm-gold);font-size:12px;font-weight:700;white-space:nowrap; }
 .order-amount { margin-left:auto;display:inline-flex;align-items:baseline;gap:3px;flex-shrink:0;white-space:nowrap; }
-.order-amount small { font-size:12px;color:var(--farm-muted); }
-.order-amount strong { font-size:16px;font-weight:800;color:var(--farm-red); }
+.order-amount .meta { font-size:12px;color:var(--farm-muted); }
+.order-amount .val { font-size:16px;font-weight:800;color:var(--farm-red); }
 .order-bottom .ui-icon { opacity:.55; }
 
 /* ===== 订单详情 ===== */
@@ -1224,22 +1224,22 @@ onBeforeUnmount(() => {
 .step.done::after,.step.current::after { background:var(--farm-green); }
 .step-dot { width:22px;height:22px;margin:0 auto;border-radius:50%;background:var(--mobile-surface-subtle);color:var(--farm-muted);font-size:12px;font-weight:800;display:grid;place-items:center;position:relative;z-index:1;border:2px solid var(--mobile-surface);box-shadow:0 0 0 1px var(--store-line); }
 .step.done .step-dot,.step.current .step-dot { background:var(--farm-green);color:var(--store-on-brand); }
-.step small { display:block;margin-top:6px;color:var(--farm-muted);font-size:12px;white-space:nowrap; }
-.step.current small { color:var(--farm-green);font-weight:800; }
+.step .meta { display:block;margin-top:6px;color:var(--farm-muted);font-size:12px;white-space:nowrap; }
+.step.current .meta { color:var(--farm-green);font-weight:800; }
 .logistics { margin-top:8px;padding:11px 13px;background:var(--farm-green-soft);border:0;border-radius:12px;display:grid;gap:11px; }
 .log-event { display:flex;gap:9px; }
 .log-dot { width:8px;height:8px;margin-top:4px;border-radius:50%;background:var(--farm-green);flex:none; }
 .log-event:first-child .log-dot { box-shadow:none; }
-.log-event text,.log-event small { display:block; }
+.log-event text,.log-event .meta { display:block; }
 .log-event text { font-size:13px;font-weight:800;color:var(--farm-green-deep); }
-.log-event small { margin-top:4px;color:var(--farm-muted);font-size:12px;line-height:1.5; }
+.log-event .meta { margin-top:4px;color:var(--farm-muted);font-size:12px;line-height:1.5; }
 .order-items { margin-top:8px;display:grid;gap:9px; }
 .order-item-line { min-height:56px;padding:10px 12px;background:var(--mobile-surface-subtle);border:0;border-radius:12px;display:grid;grid-template-columns:46px minmax(0,1fr) auto;gap:10px;align-items:center; }
 .order-item-line image { width:46px;height:46px;border-radius:9px; }
-.order-item-line text,.order-item-line small { display:block; }
+.order-item-line text,.order-item-line .meta { display:block; }
 .order-item-line text { font-size:13px;font-weight:800; }
-.order-item-line small { margin-top:3px;color:var(--farm-muted);font-size:12px; }
-.order-item-line strong { font-size:14px;color:var(--farm-red);white-space:nowrap; }
+.order-item-line .meta { margin-top:3px;color:var(--farm-muted);font-size:12px; }
+.order-item-line .val { font-size:14px;color:var(--farm-red);white-space:nowrap; }
 .order-actions { margin-top:0;display:flex;flex-wrap:wrap;justify-content:center;gap:10px; }
 .order-actions .outline-button,
 .order-actions .primary-button { width:auto;height:42px;min-height:42px;padding:0 16px;border-radius:21px; }
@@ -1255,31 +1255,31 @@ onBeforeUnmount(() => {
 .store-identity { margin:12px 0 8px;padding:12px;display:flex;align-items:flex-start;gap:11px;position:relative;z-index:1;background:var(--store-glass);border:1px solid var(--store-glass-line);border-radius:16px; }
 .store-identity-main { min-width:0;flex:1; }
 .store-emoji { width:52px;height:52px;border-radius:12px;display:block;flex-shrink:0;background:var(--store-glass); }
-.store-identity text,.store-identity small { display:block; }
+.store-identity text,.store-identity .meta { display:block; }
 .store-identity text { font-size:15px;font-weight:800; }
-.store-identity small { margin-top:3px;font-size:12px;opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.store-identity .meta { margin-top:3px;font-size:12px;opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
 .store-identity .store-identity-address { overflow:visible;text-overflow:unset;white-space:normal;word-break:break-word; }
 .store-identity .store-identity-level { margin-top:6px;padding:3px 8px;border-radius:var(--radius-icon);background:var(--store-glass);color:var(--store-on-brand);font-size:12px;font-weight:800;display:inline-block;width:auto;overflow:visible;text-overflow:unset;white-space:normal; }
 .metric-band { margin:14px 16px 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:var(--mobile-surface);border:1px solid var(--store-line);border-radius:16px;box-shadow:var(--store-shadow-hero); }
 .metric-band view { padding:13px 0;text-align:center;border-right:1px solid var(--store-line-light); }
 .metric-band view:last-child { border:0; }
-.metric-band text,.metric-band small,.metric-band strong { display:block; }
-.metric-band text,.metric-band small { color:var(--farm-muted);font-size:12px; }
-.metric-band strong { margin-top:5px;font-size:16px;color:var(--farm-ink); }
+.metric-band text,.metric-band .meta,.metric-band .val { display:block; }
+.metric-band text,.metric-band .meta { color:var(--farm-muted);font-size:12px; }
+.metric-band .val { margin-top:5px;font-size:16px;color:var(--farm-ink); }
 .store-metrics { grid-template-columns:repeat(4,minmax(0,1fr)); margin-top:-14px;position:relative;z-index:1; }
-.store-metrics view, .store-metrics strong { min-width:0; word-break:break-word; }
-.store-metrics view:nth-child(3) strong { color:var(--farm-green); }
+.store-metrics view, .store-metrics .val { min-width:0; word-break:break-word; }
+.store-metrics view:nth-child(3) .val { color:var(--farm-green); }
 .store-body { padding-top:12px; }
 .section-head { padding:0 0 10px;display:flex;align-items:center;justify-content:space-between; }
-.section-head > small { color:var(--farm-muted);font-size:12px; }
+.section-head > .meta { color:var(--farm-muted);font-size:12px; }
 .section-head>view { display:flex;align-items:center;gap:7px; }
-.section-head span { width:3px;height:16px;background:var(--farm-green);border-radius:2px; }
+.section-head .chip { width:3px;height:16px;background:var(--farm-green);border-radius:2px; }
 .section-head text { font-size:15px;font-weight:900; }
 .quick-grid { margin:0 0 var(--mobile-section-gap);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px; }
 .quick-grid button { min-width:0;width:100%;min-height:56px;padding:13px 0 11px;background:var(--mobile-surface);border:1px solid var(--store-line);border-radius:var(--mobile-radius-card);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;font-size:13px;color:var(--farm-ink);box-shadow:var(--mobile-shadow-card); }
 .quick-grid .pc-tile-label { font-size:13px; }
 .store-page .pc-tile-icon { width:42px;height:42px;border-radius:12px; }
-.quick-grid button small { display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--farm-muted);font-size:13px;line-height:1.3; }
+.quick-grid button .meta { display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--farm-muted);font-size:13px;line-height:1.3; }
 .hot-list { display:grid;gap:0;background:var(--mobile-surface);border:1px solid var(--store-line);border-radius:var(--mobile-radius-card);padding:4px 12px;box-shadow:var(--mobile-shadow-card); }
 .hot-item { display:grid;grid-template-columns:22px 44px 1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--store-line-light); }
 .hot-item:last-child { border-bottom:0; }
@@ -1288,10 +1288,10 @@ onBeforeUnmount(() => {
 .hot-item:nth-child(2) .hot-rank { background:var(--farm-green-soft);color:var(--farm-green-deep); }
 .hot-emoji { width:44px;height:44px;border-radius:9px;display:block;flex-shrink:0;background:var(--mobile-surface-subtle); }
 .hot-main { min-width:0; }
-.hot-main text,.hot-main small { display:block; }
+.hot-main text,.hot-main .meta { display:block; }
 .hot-main text { font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-.hot-main small { margin-top:4px;color:var(--farm-muted);font-size:12px; }
-.hot-item strong { font-size:13px;color:var(--farm-red);white-space:nowrap; }
+.hot-main .meta { margin-top:4px;color:var(--farm-muted);font-size:12px; }
+.hot-item .val { font-size:13px;color:var(--farm-red);white-space:nowrap; }
 .quick-grid .ui-icon { opacity:.7; }
 .member-footer { margin-top:16px;padding-bottom:8px;text-align:center;color:var(--farm-muted);font-size:12px; }
 
@@ -1300,12 +1300,12 @@ onBeforeUnmount(() => {
 .contact-hero { padding:10px 0 4px;background:transparent;border-radius:0;color:var(--farm-ink);text-align:center; }
 .contact-hero .ui-icon { margin:0 auto; }
 .contact-hero text { display:block;margin-top:0;font-size:15px;font-weight:800; }
-.contact-hero small { display:block;margin-top:5px;font-size:12px;opacity:1;color:var(--farm-muted);line-height:1.5; }
+.contact-hero .meta { display:block;margin-top:5px;font-size:12px;opacity:1;color:var(--farm-muted);line-height:1.5; }
 .contact-phone-mark { width:64px;height:64px;margin:12px auto 0;border-radius:50%;background:var(--farm-green-soft);color:var(--farm-green);display:grid;place-items:center; }
 .contact-rows { margin-top:14px;display:grid;background:var(--mobile-surface-subtle);border:0;border-radius:12px;overflow:hidden;padding:11px 13px;gap:9px; }
 .contact-row { min-height:auto;padding:0;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:0; }
 .contact-row:last-child { border:0; }
-.contact-row small { color:var(--farm-muted);font-size:13px;flex:none; }
+.contact-row .meta { color:var(--farm-muted);font-size:13px;flex:none; }
 .contact-row text { min-width:0;font-size:13px;font-weight:800;text-align:right;word-break:break-all; }
 .contact-actions { margin-top:0;display:grid;grid-template-columns:1fr 1fr;gap:10px; }
 .contact-actions .primary-button,
@@ -1317,7 +1317,7 @@ onBeforeUnmount(() => {
 /* ===== 收货地址 ===== */
 .address-sheet { padding-top:2px; }
 .address-card { padding:11px 13px;background:var(--mobile-surface-subtle);border:0;border-radius:12px;display:grid;gap:9px; }
-.address-card small { color:var(--farm-muted);font-size:13px; }
+.address-card .meta { color:var(--farm-muted);font-size:13px; }
 .address-card text { font-size:13px;font-weight:800;line-height:1.5; }
 .address-note { display:flex;gap:6px;margin:10px 0 0;color:var(--farm-muted);font-size:12px;line-height:1.6; }
 
@@ -1398,7 +1398,7 @@ onBeforeUnmount(() => {
 .login-panel{margin-top:auto;width:100%;background:var(--mobile-surface);border-radius:26px 26px 0 0;box-shadow:var(--store-shadow-hero)}
 .login-body{padding:26px 24px 28px}
 .login-roles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
-.login-roles button{min-height:var(--mobile-touch-target);height:auto;padding:4px 8px;border:1px solid var(--color-line);border-radius:12px;background:var(--mobile-surface);color:var(--farm-muted);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.login-roles button{min-height:var(--mobile-touch-target);height:auto;padding:4px 8px;border:1px solid var(--store-line);border-radius:12px;background:var(--mobile-surface);color:var(--farm-muted);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
 .login-roles button.active{background:var(--store-gradient);border-color:transparent;color:var(--store-on-brand);font-weight:800}
 .login-tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--mobile-surface-subtle);border-radius:12px;padding:4px;gap:4px;margin-bottom:0}
 .login-tabs button{flex:1;min-height:var(--mobile-touch-target);height:auto;padding:3px 8px;border-radius:9px;font-size:14px;font-weight:700;color:var(--farm-muted);display:flex;align-items:center;justify-content:center}
@@ -1453,7 +1453,7 @@ onBeforeUnmount(() => {
 .cat-add .ui-icon { filter:brightness(0) invert(1); }
 .cat-add[disabled] { background:var(--store-disabled); }
 
-/* ===== 购物车页 ===== */
+/* ===== 进货车页 ===== */
 .cart-page-body { padding-top:0; }
 .cart-row { display:grid;grid-template-columns:21px 64px minmax(0,1fr);gap:10px;align-items:stretch;padding:11px;background:var(--mobile-surface);border:1px solid var(--store-line);border-radius:var(--mobile-radius-card);box-shadow:var(--mobile-shadow-card);margin-bottom:10px; }
 .cart-row.unavailable { opacity:.64; }
@@ -1480,7 +1480,7 @@ onBeforeUnmount(() => {
 .cart-all-check .ui-icon { opacity:0; }
 .cart-all-check.on .ui-icon { opacity:1; }
 .cart-footer-total { flex:1;min-width:0;display:flex;align-items:baseline;justify-content:center;gap:4px;color:var(--farm-muted);font-size:12px;white-space:nowrap; }
-.cart-footer-total strong { font-size:16px;font-weight:800;color:var(--farm-red); }
+.cart-footer-total .val { font-size:16px;font-weight:800;color:var(--farm-red); }
 .cart-footer-total .cart-selected-count { color:var(--farm-ink);font-size:13px; }
 .cart-footer-total .cart-total-amount { font-size:19px; }
 .cart-del { min-height:34px;height:34px;padding:0 12px;border-radius:var(--mobile-radius-pill);border:1px solid var(--store-line);color:var(--farm-muted);background:var(--mobile-surface);font-size:13px;font-weight:700;display:inline-flex;align-items:center;justify-content:center; }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildDashboardSnapshot, dashboardModulesForRole, type DashboardDataSource } from './dashboard'
+import { buildDashboardSnapshot, compareTrendWindows, dashboardModulesForRole, type DashboardDataSource } from './dashboard'
 
 const now = new Date('2026-08-25T12:00:00+08:00')
 
@@ -31,7 +31,7 @@ function source(): DashboardDataSource {
         productCount: 1, qualification: { businessLicense: 'ok', permit: 'ok', validUntil: '2026-09-10', reviewNote: '' }
       }
     ],
-    promoters: [{ id: 'P1', name: '主播甲', level: '金牌', fans: 100, orders: 12, gmv: 900, commission: 30, status: 'active' }],
+    promoters: [{ id: 'P1', name: '业务员甲', level: '金牌', fans: 100, orders: 12, gmv: 900, commission: 30, status: 'active' }],
     catalog: {
       schemaVersion: 2,
       revision: 1,
@@ -62,6 +62,29 @@ function source(): DashboardDataSource {
     afterSales: [{ id: 'AS1', orderId: 'CO1', status: 'processing', amount: 10 }]
   }
 }
+
+describe('compareTrendWindows', () => {
+  it('computes period-over-period deltas for the same window length', () => {
+    const current = [{ amount: 120, orderCount: 12 }, { amount: 80, orderCount: 8 }]
+    const previous = [{ amount: 100, orderCount: 10 }, { amount: 0, orderCount: 0 }]
+    expect(compareTrendWindows(current, previous)).toEqual({
+      currentAmount: 200, currentOrders: 20, previousAmount: 100, previousOrders: 10,
+      amountDeltaPercent: 100, orderDeltaPercent: 100
+    })
+  })
+
+  it('returns null deltas for an empty previous window and handles flat or declining windows', () => {
+    expect(compareTrendWindows([{ amount: 50, orderCount: 5 }], [])).toMatchObject({
+      currentAmount: 50, previousAmount: 0, amountDeltaPercent: null, orderDeltaPercent: null
+    })
+    expect(compareTrendWindows([{ amount: 75, orderCount: 3 }], [{ amount: 100, orderCount: 4 }])).toMatchObject({
+      amountDeltaPercent: -25, orderDeltaPercent: -25
+    })
+    expect(compareTrendWindows([{ amount: 100, orderCount: 4 }], [{ amount: 100, orderCount: 4 }])).toMatchObject({
+      amountDeltaPercent: 0, orderDeltaPercent: 0
+    })
+  })
+})
 
 describe('dashboard snapshot aggregator', () => {
   it('builds city and farm profiles from administrative codes instead of free-text city names', () => {

@@ -13,10 +13,12 @@ function templateOf(source: string) {
 
 describe('用户端商城设计稿视觉契约', () => {
 
-  it('页面样式不引入小程序不支持的裸 em 标签选择器', () => {
+  it('页面样式不引入小程序不支持的 em/small/strong/span/del 标签选择器', () => {
     for (const page of [indexPage, operationsPage]) {
       const styles = page.match(/<style[^>]*>([\s\S]*?)<\/style>/)?.[1] || ''
       expect(styles).not.toMatch(/(?:^|[,{}])\s*(?:[.#]?[\w-]+(?:\s+[>.]?[.#]?[\w-]+)*\s+)?em\s*[,{]/m)
+      // 小程序会把 small/strong/span/del 编译成 view，标签选择器必须改用语义 class
+      expect(styles).not.toMatch(/(^|[\s,>+~])(small|strong|span|del)(?=[.:#[\s,>+~{]|$)/m)
     }
   })
 
@@ -118,8 +120,8 @@ describe('用户端商城设计稿视觉契约', () => {
     for (const type of ['income', 'fans', 'orders', 'performance']) {
       expect(operationsPage).toContain(`data-operation-view="${type}"`)
     }
-    expect(operationsPage).toMatch(/\.list-row\s*>\s*strong\s*\{[^}]*max-width:/s)
-    expect(operationsPage).toMatch(/\.metric-grid strong,[\s\S]*?word-break:\s*break-all/s)
+    expect(operationsPage).toMatch(/\.list-row\s*>\s*\.val\s*\{[^}]*max-width:/s)
+    expect(operationsPage).toMatch(/\.metric-grid \.val,[\s\S]*?word-break:\s*break-all/s)
   })
 
   it('普通用户直接打开运营页时只显示无推广身份空态', () => {
@@ -128,7 +130,7 @@ describe('用户端商城设计稿视觉契约', () => {
     expect(operationsPage).toContain('projectDistributorOperations')
     expect(indexPage).toContain('<template v-if="store.currentDistributor">')
     expect(operationsPage).toMatch(/\.no-distributor \.primary-btn\s*\{[^}]*min-height:\s*44px[^}]*display:\s*inline-flex[^}]*align-items:\s*center[^}]*justify-content:\s*center/s)
-    expect(operationsPage).toMatch(/\.no-distributor small\s*\{[^}]*font-size:\s*12px/s)
+    expect(operationsPage).toMatch(/\.no-distributor \.meta\s*\{[^}]*font-size:\s*12px/s)
   })
 
   it('弹层无拖条，底部固定区不遮挡内容', () => {
@@ -245,7 +247,7 @@ describe('用户端商城设计稿视觉契约', () => {
     expect(indexPage).toMatch(/\.cart-page\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/s)
     expect(indexPage).toMatch(/\.cart-page\s*\{[^}]*min-height:\s*100vh/s)
     expect(indexPage).toMatch(/\.cart-page-content\s*\{[^}]*flex:\s*1/s)
-    expect(indexPage).toMatch(/\.page-content\.cart-page:has\(\.cart-checkout\)\s*\{[^}]*--mobile-action-bar-height/s)
+    expect(indexPage).toMatch(/\.page-content\.cart-page\.cart-page--has-checkout\s*\{[^}]*--mobile-action-bar-height/s)
     expect(indexPage).toMatch(/\.cart-line-main\s*>\s*text\s*\{[^}]*text-overflow:\s*ellipsis/s)
     expect(indexPage).toMatch(/<\/view>\s*<view v-if="store.cart.length" class="cart-checkout cart-page-checkout"/)
     expect(indexPage).toMatch(/@media \(max-width: 375px\)[\s\S]*\.waiting-copy \{[^}]*width:\s*100%/)

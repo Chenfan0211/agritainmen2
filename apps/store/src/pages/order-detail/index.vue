@@ -9,34 +9,34 @@
     <view v-if="order" class="page-body">
       <view v-if="order.status === 'pending-payment'" class="detail-card payment-countdown">
         <text class="countdown-title">等待付款</text>
-        <strong class="countdown-time">{{ countdownText }}</strong>
+        <strong class="countdown-time val">{{ countdownText }}</strong>
         <text class="countdown-tip">请在 15 分钟内完成支付，超时订单将自动取消并释放库存</text>
       </view>
 
       <view v-else-if="fulfillmentStatus" class="detail-card">
         <view class="steps">
-          <view v-for="(step, index) in purchaseSteps" :key="step" class="step" :class="{ done: stepIndex >= index, current: step === fulfillmentStatus }"><view class="step-dot">{{ index + 1 }}</view><small>{{ storeOrderStatusLabel(step as StoreOrderStatus) }}</small></view>
+          <view v-for="(step, index) in purchaseSteps" :key="step" class="step" :class="{ done: stepIndex >= index, current: step === fulfillmentStatus }"><view class="step-dot">{{ index + 1 }}</view><small class="meta">{{ storeOrderStatusLabel(step as StoreOrderStatus) }}</small></view>
         </view>
       </view>
 
       <view class="detail-card">
         <view class="section-head"><text class="card-title">商品明细</text><text class="section-meta">{{ order.items.length }} 款 · {{ order.itemCount }} 件</text></view>
         <view class="order-lines">
-          <view v-for="item in order.items" :key="`${item.productId}-${item.skuId}`" class="order-line"><BusinessImage class="line-image" :src="item.image" mode="aspectFill" /><view class="line-main"><text class="line-name">{{ item.name }}</text><text class="line-spec">{{ item.skuName }} × {{ item.quantity }}</text><text class="line-unit">{{ money(item.price) }} / 件</text></view><strong class="line-amount">{{ money(item.price * item.quantity) }}</strong></view>
+          <view v-for="item in order.items" :key="`${item.productId}-${item.skuId}`" class="order-line"><BusinessImage class="line-image" :src="item.image" mode="aspectFill" /><view class="line-main"><text class="line-name">{{ item.name }}</text><text class="line-spec">{{ item.skuName }} × {{ item.quantity }}</text><text class="line-unit">{{ money(item.price) }} / 件</text></view><strong class="line-amount val">{{ money(item.price * item.quantity) }}</strong></view>
         </view>
       </view>
 
       <view class="detail-card amount-card">
-        <view class="amount-row"><text>商品合计</text><strong>{{ money(order.amount) }}</strong></view>
-        <view v-if="order.saved" class="amount-row"><text>较零售节省</text><strong class="saving">-{{ money(order.saved) }}</strong></view>
-        <view v-if="order.remark" class="amount-row remark-row"><text>订单备注</text><strong>{{ order.remark }}</strong></view>
-        <view v-if="order.trackingNo" class="amount-row"><text>运单号</text><strong>{{ order.trackingNo }}</strong></view>
+        <view class="amount-row"><text>商品合计</text><strong class="val">{{ money(order.amount) }}</strong></view>
+        <view v-if="order.saved" class="amount-row"><text>较零售节省</text><strong class="saving val">-{{ money(order.saved) }}</strong></view>
+        <view v-if="order.remark" class="amount-row remark-row"><text>订单备注</text><strong class="val">{{ order.remark }}</strong></view>
+        <view v-if="order.trackingNo" class="amount-row"><text>运单号</text><strong class="val">{{ order.trackingNo }}</strong></view>
       </view>
 
       <view class="detail-card">
         <view class="section-head"><text class="card-title">订单进度</text><text class="section-meta">{{ displayStatus }}</text></view>
         <view class="logistics">
-          <view v-for="event in order.logistics" :key="`${event.time}-${event.title}`" class="log-event"><view class="log-dot"></view><view><text>{{ event.title }}</text><small>{{ event.time }} · {{ event.detail }}</small></view></view>
+          <view v-for="event in order.logistics" :key="`${event.time}-${event.title}`" class="log-event"><view class="log-dot"></view><view><text>{{ event.title }}</text><small class="meta">{{ event.time }} · {{ event.detail }}</small></view></view>
         </view>
       </view>
 
@@ -148,8 +148,8 @@ async function advanceOrder() { if (!order.value || !await store.advanceOrder(or
 .step-dot { width:23px;height:23px;border-radius:50%;display:grid;place-items:center;background:var(--store-line);color:var(--farm-muted);font-size:12px;font-weight:800;position:relative;z-index:1; }
 .step.done .step-dot { background:var(--farm-green);color:var(--store-on-brand); }
 .step.current .step-dot { box-shadow:0 0 0 4px var(--farm-green-soft); }
-.step small { color:var(--farm-muted);font-size:12px;text-align:center;white-space:nowrap; }
-.step.done small { color:var(--farm-green);font-weight:800; }
+.step .meta { color:var(--farm-muted);font-size:12px;text-align:center;white-space:nowrap; }
+.step.done .meta { color:var(--farm-green);font-weight:800; }
 .order-lines { display:grid;gap:12px; }
 .order-line { display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:10px;align-items:center; }
 .line-image { width:64px;height:64px;border-radius:10px;overflow:hidden;background:var(--mobile-surface-subtle); }
@@ -159,15 +159,15 @@ async function advanceOrder() { if (!order.value || !await store.advanceOrder(or
 .line-amount { align-self:end;color:var(--farm-red);font-size:15px;font-weight:800;white-space:nowrap; }
 .amount-card { display:grid;gap:11px; }
 .amount-row { display:flex;align-items:flex-start;justify-content:space-between;gap:12px;color:var(--farm-muted);font-size:13px; }
-.amount-row strong { color:var(--farm-ink);font-size:14px;font-weight:800;text-align:right; }
+.amount-row .val { color:var(--farm-ink);font-size:14px;font-weight:800;text-align:right; }
 .amount-row .saving { color:var(--farm-green); }
-.remark-row strong { max-width:68%;line-height:1.5; }
+.remark-row .val { max-width:68%;line-height:1.5; }
 .logistics { display:grid;gap:0; }
 .log-event { display:grid;grid-template-columns:18px minmax(0,1fr);gap:8px;position:relative;padding-bottom:15px; }
 .log-event:not(:last-child)::after { content:"";position:absolute;left:5px;top:12px;bottom:0;width:1px;background:var(--store-line); }
 .log-dot { width:11px;height:11px;margin-top:2px;border:2px solid var(--farm-green);border-radius:50%;background:var(--mobile-surface);position:relative;z-index:1; }
 .log-event text { display:block;font-size:13px;font-weight:800; }
-.log-event small { display:block;margin-top:4px;color:var(--farm-muted);font-size:12px;line-height:1.5; }
+.log-event .meta { display:block;margin-top:4px;color:var(--farm-muted);font-size:12px;line-height:1.5; }
 .after-sale-status { padding:12px 14px;border-radius:12px;background:var(--store-info-soft);color:var(--store-info);font-size:13px;font-weight:800; }
 .empty-order { min-height:50vh;display:grid;place-items:center;align-content:center;gap:12px;color:var(--farm-muted); }
 .empty-order button { min-height:40px;padding:0 18px;border-radius:var(--mobile-radius-pill);background:var(--farm-green);color:var(--store-on-brand);font-weight:800; }

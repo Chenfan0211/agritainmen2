@@ -197,6 +197,85 @@ describe('C端商城 user store', () => {
     expect(readCatalogTransactionJournal()[`${orderId}:release`]).toBeUndefined()
   })
 
+  it('exposes distributor profiles from the shared store and rejects invalid cart or address input', async () => {
+    const store = allowedStore()
+    store.$patch({ userId: 'U-NEG', auth: { isLoggedIn: true, openid: 'openid-neg' } })
+    await store.initialize()
+    expect(store.distributorProfiles).toEqual(readCDistributorProfiles() || {})
+    expect(writeCDistributorProfiles({ 'U-NEG': { userId: 'U-NEG', promoterId: 'T001', level: 'level1', status: 'active' } })).toBe(true)
+    store.distributorTick += 1
+    expect(store.distributorProfiles['U-NEG']).toMatchObject({ promoterId: 'T001' })
+
+    expect(store.changeCart('MISSING', 'MISSING-SKU', 1)).toBe(false)
+    expect(store.changeCart(store.cProducts[0].id, store.cProducts[0].skus[0].id, 0)).toBe(false)
+    expect(store.setDefaultAddress('ADDR-MISSING')).toBe(false)
+  })
+
+  it('removes cart lines idempotently and persists the trimmed cart', async () => {
+    expect(writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 1, products: [catalogProduct('RM-A'), catalogProduct('RM-B')] })).toBe(true)
+    const store = allowedStore()
+    store.$patch({ userId: 'U-RM', auth: { isLoggedIn: true, openid: 'openid-rm' } })
+    await store.initialize()
+    expect(store.addToCart('RM-A', 'RM-A-SKU')).toBe(true)
+    expect(store.addToCart('RM-B', 'RM-B-SKU')).toBe(true)
+
+    store.removeFromCart('RM-A', 'RM-A-SKU')
+    expect(store.cart.map((line) => line.productId)).toEqual(['RM-B'])
+    store.removeFromCart('RM-A', 'RM-A-SKU')
+    expect(store.cart.map((line) => line.productId)).toEqual(['RM-B'])
+    expect(readCUserSession('U-RM')?.cart.map((line) => line.productId)).toEqual(['RM-B'])
+  })
+
+  it('signs in through the WeChat entry point, reuses the mock openid and clears session-bound state', async () => {
+    const store = useUserStore()
+    store.$patch({
+      cart: [{ productId: 'STALE', skuId: 'STALE-SKU', name: '旧商品', skuName: '默认', image: '', quantity: 1, unitPrice: 10, basePrice: 6, level1Commission: 2, level2Commission: 2, supplierId: 'S002' }] as never,
+      orders: [{ id: 'STALE-ORDER' }] as never
+    })
+
+    const first = await store.wechatLogin()
+    expect(store.auth).toEqual({ isLoggedIn: true, openid: first.openid })
+    expect(first.userId).toBe(store.userId)
+    expect(first.userId).toBeTruthy()
+    expect(store.cart).toEqual([])
+    expect(store.orders).toEqual([])
+    expect(store.addresses).toEqual([])
+
+    const second = await store.wechatLogin()
+    expect(second.openid).toBe(first.openid)
+    expect(second.userId).toBe(first.userId)
+  })
+
+  it('recovers a confirmed payment attempt through the direct recovery entry point', async () => {
+    const createPayment = vi.fn().mockResolvedValue({ ok: true, value: { transactionId: 'PAY-DIRECT-RECOVER' } })
+    const queryPayment = vi.fn().mockResolvedValue({ ok: true, value: { status: 'confirmed', transactionId: 'PAY-DIRECT-RECOVER' } })
+    configurePlatformProviders({ payment: { createPayment, queryPayment } })
+    const store = allowedStore()
+    await store.initialize()
+    store.$patch({ userId: 'U-DIRECT-RECOVER', auth: { isLoggedIn: true, openid: 'openid-direct-recover' } })
+    store.setAddress({ receiver: '直接恢复用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
+    store.addToCart(store.cProducts[0].id, store.cProducts[0].skus[0].id)
+    expect(await store.submitOrder()).toBe(true)
+    const order = store.orders[0]
+    const operationId = `payment:${order.id}`
+
+    const originalSetItem = localStorage.setItem.bind(localStorage)
+    let failed = false
+    localStorage.setItem = ((key: string, value: string) => {
+      if (!failed && key === PLATFORM_ORDERS_STORAGE_KEY) { failed = true; throw new Error('supplier write failed') }
+      originalSetItem(key, value)
+    }) as Storage['setItem']
+    expect(await store.payOrder(order.id)).toBe(false)
+    localStorage.setItem = originalSetItem
+    const attempt = readPaymentAttempts()[operationId]
+    expect(attempt).toMatchObject({ status: 'confirmed', providerTransactionId: 'PAY-DIRECT-RECOVER' })
+
+    expect(await store.recoverConfirmedPaymentAttempt(attempt!)).toBe(true)
+    expect(readCOrders()![order.id]).toMatchObject({ status: 'paid', providerTransactionId: 'PAY-DIRECT-RECOVER' })
+    expect(readPaymentAttempts()[operationId]).toMatchObject({ status: 'synchronized' })
+    expect(readPlatformRecoveryQueue().filter((task) => task.operationId === `payment-confirmation:${operationId}` && task.status === 'pending')).toEqual([])
+  })
+
   it('uses the SKU MOQ for first add and snapshots it on the order item', async () => {
     const product = catalogProduct('MOQ-FIRST', { skus: [{ id: 'MOQ-FIRST-SKU', name: '整箱', image: '/static/images/field.webp', retailPrice: 100, cost: 60, stock: 8, level1Amount: 10, level2Amount: 15, minimumOrderQuantity: 3 }] })
     expect(writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 1, products: [product] })).toBe(true)

@@ -36,35 +36,35 @@ function withdraw() {
   <view class="operation-page" :data-visual-view="`user-operations-${type}`">
     <view class="operation-header theme-head"><button class="page-back" aria-label="返回" @click="back"><UiIcon name="arrow-left" :size="21" /></button><text>{{ title }}</text><view></view></view>
 
-    <view v-if="!store.currentDistributor" class="empty no-distributor pc-empty" data-visual-state="user-operations-no-distributor"><view class="pc-state-icon"><UiIcon name="shield-check" :size="28" /></view><text>当前身份暂无推广数据</text><small>成为一级/二级团长后可查看收入、下级用户和团队业绩</small><button class="primary-btn" @click="back">返回个人中心</button></view>
+    <view v-if="!store.currentDistributor" class="empty no-distributor pc-empty" data-visual-state="user-operations-no-distributor"><view class="pc-state-icon"><UiIcon name="shield-check" :size="28" /></view><text>当前身份暂无推广数据</text><small class="meta">成为一级/二级团长后可查看收入、下级用户和团队业绩</small><button class="primary-btn" @click="back">返回个人中心</button></view>
 
     <template v-else>
     <template v-if="type === 'income'">
-      <view class="income-hero" data-operation-view="income"><small>可提现金额（元）</small><strong>{{ store.availableCommission.toFixed(2) }}</strong><button :disabled="store.availableCommission <= 0" @click="withdraw">提现</button></view>
-      <view class="metric-grid"><view><small>累计收入</small><strong>¥{{ (settledIncome + store.pendingCommission).toFixed(2) }}</strong></view><view><small>已结算</small><strong>¥{{ settledIncome.toFixed(2) }}</strong></view><view><small>待结算</small><strong>¥{{ store.pendingCommission.toFixed(2) }}</strong></view><view><small>已提现</small><strong>¥{{ withdrawnIncome.toFixed(2) }}</strong></view></view>
+      <view class="income-hero" data-operation-view="income"><small class="meta">可提现金额（元）</small><strong class="val">{{ store.availableCommission.toFixed(2) }}</strong><button :disabled="store.availableCommission <= 0" @click="withdraw">提现</button></view>
+      <view class="metric-grid"><view><small class="meta">累计收入</small><strong class="val">¥{{ (settledIncome + store.pendingCommission).toFixed(2) }}</strong></view><view><small class="meta">已结算</small><strong class="val">¥{{ settledIncome.toFixed(2) }}</strong></view><view><small class="meta">待结算</small><strong class="val">¥{{ store.pendingCommission.toFixed(2) }}</strong></view><view><small class="meta">已提现</small><strong class="val">¥{{ withdrawnIncome.toFixed(2) }}</strong></view></view>
       <view class="section-title">收入明细</view>
       <view v-if="!store.myCommissionRecords.length" class="empty pc-empty"><view class="pc-state-icon"><UiIcon name="badge-dollar-sign" :size="26" /></view><text>暂无收入记录</text></view>
-      <view v-for="record in store.myCommissionRecords" :key="record.id" class="list-row"><view><text>{{ record.beneficiaryLevel === 'level1' ? '一级团长分佣' : '二级团长分佣' }}</text><small>{{ formatDate(record.createdAt) }} · {{ record.status === 'available' ? '可提现' : record.status === 'pending' ? '待结算' : record.status === 'withdrawn' ? '已提现' : '已冲正' }}</small></view><strong>¥{{ record.amount.toFixed(2) }}</strong></view>
+      <view v-for="record in store.myCommissionRecords" :key="record.id" class="list-row"><view><text>{{ record.beneficiaryLevel === 'level1' ? '一级团长分佣' : '二级团长分佣' }}</text><small class="meta">{{ formatDate(record.createdAt) }} · {{ record.status === 'available' ? '可提现' : record.status === 'pending' ? '待结算' : record.status === 'withdrawn' ? '已提现' : '已冲正' }}</small></view><strong class="val">¥{{ record.amount.toFixed(2) }}</strong></view>
     </template>
 
     <template v-else-if="type === 'fans'">
-      <view class="summary-line" data-operation-view="fans"><view><strong>{{ data.directFans.length }}</strong><small>直属用户</small></view><view><strong>{{ data.teamPromoterIds.length }}</strong><small>下级团长</small></view></view>
+      <view class="summary-line" data-operation-view="fans"><view><strong class="val">{{ data.directFans.length }}</strong><small class="meta">直属用户</small></view><view><strong class="val">{{ data.teamPromoterIds.length }}</strong><small class="meta">下级团长</small></view></view>
       <view v-if="!data.directFans.length" class="empty pc-empty"><view class="pc-state-icon"><UiIcon name="user-round-check" :size="26" /></view><text>暂无已绑定下级用户</text></view>
-      <view v-for="fan in data.directFans" :key="fan.userId" class="fan-row"><view class="fan-avatar">{{ fan.userId.slice(-1) }}</view><view><text>用户 {{ fan.userId }}</text><small>{{ formatDate(fan.boundAt) }}</small></view><text class="bound-tag">已绑定</text></view>
+      <view v-for="fan in data.directFans" :key="fan.userId" class="fan-row"><view class="fan-avatar">{{ fan.userId.slice(-1) }}</view><view><text>用户 {{ fan.userId }}</text><small class="meta">{{ formatDate(fan.boundAt) }}</small></view><text class="bound-tag">已绑定</text></view>
     </template>
 
     <template v-else-if="type === 'orders'">
-      <view class="summary-line" data-operation-view="orders"><view><strong>{{ data.personalOrders.length }}</strong><small>个人订单</small></view><view><strong>{{ data.teamOrders.length }}</strong><small>团队订单</small></view></view>
+      <view class="summary-line" data-operation-view="orders"><view><strong class="val">{{ data.personalOrders.length }}</strong><small class="meta">个人订单</small></view><view><strong class="val">{{ data.teamOrders.length }}</strong><small class="meta">团队订单</small></view></view>
       <view v-if="!data.teamOrders.length" class="empty pc-empty"><view class="pc-state-icon"><UiIcon name="package-check" :size="26" /></view><text>暂无有效团队订单</text></view>
-      <view v-for="order in data.teamOrders" :key="order.id" class="order-row"><view class="row-head"><text>{{ order.id }}</text><text>{{ orderStatus(order.status) }}</text></view><small>{{ formatDate(order.createdAt) }} · 推广链 {{ order.distributorChain?.join(' → ') }}</small><view class="row-foot"><text>有效业绩</text><strong>¥{{ order.effectiveAmount.toFixed(2) }}</strong></view></view>
+      <view v-for="order in data.teamOrders" :key="order.id" class="order-row"><view class="row-head"><text>{{ order.id }}</text><text>{{ orderStatus(order.status) }}</text></view><small class="meta">{{ formatDate(order.createdAt) }} · 推广链 {{ order.distributorChain?.join(' → ') }}</small><view class="row-foot"><text>有效业绩</text><strong class="val">¥{{ order.effectiveAmount.toFixed(2) }}</strong></view></view>
     </template>
 
     <template v-else>
-      <view class="performance-hero" data-operation-view="performance"><small>累计团队业绩（元）</small><strong>{{ data.teamPerformance.toFixed(2) }}</strong><view><text>{{ data.teamOrders.length }} 笔有效订单</text><text>{{ data.teamPromoterIds.length }} 名下级团长</text></view></view>
-      <view class="metric-grid performance-grid"><view><small>个人业绩</small><strong>¥{{ data.personalPerformance.toFixed(2) }}</strong></view><view><small>团队业绩</small><strong>¥{{ data.teamPerformance.toFixed(2) }}</strong></view></view>
+      <view class="performance-hero" data-operation-view="performance"><small class="meta">累计团队业绩（元）</small><strong class="val">{{ data.teamPerformance.toFixed(2) }}</strong><view><text>{{ data.teamOrders.length }} 笔有效订单</text><text>{{ data.teamPromoterIds.length }} 名下级团长</text></view></view>
+      <view class="metric-grid performance-grid"><view><small class="meta">个人业绩</small><strong class="val">¥{{ data.personalPerformance.toFixed(2) }}</strong></view><view><small class="meta">团队业绩</small><strong class="val">¥{{ data.teamPerformance.toFixed(2) }}</strong></view></view>
       <view class="section-title">业绩订单</view>
       <view v-if="!data.teamOrders.length" class="empty pc-empty"><view class="pc-state-icon"><UiIcon name="chart-no-axes-combined" :size="26" /></view><text>暂无团队业绩</text></view>
-      <view v-for="order in data.teamOrders" :key="order.id" class="list-row"><view><text>{{ order.id }}</text><small>{{ formatDate(order.createdAt) }}</small></view><strong>¥{{ order.effectiveAmount.toFixed(2) }}</strong></view>
+      <view v-for="order in data.teamOrders" :key="order.id" class="list-row"><view><text>{{ order.id }}</text><small class="meta">{{ formatDate(order.createdAt) }}</small></view><strong class="val">¥{{ order.effectiveAmount.toFixed(2) }}</strong></view>
     </template>
     </template>
   </view>
@@ -143,15 +143,15 @@ function withdraw() {
   box-shadow: var(--mobile-shadow-card);
 }
 
-.income-hero small,
-.performance-hero small {
+.income-hero .meta,
+.performance-hero .meta {
   display: block;
-  color: color-mix(in srgb, var(--color-on-brand) 80%, var(--color-brand-primary-dark));
+  color: var(--color-user-hero-muted);
   font-size: 12px;
 }
 
-.income-hero strong,
-.performance-hero strong {
+.income-hero .val,
+.performance-hero .val {
   display: block;
   overflow: hidden;
   margin-top: 10px;
@@ -201,21 +201,21 @@ function withdraw() {
   border-top: 1px solid var(--mobile-border);
 }
 
-.metric-grid small,
-.metric-grid strong,
-.summary-line small,
-.summary-line strong {
+.metric-grid .meta,
+.metric-grid .val,
+.summary-line .meta,
+.summary-line .val {
   display: block;
 }
 
-.metric-grid small,
-.summary-line small {
+.metric-grid .meta,
+.summary-line .meta {
   color: var(--mobile-muted);
   font-size: 12px;
 }
 
-.metric-grid strong,
-.summary-line strong {
+.metric-grid .val,
+.summary-line .val {
   max-width: 100%;
   overflow: hidden;
   margin-top: 6px;
@@ -259,9 +259,9 @@ function withdraw() {
 }
 
 .list-row text,
-.list-row small,
+.list-row .meta,
 .fan-row text,
-.fan-row small {
+.fan-row .meta {
   display: block;
 }
 
@@ -273,9 +273,9 @@ function withdraw() {
   font-weight: 800;
 }
 
-.list-row small,
-.fan-row small,
-.order-row small {
+.list-row .meta,
+.fan-row .meta,
+.order-row .meta {
   display: block;
   margin-top: 5px;
   color: var(--mobile-muted);
@@ -284,7 +284,7 @@ function withdraw() {
   word-break: break-all;
 }
 
-.list-row > strong {
+.list-row > .val {
   max-width: 42%;
   overflow: hidden;
   flex: none;
@@ -334,7 +334,7 @@ function withdraw() {
   padding: 24px 16px;
 }
 
-.no-distributor small {
+.no-distributor .meta {
   max-width: 280px;
   color: var(--mobile-muted);
   font-size: 12px;
@@ -399,7 +399,7 @@ function withdraw() {
   font-size: 12px;
 }
 
-.row-foot strong {
+.row-foot .val {
   color: var(--mobile-price);
   font-size: 17px;
   font-variant-numeric: tabular-nums;
@@ -407,7 +407,7 @@ function withdraw() {
 
 .performance-hero > view {
   margin-top: 15px;
-  color: color-mix(in srgb, var(--color-on-brand) 80%, var(--color-brand-primary-dark));
+  color: var(--color-user-hero-muted);
   font-size: 12px;
 }
 
@@ -447,8 +447,8 @@ body,
     padding: 18px;
   }
 
-  .income-hero strong,
-  .performance-hero strong {
+  .income-hero .val,
+  .performance-hero .val {
     font-size: 31px;
   }
 

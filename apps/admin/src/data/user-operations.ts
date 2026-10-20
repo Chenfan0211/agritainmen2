@@ -16,6 +16,8 @@ export interface AdminUserRow {
   phone: string
   registeredAt: string
   sourceChannel: string
+  /** 用户头像（清单「用户资料」：昵称、手机号、头像、注册时间、来源渠道）；缺省时列表回退首字头像。 */
+  avatar?: string
   levelLabel: string
   bindingStatusLabel: string
   level1Leader: string
@@ -59,10 +61,10 @@ export interface AdminUserConsumptionRow {
 }
 
 // 演示环境没有服务端用户目录，这里给出可演示的昵称 / 手机号 / 注册信息，未登记的用户按 ID 兜底展示。
-const demoUserDirectory: Record<string, { name: string; phone: string; registeredAt: string; sourceChannel: string }> = {
-  'U-DEMO-L1': { name: '李湘云', phone: '13873001122', registeredAt: '2026-06-12 10:20', sourceChannel: '团长推广' },
-  'U-DEMO-L2': { name: '周巧云', phone: '13873003344', registeredAt: '2026-06-18 15:40', sourceChannel: '上级团长推荐' },
-  'U-DEMO-NORMAL': { name: '王小满', phone: '13873005566', registeredAt: '2026-07-02 09:05', sourceChannel: '自然流量' }
+const demoUserDirectory: Record<string, { name: string; phone: string; registeredAt: string; sourceChannel: string; avatar?: string }> = {
+  'U-DEMO-L1': { name: '李湘云', phone: '13873001122', registeredAt: '2026-06-12 10:20', sourceChannel: '团长推广', avatar: '/static/images/field.webp' },
+  'U-DEMO-L2': { name: '周巧云', phone: '13873003344', registeredAt: '2026-06-18 15:40', sourceChannel: '上级团长推荐', avatar: '/static/images/tea.webp' },
+  'U-DEMO-NORMAL': { name: '王小满', phone: '13873005566', registeredAt: '2026-07-02 09:05', sourceChannel: '自然流量', avatar: '/static/images/peach.webp' }
 }
 
 const orderStatusLabels: Record<string, string> = {
@@ -139,6 +141,7 @@ export function buildAdminUsers(): AdminUserRow[] {
       phone: directory?.phone || '—',
       registeredAt: directory?.registeredAt || fallbackBindingTime || '—',
       sourceChannel: directory?.sourceChannel || (binding?.promoterId ? '团长推广' : binding?.staffAccountId ? '门店业务员推广' : '自然流量'),
+      avatar: directory?.avatar,
       levelLabel: profile ? leaderLevelLabel(profile.level) : '普通用户',
       bindingStatusLabel: profile ? (profile.status === 'active' ? '已绑定' : '已停用') : binding?.status === 'bound' ? '已绑定' : binding?.status === 'pending' ? '待绑定' : '未绑定',
       level1Leader: level1Leader ? leaderNameFor(level1Leader, promoterList) : '—',

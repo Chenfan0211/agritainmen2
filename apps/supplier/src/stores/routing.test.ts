@@ -849,13 +849,20 @@ describe('supplier routing workflow', () => {
     const secondOrder = routeOrder({ id: 'MULTI-ROUTE-B', storeId: 'F002', customer: '云上人家·门店' })
     expect(shared.writePlatformOrder(firstOrder)).toBe(true)
     expect(shared.writePlatformOrder(secondOrder)).toBe(true)
-    const now = new Date().toISOString()
-    const first = publishedRoute('D001', firstOrder.id)
+    // 同一用例内固定日期快照与时间基准，避免跨毫秒/跨天导致发布顺序与「今日线路」判定抖动
+    const today = shared.todayString()
+    const base = Date.parse(new Date().toISOString())
+    const first: DailyDeliveryRoute = {
+      ...publishedRoute('D001', firstOrder.id),
+      id: `ROUTE-S002-D001-${today}`, deliveryDate: today,
+      generatedAt: new Date(base).toISOString(), publishedAt: new Date(base).toISOString()
+    }
     const second: DailyDeliveryRoute = {
       ...publishedRoute('D001', secondOrder.id),
-      id: `ROUTE-S002-D001-SECOND-${shared.todayString()}`,
+      id: `ROUTE-S002-D001-SECOND-${today}`,
+      deliveryDate: today,
       stops: [{ storeId: 'F002', storeName: '云上人家·门店', address: '湖南省张家界市武陵源区云上村', longitude: 110.4792, latitude: 29.1171, orderIds: [secondOrder.id] }],
-      sourceOrderIds: [secondOrder.id], generatedAt: new Date(Date.parse(now) + 1).toISOString(), publishedAt: new Date(Date.parse(now) + 1).toISOString()
+      sourceOrderIds: [secondOrder.id], generatedAt: new Date(base + 60000).toISOString(), publishedAt: new Date(base + 60000).toISOString()
     }
     expect(shared.saveDailyDeliveryRoute(first, 0)).toMatchObject({ ok: true })
     expect(shared.saveDailyDeliveryRoute(second, 1)).toMatchObject({ ok: true })

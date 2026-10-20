@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
-import type { AdminAccount, AdminMenuKey, AdminPermissionCode, AdminRole, AfterSale, BusinessMediaValue, CatalogProduct, CatalogProductSubmission, CatalogState, Category, CCommissionAllocation, CDistributorProfile, CommissionRule, CommissionSettlementRecord, COrder, CProduct, DictGroup, DictItem, FarmAdministrativeAddress, FarmStore, GeocodeRequest, GeocodeResult, MockScenario, Order, PlatformAuditLogEntry, PlatformDictionaryState, PlatformEntities, PlatformJournalEntry, PlatformRecoveryHandlerKey, PlatformTransactionStep, PricePolicy, PriceTier, PricingDefaults, Product, Promoter, ShareConfig, StoreAccount, Supplier, SupplierAccount, SupplierSettlementRecord, WithdrawalRequestStatus, WriteResult } from '@agritainment/shared'
-import { addDictGroup as addSharedDictGroup, addDictItem as addSharedDictItem, ADMIN_SUPER_ROLE_ID, appendPlatformAuditLog, approveCatalogProductSubmission as approveSharedCatalogProductSubmission, authenticateAdmin, buildFarmAdministrativeAddress, buildPromoterAccountSeeds, buildSupplierAccountSeeds, canPublishPlatformDictionaries, CATALOG_PRODUCT_REVIEW_RECOVERY_HANDLER_KEY, catalogChannelFlags, catalogProductToCProduct, catalogProductToProduct, clearPlatformJson, cloneSeed, confirmCSubOrderReceiptAtSupplier, createCatalogProductReviewRecoveryHandlerRegistration, createCatalogProductSubmission, createGeocodeProviders, createId, createPlatformAuditLogEntry, createPlatformProductionRecoveryHandlerRegistration, createStrictSnapshotRecoveryHandlerRegistration, createUserAtomicRecoveryHandlerRegistrations, DEFAULT_PRICING_DEFAULTS, deriveCOrderStatus, DICTIONARY_SCHEMA_VERSION, emptyPlatformMedia, enqueuePlatformRecovery, ensureCatalogState, formatFarmAdministrativeAddress, geocodeAddress, getPlatformProviders, hasAdminMenu, hasAdminPermission, initializePlatformRecoveryHandlers, mergeEntitySeeds, mergePlatformAfterSales, mergePlatformEntities, mergePlatformOrders, mergePlatformPromoterAccounts, mergePlatformStoreAccounts, mergePlatformSupplierAccounts, migrateFarmAdministrativeAddress, normalizeCProducts, normalizeMediaReference, pendingShareTotal, persistPlatformEntity, PLATFORM_AFTERSALES_STORAGE_KEY, PLATFORM_AUDIT_LOG_STORAGE_KEY, PLATFORM_C_COMMISSIONS_STORAGE_KEY, PLATFORM_C_ORDERS_STORAGE_KEY, PLATFORM_CATALOG_PRODUCT_SUBMISSIONS_STORAGE_KEY, PLATFORM_CATALOG_STORAGE_KEY, PLATFORM_COMMISSION_RULES_STORAGE_KEY, PLATFORM_COMMISSION_SETTLEMENT_RECORDS_STORAGE_KEY, PLATFORM_ENTITIES_STORAGE_KEY, PLATFORM_ORDERS_STORAGE_KEY, PLATFORM_SETTLEMENTS_STORAGE_KEY, PLATFORM_SHARES_STORAGE_KEY, PLATFORM_SUPPLIER_SETTLEMENTS_STORAGE_KEY, preparePlatformJournal, readCatalogProductSubmissionState, readCatalogState, readCCommissionRecords, readCDistributorProfiles, readCInventoryState, readCOrders, readPlatformAdminAccounts, readPlatformAdminRoles, readPlatformAfterSales, readPlatformAuditLogs, readPlatformCollectionRevision, readPlatformCommissionRules, readPlatformCommissionSettlementRecords, readPlatformCommissionSettlements, readPlatformDictionaries, readPlatformDrivers, readPlatformEntities, readPlatformJournal, readPlatformJson, readPlatformMedia, readPlatformOrders, readPlatformPromoterAccountState, readPlatformRecoveryQueue, readPlatformStoreAccounts, readPlatformSupplierAccounts, readPlatformSupplierSettlements, readPlatformWithdrawals, readPricingDefaults, readShareConfig, readShareRecords, reconcilePendingPlatformTransactions, rejectCatalogProductSubmission as rejectSharedCatalogProductSubmission, removeDictGroup as removeSharedDictGroup, removeDictItem as removeSharedDictItem, resolvePlatformJournal, resolvePlatformRecoveryTask, retryPlatformRecoveryTask, round2, runLockedPlatformTransaction, saveCatalogProduct as persistCatalogProduct, seedCCommerceData, seedPlatformAdminSecurity, syncCSubOrderFromSupplier, todayString, updateDictGroup as updateSharedDictGroup, updateDictItem as updateSharedDictItem, upsertPlatformFarm, validatePhone, writeCatalogState, writeCCommissionRecords, writeCDistributorProfiles, writeCOrders, writePlatformAdminAccounts, writePlatformAdminRoles, writePlatformAfterSales, writePlatformCommissionRules, writePlatformCommissionSettlementRecords, writePlatformCommissionSettlements, writePlatformEntities, writePlatformJson, writePlatformMedia, writePlatformOrders, writePlatformPromoterAccounts, writePlatformStoreAccounts, writePlatformSupplierAccounts, writePlatformSupplierSettlements, writePricingDefaults, writeShareConfig, writeShareRecords } from '@agritainment/shared'
+import type { AdminAccount, AdminMenuKey, AdminPermissionCode, AdminRole, AfterSale, BusinessMediaValue, CatalogStockLogEntry, CatalogProduct, CatalogProductSubmission, CatalogState, Category, CCommissionAllocation, CDistributorProfile, CommissionRule, CommissionSettlementRecord, COrder, CProduct, DictGroup, DictItem, FarmAdministrativeAddress, FarmStore, GeocodeRequest, GeocodeResult, MockScenario, Order, PlatformAuditLogEntry, PlatformDictionaryState, PlatformEntities, PlatformJournalEntry, PlatformRecoveryHandlerKey, PlatformTransactionStep, PricePolicy, PriceTier, PricingDefaults, Product, Promoter, ShareConfig, StoreAccount, Supplier, SupplierAccount, SupplierSettlementRecord, WithdrawalRequestStatus, WriteResult } from '@agritainment/shared'
+import { addDictGroup as addSharedDictGroup, addDictItem as addSharedDictItem, ADMIN_SUPER_ROLE_ID, appendCatalogStockLogs, appendPlatformAuditLog, approveCatalogProductSubmission as approveSharedCatalogProductSubmission, authenticateAdmin, buildFarmAdministrativeAddress, buildPromoterAccountSeeds, buildSupplierAccountSeeds, canPublishPlatformDictionaries, CATALOG_PRODUCT_REVIEW_RECOVERY_HANDLER_KEY, catalogChannelFlags, catalogProductStockWarnings, catalogProductToCProduct, catalogSkuNeedsRestock, catalogProductToProduct, clearPlatformJson, cloneSeed, confirmCSubOrderReceiptAtSupplier, createCatalogProductReviewRecoveryHandlerRegistration, createCatalogProductSubmission, createGeocodeProviders, createId, createPlatformAuditLogEntry, createPlatformProductionRecoveryHandlerRegistration, createStrictSnapshotRecoveryHandlerRegistration, createUserAtomicRecoveryHandlerRegistrations, DEFAULT_PRICING_DEFAULTS, deriveCOrderStatus, DICTIONARY_SCHEMA_VERSION, emptyPlatformMedia, enqueuePlatformRecovery, ensureCatalogState, formatFarmAdministrativeAddress, geocodeAddress, getPlatformProviders, hasAdminMenu, hasAdminPermission, initializePlatformRecoveryHandlers, mergeEntitySeeds, mergePlatformAfterSales, mergePlatformEntities, mergePlatformOrders, mergePlatformPromoterAccounts, mergePlatformStoreAccounts, mergePlatformSupplierAccounts, migrateFarmAdministrativeAddress, normalizeCProducts, normalizeMediaReference, pendingShareTotal, persistPlatformEntity, PLATFORM_AFTERSALES_STORAGE_KEY, PLATFORM_AUDIT_LOG_STORAGE_KEY, PLATFORM_C_COMMISSIONS_STORAGE_KEY, PLATFORM_C_ORDERS_STORAGE_KEY, PLATFORM_CATALOG_PRODUCT_SUBMISSIONS_STORAGE_KEY, PLATFORM_CATALOG_STORAGE_KEY, PLATFORM_COMMISSION_RULES_STORAGE_KEY, PLATFORM_COMMISSION_SETTLEMENT_RECORDS_STORAGE_KEY, PLATFORM_ENTITIES_STORAGE_KEY, PLATFORM_ORDERS_STORAGE_KEY, PLATFORM_SETTLEMENTS_STORAGE_KEY, PLATFORM_SHARES_STORAGE_KEY, PLATFORM_SUPPLIER_SETTLEMENTS_STORAGE_KEY, preparePlatformJournal, readCatalogProductSubmissionState, readCatalogState, readCCommissionRecords, readCDistributorProfiles, readCInventoryState, readCOrders, readPlatformAdminAccounts, readPlatformAdminRoles, readPlatformAfterSales, readPlatformAuditLogs, readPlatformCollectionRevision, readPlatformCommissionRules, readPlatformCommissionSettlementRecords, readPlatformCommissionSettlements, readPlatformDictionaries, readPlatformDrivers, readPlatformEntities, readPlatformJournal, readPlatformJson, readPlatformMedia, readPlatformOrders, readPlatformPromoterAccountState, readPlatformRecoveryQueue, readPlatformStoreAccounts, readPlatformSupplierAccounts, readPlatformSupplierSettlements, readPlatformWithdrawals, readPricingDefaults, readShareConfig, readShareRecords, reconcilePendingPlatformTransactions, rejectCatalogProductSubmission as rejectSharedCatalogProductSubmission, removeDictGroup as removeSharedDictGroup, removeDictItem as removeSharedDictItem, resolvePlatformJournal, resolvePlatformRecoveryTask, retryPlatformRecoveryTask, round2, runLockedPlatformTransaction, saveCatalogProduct as persistCatalogProduct, seedCCommerceData, seedPlatformAdminSecurity, syncCSubOrderFromSupplier, todayString, updateDictGroup as updateSharedDictGroup, updateDictItem as updateSharedDictItem, upsertPlatformFarm, validatePhone, writeCatalogState, writeCCommissionRecords, writeCDistributorProfiles, writeCOrders, writePlatformAdminAccounts, writePlatformAdminRoles, writePlatformAfterSales, writePlatformCommissionRules, writePlatformCommissionSettlementRecords, writePlatformCommissionSettlements, writePlatformEntities, writePlatformJson, writePlatformMedia, writePlatformOrders, writePlatformPromoterAccounts, writePlatformStoreAccounts, writePlatformSupplierAccounts, writePlatformSupplierSettlements, writePricingDefaults, writeShareConfig, writeShareRecords } from '@agritainment/shared'
 import { PLATFORM_ADMIN_ACCOUNTS_STORAGE_KEY, PLATFORM_ADMIN_ROLES_STORAGE_KEY, PLATFORM_C_DISTRIBUTORS_STORAGE_KEY, PLATFORM_DICTIONARIES_STORAGE_KEY, PLATFORM_MEDIA_STORAGE_KEY, PLATFORM_PRICING_DEFAULTS_STORAGE_KEY, PLATFORM_PROMOTER_ACCOUNTS_STORAGE_KEY, PLATFORM_RECOVERY_QUEUE_STORAGE_KEY, PLATFORM_SHARE_CONFIG_STORAGE_KEY, PLATFORM_STORE_ACCOUNTS_STORAGE_KEY, PLATFORM_SUPPLIER_ACCOUNTS_STORAGE_KEY, PLATFORM_TRANSACTION_JOURNAL_STORAGE_KEY, PLATFORM_WITHDRAWALS_STORAGE_KEY } from '@agritainment/shared'
 import { demoAdminExportRecords, seedAdminDemoDataOnce } from '../data/demo-admin'
 import { adminRepository } from '../services/repository'
@@ -60,6 +60,7 @@ type AdminTodoItem = {
   date?: string
   amount?: number
   trackingNo?: string
+  skus?: Array<{ stock: number; warningThreshold?: number }>
   supplierFulfillment?: { shipType?: string; driverId?: string; trackingNo?: string }
 }
 
@@ -88,12 +89,28 @@ export function matchesAdminTodoItem(
     const driverId = item.supplierFulfillment?.driverId
     if (!driverId || drivers.find((driver) => driver.id === driverId)?.status === 'active') return false
   }
+  if (filters.stock === 'warning' && !(item.skus || []).some((sku) => catalogSkuNeedsRestock(sku))) return false
   if (filters.expired === 'true' && (!item.date || item.date >= todayString())) return false
   if (filters.amount === 'missing' && Number(item.amount) > 0) return false
   return true
 }
 
-function buildAdminTodos(state: Pick<AdminState, 'suppliers' | 'products' | 'productSubmissions' | 'orders' | 'afterSales' | 'supplierSettlementRecords' | 'commissionSettlementRecords'>): AdminTodo[] {
+/** 商品保存时对比同一 SKU 库存，产出库存变动流水（清单「库存变化记录」）。 */
+function buildCatalogStockLogs(current: CatalogState | null, payload: CatalogProduct, operator: string): CatalogStockLogEntry[] {
+  const previous = current?.products.find((product) => product.id === payload.id)
+  if (!previous) return []
+  const createdAt = new Date().toISOString()
+  return payload.skus.flatMap((sku) => {
+    const before = previous.skus.find((candidate) => candidate.id === sku.id)?.stock
+    if (before === undefined || before === sku.stock) return []
+    return [{
+      id: createId('SL'), productId: payload.id, skuId: sku.id, skuName: sku.name,
+      before, after: sku.stock, delta: sku.stock - before, reason: '商品库库存调整', operator, createdAt
+    }]
+  })
+}
+
+function buildAdminTodos(state: Pick<AdminState, 'suppliers' | 'products' | 'productSubmissions' | 'catalogProducts' | 'orders' | 'afterSales' | 'supplierSettlementRecords' | 'commissionSettlementRecords'>): AdminTodo[] {
   const todos: AdminTodo[] = []
   const add = (type: string, title: string, items: Array<{ id: string }>, route: AdminMenuKey, priority: AdminTodo['priority'], createdAt: string, filters?: Record<string, string>) => {
     if (!items.length) return
@@ -121,6 +138,10 @@ function buildAdminTodos(state: Pick<AdminState, 'suppliers' | 'products' | 'pro
   add('pending-shipment', `订单「${pendingOrders[0]?.id} · ${pendingOrders[0]?.productName}」待发货`, pendingOrders, 'orders', 'medium', pendingOrders[0]?.createdAt || '', { status: 'pending' })
   const activeAfterSales = state.afterSales.filter((item) => ['processing', 'refund-pending', 'return-pending'].includes(item.status))
   add('after-sale', `售后「${activeAfterSales[0]?.productName}」待处理`, activeAfterSales, 'afterSales', 'medium', activeAfterSales[0]?.history?.[0]?.time || '', { status: 'active' })
+
+  // 库存预警待办以商品为粒度：count / objectIds 与商品库「仅预警」筛选后的可见行一致。
+  const stockWarningProducts = state.catalogProducts.filter((product) => catalogProductStockWarnings(product).length > 0)
+  add('stock-warning', `商品「${stockWarningProducts[0]?.name}」库存低于预警阈值`, stockWarningProducts, 'products', 'medium', stableAdminCreatedAt([]), { stock: 'warning' })
 
   const withdrawals = Object.values(readPlatformWithdrawals() || {}).filter((item) => item.status === 'pending')
   add('withdrawal', `提现「${withdrawals[0]?.requesterId}」待审核`, withdrawals, 'commissions', 'medium', withdrawals[0]?.createdAt || '', { view: 'withdrawals', status: 'pending' })
@@ -157,6 +178,8 @@ function buildAdminTodos(state: Pick<AdminState, 'suppliers' | 'products' | 'pro
 
 type FarmSavePayload = {
   name: string
+  contact?: string
+  contactPhone?: string
   region?: string
   address?: string
   city?: string
@@ -1057,6 +1080,7 @@ export const useAdminStore = defineStore('operations', {
       const stale = !current || current.revision !== this.catalogRevision
       const expectedRevision = this.catalogRevision
       let next: CatalogState | null = null
+      const stockLogEntries = creating ? [] : buildCatalogStockLogs(current, payload, this.auth.name || this.auth.account || 'admin')
       const operationId = createId('OP-CATALOG-PRODUCT')
       if (creating) {
         const submissionState = readCatalogProductSubmissionState()
@@ -1103,6 +1127,8 @@ export const useAdminStore = defineStore('operations', {
       }
       if (!next) return { ok: false, error: '商品配置非法，请检查渠道、快递、佣金和 SKU 价格' }
       this.applyCatalogState(next)
+      // 库存流水为追加式记录，事务成功后写入；写失败不影响商品保存结果。
+      if (stockLogEntries.length) appendCatalogStockLogs(stockLogEntries)
       return { ok: true }
     },
     async toggleCatalogProduct(id: string) {
@@ -1461,7 +1487,7 @@ export const useAdminStore = defineStore('operations', {
       this.storeAccounts = nextAccounts
       return true
     },
-    async inviteSupplier(payload: { name: string; category: string; region?: string; contactPhone?: string; businessLicenseNumber?: string; businessLicense?: BusinessMediaValue | null; permitNumber?: string; permit?: BusinessMediaValue | null; validUntil?: string; coop?: boolean }): Promise<{ ok: boolean; error?: string }> {
+    async inviteSupplier(payload: { name: string; category: string; region?: string; contactPhone?: string; brands?: string[]; serviceRegions?: string[]; businessLicenseNumber?: string; businessLicense?: BusinessMediaValue | null; permitNumber?: string; permit?: BusinessMediaValue | null; validUntil?: string; coop?: boolean }): Promise<{ ok: boolean; error?: string }> {
       const entityRevision = readPlatformCollectionRevision(PLATFORM_ENTITIES_STORAGE_KEY)
       const phone = payload.contactPhone?.trim() || ''
       const duplicate = this.suppliers.some((item) => item.contactPhone === phone) || this.supplierAccounts.some((item) => item.account === phone)
@@ -1470,6 +1496,8 @@ export const useAdminStore = defineStore('operations', {
         id: createId('S'), name: payload.name.trim(), region: payload.region?.trim() || '待补充', category: payload.category,
         certified: false, status: 'pending', productCount: 0, coop: false,
         contactPhone: phone,
+        brands: payload.brands ?? [],
+        serviceRegions: payload.serviceRegions ?? (payload.region?.trim() ? [payload.region.trim()] : []),
         qualification: buildSupplierQualification({
           businessLicenseNumber: payload.businessLicenseNumber,
           businessLicense: payload.businessLicense,
@@ -1494,7 +1522,7 @@ export const useAdminStore = defineStore('operations', {
       this.suppliers.unshift(supplier)
       return { ok: true }
     },
-    async updateSupplier(id: string, payload: { name: string; category: string; region?: string; contactPhone?: string; businessLicenseNumber?: string; businessLicense?: BusinessMediaValue | null; permitNumber?: string; permit?: BusinessMediaValue | null; validUntil?: string; coop?: boolean; password?: string }): Promise<{ ok: boolean; error?: string }> {
+    async updateSupplier(id: string, payload: { name: string; category: string; region?: string; contactPhone?: string; brands?: string[]; serviceRegions?: string[]; businessLicenseNumber?: string; businessLicense?: BusinessMediaValue | null; permitNumber?: string; permit?: BusinessMediaValue | null; validUntil?: string; coop?: boolean; password?: string }): Promise<{ ok: boolean; error?: string }> {
       const entityRevision = readPlatformCollectionRevision(PLATFORM_ENTITIES_STORAGE_KEY)
       const accountRevision = readPlatformCollectionRevision(PLATFORM_SUPPLIER_ACCOUNTS_STORAGE_KEY)
       const item = this.suppliers.find((supplier) => supplier.id === id)
@@ -1505,6 +1533,8 @@ export const useAdminStore = defineStore('operations', {
       const previous = item ? { ...item, qualification: { ...item.qualification, attachments: item.qualification.attachments?.map((attachment) => ({ ...attachment })) } } : null
       const next: Supplier | null = previous ? { ...previous, name: payload.name.trim(), region: payload.region?.trim() || previous.region, category: payload.category, contactPhone: phone } : null
       if (next && payload.coop !== undefined) next.coop = payload.coop
+      if (next && payload.brands !== undefined) next.brands = payload.brands
+      if (next && payload.serviceRegions !== undefined) next.serviceRegions = payload.serviceRegions
       const currentQualification = item ? readSupplierQualificationFields(item.qualification) : null
       const hasBusinessLicense = Object.prototype.hasOwnProperty.call(payload, 'businessLicense')
       const hasPermit = Object.prototype.hasOwnProperty.call(payload, 'permit')
@@ -1656,7 +1686,10 @@ export const useAdminStore = defineStore('operations', {
         steps: [{ key: 'price-policy', apply: () => writePlatformEntities(target), rollback: () => writePlatformEntities(previous) }]
       })
       if (!result.ok || !item || !next) return false
-      Object.assign(item, next)
+      // 价格策略读写都以持久化集合为准，事务成功后同步内存列表，避免页面刷新前显示旧值
+      const livePolicy = this.policies.find((policy) => policy.id === id)
+      if (livePolicy) Object.assign(livePolicy, next)
+      else this.policies.unshift({ ...next })
       return true
     },
     async togglePolicy(id: string) {
@@ -1672,7 +1705,10 @@ export const useAdminStore = defineStore('operations', {
         steps: [{ key: 'price-policy', apply: () => writePlatformEntities(target), rollback: () => writePlatformEntities(previous) }]
       })
       if (!result.ok || !item || !next) return false
-      Object.assign(item, next)
+      // 价格策略读写都以持久化集合为准，事务成功后同步内存列表，避免页面刷新前显示旧值
+      const livePolicy = this.policies.find((policy) => policy.id === id)
+      if (livePolicy) Object.assign(livePolicy, next)
+      else this.policies.unshift({ ...next })
       return true
     },
     async shipOrder(id: string) {
@@ -1846,6 +1882,38 @@ export const useAdminStore = defineStore('operations', {
     },
     approveAfterSaleReturn(id: string) {
       return this.transitionAdminAfterSale(id, 'after-sale.approve-return', ['processing'], 'return-pending', '已同意退货，待退货')
+    },
+    /** 登记退回运单号（清单「退款与退货：…退货物流」）：状态不变，仅补录物流并留痕。 */
+    async recordAfterSaleReturnTracking(id: string, trackingNo: string) {
+      const value = trackingNo.trim()
+      const revision = readPlatformCollectionRevision(PLATFORM_AFTERSALES_STORAGE_KEY)
+      const previousAfterSales = { ...Object.fromEntries(this.afterSales.map((item) => [item.id, cloneSeed(item)])), ...(readPlatformAfterSales() || {}) }
+      const item = previousAfterSales[id]
+      const editable = !!item && ['processing', 'return-pending'].includes(item.status)
+      const validationError = !item ? '售后工单不存在' : !editable ? '当前状态不能登记退回运单号' : value.length < 6 || value.length > 32 ? '请输入 6-32 位退回运单号' : ''
+      const stamp = new Date()
+      const transitionTime = `${stamp.getFullYear()}-${String(stamp.getMonth() + 1).padStart(2, '0')}-${String(stamp.getDate()).padStart(2, '0')} ${String(stamp.getHours()).padStart(2, '0')}:${String(stamp.getMinutes()).padStart(2, '0')}`
+      const next = item && !validationError
+        ? { ...item, returnTrackingNo: value, history: [...(item.history || []), { time: transitionTime, action: `登记退回运单号 ${value}`, operator: this.auth.name || '运营管理员' }] }
+        : null
+      const nextAfterSales = next ? { ...previousAfterSales, [id]: next } : previousAfterSales
+      const operationId = `OP-ADMIN-AFTER-SALE-RETURN-${stableAdminSourceHash([id, value])}`
+      const result = await this.executeAdminTransaction('afterSale.manage', { module: 'afterSales', action: 'after-sale.return-tracking', targetType: 'after-sale', targetId: id, deniedMessage: '无权处理售后', validationMessage: validationError }, {
+        operationId,
+        collections: [PLATFORM_AFTERSALES_STORAGE_KEY, PLATFORM_AUDIT_LOG_STORAGE_KEY],
+        original: { afterSales: previousAfterSales, auditAction: 'after-sale.return-tracking' },
+        target: { afterSales: nextAfterSales, auditAction: 'after-sale.return-tracking' },
+        recoveryHandlerKey: 'admin-after-sale-v1',
+        recoverySchema: 'admin-after-sale-snapshot-v1',
+        revisionChecks: [{ key: PLATFORM_AFTERSALES_STORAGE_KEY, expectedRevision: revision }],
+        validate: () => !validationError && !!next,
+        steps: [{ key: 'after-sales', apply: () => writePlatformAfterSales(nextAfterSales), rollback: () => writePlatformAfterSales(previousAfterSales) }]
+      })
+      if (!result.ok || !next) return false
+      const index = this.afterSales.findIndex((afterSale) => afterSale.id === id)
+      if (index >= 0) this.afterSales[index] = next
+      else this.afterSales.unshift(next)
+      return true
     },
     async refundAfterSale(id: string) {
       this.error = ''
@@ -2041,7 +2109,7 @@ export const useAdminStore = defineStore('operations', {
       const entityRevision = readPlatformCollectionRevision(PLATFORM_ENTITIES_STORAGE_KEY)
       const address = resolveFarmAddress(payload)
       const createdFarm: FarmStore = {
-        id: createId('F'), name: payload.name.trim(), region: address?.region || '', distance: 0,
+        id: createId('F'), name: payload.name.trim(), contact: payload.contact?.trim(), contactPhone: payload.contactPhone?.trim(), region: address?.region || '', distance: 0,
         rating: payload.rating ?? 5, monthlySales: 0, averageSpend: payload.averageSpend ?? 0,
         status: payload.status ?? 'pending', selectedCount: 0, gmv: 0, image: normalizeMediaReference(payload.image) ?? { source: 'builtin', path: '/static/images/farmhouse.webp' },
         tags: payload.tags?.length ? payload.tags : ['新入驻'],
@@ -2084,6 +2152,8 @@ export const useAdminStore = defineStore('operations', {
       if (next && address) {
         const locationInputChanged = item!.address !== address.address || item!.regionCode !== address.regionCode
         next.name = payload.name.trim()
+        if (payload.contact !== undefined) next.contact = payload.contact.trim()
+        if (payload.contactPhone !== undefined) next.contactPhone = payload.contactPhone.trim()
         next.region = address.region
         next.city = address.city || next.city
         next.address = address.address
@@ -2127,11 +2197,11 @@ export const useAdminStore = defineStore('operations', {
       this.farms[itemIndex] = next
       return true
     },
-    async addPromoter(payload: { name: string; level: string; type?: string; status: Promoter['status'] }) {
+    async addPromoter(payload: { name: string; level: string; type?: string; region?: string; status: Promoter['status'] }) {
       const entityRevision = readPlatformCollectionRevision(PLATFORM_ENTITIES_STORAGE_KEY)
       const accountRevision = readPlatformCollectionRevision(PLATFORM_PROMOTER_ACCOUNTS_STORAGE_KEY)
       const promoter: Promoter = {
-        id: createId('T'), name: payload.name.trim(), level: payload.level.trim() || '普通业务员', type: payload.type,
+        id: createId('T'), name: payload.name.trim(), level: payload.level.trim() || '普通业务员', type: payload.type, region: payload.region?.trim() || undefined,
         fans: 0, orders: 0, gmv: 0, commission: 0, cumulativeCommission: 0, settled: false, status: payload.status
       }
       const persistedEntities = readPlatformEntities()
@@ -2158,12 +2228,12 @@ export const useAdminStore = defineStore('operations', {
       this.promoters.unshift(promoter)
       return true
     },
-    async updatePromoter(id: string, payload: { name: string; level: string; type?: string; status: Promoter['status'] }) {
+    async updatePromoter(id: string, payload: { name: string; level: string; type?: string; region?: string; status: Promoter['status'] }) {
       const entityRevision = readPlatformCollectionRevision(PLATFORM_ENTITIES_STORAGE_KEY)
       const accountRevision = readPlatformCollectionRevision(PLATFORM_PROMOTER_ACCOUNTS_STORAGE_KEY)
       const persistedEntities = readPlatformEntities()
       const item = persistedEntities?.promoters?.[id] || this.promoters.find((promoter) => promoter.id === id)
-      const next = item ? { ...item, name: payload.name.trim(), level: payload.level.trim() || item.level, type: payload.type || item.type, status: payload.status || item.status } : null
+      const next = item ? { ...item, name: payload.name.trim(), level: payload.level.trim() || item.level, type: payload.type || item.type, region: payload.region !== undefined ? (payload.region.trim() || undefined) : item.region, status: payload.status || item.status } : null
       const previousEntities: PlatformEntities = cloneSeed(persistedEntities || { updatedAt: new Date(0).toISOString() })
       const targetEntities = next ? { ...previousEntities, promoters: { ...(previousEntities.promoters || {}), [id]: next }, updatedAt: new Date().toISOString() } : previousEntities
       const accountState = readPlatformPromoterAccountState()

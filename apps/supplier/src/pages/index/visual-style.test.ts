@@ -336,8 +336,8 @@ describe('supplier mobile visual contract', () => {
     expect(styles).toMatch(/\.driver-aux-page\s*\{[^}]*grid-template-rows:\s*auto\s+minmax\(0,\s*1fr\)/s)
     expect(styles).toMatch(/\.driver-role-page\s+\.driver-route-card\.driver-section-card\s*\{[^}]*padding:\s*0/s)
     expect(styles).toMatch(/\.driver-route-name\s*\{[^}]*font-size:\s*var\(--text-title\)/s)
-    expect(styles).toMatch(/\.driver-route-metrics small\s*\{[^}]*font-size:\s*var\(--text-body\)/s)
-    expect(styles).toMatch(/\.driver-route-metrics strong\s*\{[^}]*font-size:\s*var\(--text-subtitle\)/s)
+    expect(styles).toMatch(/\.driver-route-metrics \.meta\s*\{[^}]*font-size:\s*var\(--text-body\)/s)
+    expect(styles).toMatch(/\.driver-route-metrics \.val\s*\{[^}]*font-size:\s*var\(--text-subtitle\)/s)
     expect(styles).toMatch(/\.driver-hero-warehouse\s*\{[^}]*color:\s*var\(--color-on-brand\)[^}]*font-size:\s*var\(--text-body\)/s)
     expect(styles).toMatch(/\.driver-handover-note\s*\{/)
     const handoverBlock = template.match(/data-visual-view="driver-handovers"[\s\S]*?<\/view>\s*<\/view>/)?.[0] || ''
@@ -350,10 +350,12 @@ describe('supplier mobile visual contract', () => {
     expect(mobileTheme).not.toMatch(/(^|[,{}])\s*select\s*(?=[,{])/m)
   })
 
-  it('共享主题不引入小程序不支持的 pc-* small 后代标签选择器', () => {
+  it('共享主题与页面样式都不引入小程序不支持的标签选择器', () => {
     const mobileTheme = readFileSync(resolve(uiRoot, 'mobile-theme.scss'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
     expect(mobileTheme).not.toMatch(/^\s*\.pc-[\w-]+\s+small\s*(?=[,{])/m)
     expect(mobileTheme).not.toMatch(/^\s*\.pc-[\w-]+\s+strong\s*(?=[,{])/m)
+    // 小程序会把 small/strong/span/del 编译成 view，标签选择器必须改用语义 class
+    expect(businessStyles).not.toMatch(/(^|[\s,>+~])(small|strong|span|del)(?=[.:#[\s,>+~{]|$)/m)
   })
 
   it('供应商图标统一来自 Lucide 且 PNG 均有 Lucide SVG 源', () => {

@@ -235,6 +235,42 @@ export interface DashboardTrendPoint {
   orderCount: number
 }
 
+/** 趋势窗口环比对比结果（清单「交易趋势分析…支持走势对比」）。 */
+export interface TrendWindowComparison {
+  currentAmount: number
+  currentOrders: number
+  previousAmount: number
+  previousOrders: number
+  /** 较上期环比（%）；上一期为 0 时返回 null，页面显示「--」。 */
+  amountDeltaPercent: number | null
+  orderDeltaPercent: number | null
+}
+
+/**
+ * 对比同一时间窗口与其等长上一期。
+ * 页面只负责把当前/上一期序列传进来，涨跌口径由本函数统一。
+ */
+export function compareTrendWindows(
+  current: ReadonlyArray<{ amount: number; orderCount: number }>,
+  previous: ReadonlyArray<{ amount: number; orderCount: number }>
+): TrendWindowComparison {
+  const totalAmount = (points: ReadonlyArray<{ amount: number }>) => Math.round(points.reduce((sum, point) => sum + (Number(point?.amount) || 0), 0) * 100) / 100
+  const totalOrders = (points: ReadonlyArray<{ orderCount: number }>) => points.reduce((sum, point) => sum + (Number(point?.orderCount) || 0), 0)
+  const currentAmount = totalAmount(current)
+  const previousAmount = totalAmount(previous)
+  const currentOrders = totalOrders(current)
+  const previousOrders = totalOrders(previous)
+  const percent = (now: number, before: number) => before > 0 ? Math.round(((now - before) / before) * 1000) / 10 : null
+  return {
+    currentAmount,
+    currentOrders,
+    previousAmount,
+    previousOrders,
+    amountDeltaPercent: percent(currentAmount, previousAmount),
+    orderDeltaPercent: percent(currentOrders, previousOrders)
+  }
+}
+
 export interface DashboardSnapshot {
   generatedAt: string
   principal: DashboardPrincipal

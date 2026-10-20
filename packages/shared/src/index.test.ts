@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { CATALOG_SCHEMA_VERSION, C_COMMERCE_SCHEMA_VERSION, DEFAULT_PRICING_DEFAULTS, PLATFORM_CONFIG_STORAGE_KEY, PLATFORM_PRICING_DEFAULTS_STORAGE_KEY, PLATFORM_SHARE_CONFIG_STORAGE_KEY, PLATFORM_STORE_CATALOG_SELECTIONS_STORAGE_KEY, allocateCatalogCommissions, allocateStoreCatalogCommission, applyCatalogStockOperation, buildPortalUrl, catalogPriceForSku, catalogProductToCProduct, catalogProductToProduct, catalogProductsForAudience, categoryIconName, commitCatalogTransaction, deriveCOrderStatus, ensureCatalogState, ensureCCommerceSchemaVersion, ensureStoreCatalogSelectionDefaults, markCatalogTransactionStockApplied, mergeCSubOrderFulfillment, migrateLegacyCatalog, normalizeCAddresses, normalizeCOrders, normalizeCProducts, PLATFORM_C_INVENTORY_STORAGE_KEY, PLATFORM_C_PRODUCTS_STORAGE_KEY, prepareCatalogTransaction, readCAddresses, readCatalogState, readCatalogTransactionJournal, readCCommerceSchemaVersion, readCInventoryState, readCProducts, readCCommissionRecords, readPendingCatalogTransactions, readPricingDefaults, readShareConfig, readStoreCatalogSelectionState, readStoreCatalogSelections, removeCAddress, resolveCReferralChain, saveCatalogProduct, saveStoreCatalogSelection, seedCCommerceData, updateCatalogStock, upsertStoreCatalogSelection, writeCatalogState, writeCAddresses, writeCCommissionRecords, writeCInventoryState, writePricingDefaults, writeShareConfig, publishCSubOrderToSupplier, syncCSubOrderFromSupplier, readVersionedRecord, writeVersionedRecord, normalizeMinimumOrderQuantity, validateCatalogSkuOrderQuantity } from './index'
+import { appendCatalogStockLogs, catalogProductStockWarnings, catalogSkuNeedsRestock, cPriceBreakdown, formatNumber, money, normalizeCCommissionRecords, orderStatusText, readUserLinks, round2, validateSupplierAccount, readCatalogStockLogs, writeCatalogStockLogs, SUPPLIER_DEMO_ACCOUNT, SUPPLIER_DEMO_PASSWORD, CATALOG_SCHEMA_VERSION, C_COMMERCE_SCHEMA_VERSION, DEFAULT_PRICING_DEFAULTS, DEFAULT_STORE_PRICE_LEVEL_DISCOUNTS, normalizeStorePriceLevelDiscounts, readStorePriceLevelDiscounts, writeStorePriceLevelDiscounts, PLATFORM_CONFIG_STORAGE_KEY, PLATFORM_PRICING_DEFAULTS_STORAGE_KEY, PLATFORM_SHARE_CONFIG_STORAGE_KEY, PLATFORM_STORE_CATALOG_SELECTIONS_STORAGE_KEY, allocateCatalogCommissions, allocateStoreCatalogCommission, applyCatalogStockOperation, buildPortalUrl, catalogPriceForSku, catalogProductToCProduct, catalogProductToProduct, catalogProductsForAudience, categoryIconName, commitCatalogTransaction, deriveCOrderStatus, ensureCatalogState, ensureCCommerceSchemaVersion, ensureStoreCatalogSelectionDefaults, markCatalogTransactionStockApplied, mergeCSubOrderFulfillment, migrateLegacyCatalog, normalizeCAddresses, normalizeCOrders, normalizeCProducts, PLATFORM_C_INVENTORY_STORAGE_KEY, PLATFORM_C_PRODUCTS_STORAGE_KEY, prepareCatalogTransaction, readCAddresses, readCatalogState, readCatalogTransactionJournal, readCCommerceSchemaVersion, readCInventoryState, readCProducts, readCCommissionRecords, readPendingCatalogTransactions, readPricingDefaults, readShareConfig, readStoreCatalogSelectionState, readStoreCatalogSelections, removeCAddress, resolveCReferralChain, saveCatalogProduct, saveStoreCatalogSelection, seedCCommerceData, updateCatalogStock, upsertStoreCatalogSelection, writeCatalogState, writeCAddresses, writeCCommissionRecords, writeCInventoryState, writePricingDefaults, writeShareConfig, publishCSubOrderToSupplier, syncCSubOrderFromSupplier, readVersionedRecord, writeVersionedRecord, normalizeMinimumOrderQuantity, validateCatalogSkuOrderQuantity } from './index'
 import type { AdminMenuKey, AdminPermissionCode, CProduct, CProductSku, CatalogProduct, CatalogState, Order, OrderItem, OrderStatus, PlatformMedia, SupplierFulfillment } from './index'
 
 if (!globalThis.localStorage) {
@@ -15,6 +15,7 @@ if (!globalThis.localStorage) {
 }
 import { PERSISTENCE_VERSION, afterSales, allocateCCommissions, calcCartTotal, calcMargin, cPriceForSku, cProducts, derivePlatformMetrics, farms, markShareSettled, mergeEntitySeeds, migratePersistedState, nextCOrderStatus, nextPurchaseStatus, orders, pendingShareAmount, pendingShareTotal, readPlatformAfterSaleStatus, resolveShare, getOrCreateUserId, resolveUserIdentity, resolveUserIdByOpenid, simulateWechatLogin, splitCOrderItems, writePlatformAfterSale, writeShareRecords, writeUserLink, persistedEnvelope, products, promoters, selectPersistedState, applyPlatformMedia, emptyPlatformMedia, mergePersistedDefaults, mergePlatformStoreAccounts, upsertPlatformFarm, upsertPlatformProduct, suppliers, toCsv, validateAccountPassword, validatePhone, validatePricePolicy, validateSmsCode, acceptSupplierOrder, assignSupplierDriver, authenticateSupplier, buildSupplierAccountSeeds, computeShortage, confirmCourierDelivered, demoDrivers, deriveSupplierMetrics, deriveTodayFarmhouseQuantities, driverActiveTaskCounts, ensureSupplierFulfillment, findActiveDriver, findDriverByAccount, handoverSupplierIn, handoverSupplierOut, mergePlatformDrivers, mergePlatformSupplierAccounts, readPlatformDrivers, reassignSupplierDriver, shipSupplierCourier, writePlatformDrivers, todayString, clearPlatformJson, markShortageHandled, PLATFORM_ORDERS_STORAGE_KEY, readPlatformOrders, writePlatformOrder, CHANNEL_TAG_STORE, EXPRESS_DELIVERY_TAG, displayProductTags, isExpressDeliverable, productChannelTags, resolveProductChannels, storeCommissionAmount, storeGrossMargin } from './index'
 import { ALL_ADMIN_ACTION_PERMISSIONS, ALL_ADMIN_MENU_KEYS, RETIRED_PLATFORM_STORAGE_KEYS, clearRetiredPlatformData, defaultAdminAccounts, defaultAdminRoles, readPlatformAdminRoles, seedPlatformAdminSecurity, writePlatformAdminAccounts, writePlatformAdminRoles } from './index'
+import { createId, createPlatformAuditLogEntry, mergePlatformAfterSales, catalogChannelFlags, readNamedDeliveryRouteState, readNamedDeliveryRoutes, saveNamedDeliveryRoute, buildTencentNavigationUrl, buildTencentMapSearchUrl, dashboardRegion, formatFarmAdministrativeAddress, buildFarmAdministrativeAddress, DEFAULT_PLATFORM_OPERATION_RETENTION_MS } from './index'
 
 describe('C端分销商城 helpers', () => {
   beforeEach(() => localStorage.clear())
@@ -398,7 +399,7 @@ describe('validatePricePolicy', () => {
   })
 
   it('rejects non-positive unit price', () => {
-    expect(validatePricePolicy({ name: '阶梯价', type: 'ladder', discount: 20, tiers: [{ minQty: 1, maxQty: null, price: 0, discountOff: 30 }] }).some((e) => e.includes('集采单价需大于 0'))).toBe(true)
+    expect(validatePricePolicy({ name: '阶梯价', type: 'ladder', discount: 20, tiers: [{ minQty: 1, maxQty: null, price: 0, discountOff: 30 }] }).some((e) => e.includes('阶梯单价需大于 0'))).toBe(true)
   })
 
   it('rejects discount off outside 0-100', () => {
@@ -415,6 +416,149 @@ describe('validatePricePolicy', () => {
 
   it('rejects invalid maxQty below minQty', () => {
     expect(validatePricePolicy({ name: '阶梯价', type: 'ladder', discount: 20, tiers: [{ minQty: 100, maxQty: 50, price: 42, discountOff: 30 }] }).some((e) => e.includes('上限数量需为 ≥ 起始数量的整数'))).toBe(true)
+  })
+
+  it('reads and writes store price level discounts behind pricing defaults', () => {
+    expect(DEFAULT_STORE_PRICE_LEVEL_DISCOUNTS).toEqual({ A: 0.95, B: 0.97, C: 1 })
+    expect(readStorePriceLevelDiscounts()).toEqual({ A: 0.95, B: 0.97, C: 1 })
+    expect(writeStorePriceLevelDiscounts({ A: 0.9 })).toBe(true)
+    expect(readStorePriceLevelDiscounts()).toEqual({ A: 0.9, B: 0.97, C: 1 })
+    expect(readPricingDefaults().storePriceLevelDiscounts).toEqual({ A: 0.9, B: 0.97, C: 1 })
+    expect(writeStorePriceLevelDiscounts({ B: 1.4 })).toBe(false)
+    expect(readStorePriceLevelDiscounts()).toEqual({ A: 0.9, B: 0.97, C: 1 })
+    expect(normalizeStorePriceLevelDiscounts({ A: 0, B: Number.NaN })).toEqual({ A: 0.95, B: 0.97, C: 1 })
+  })
+})
+
+describe('platform primitive interfaces', () => {
+  beforeEach(() => localStorage.clear())
+
+  it('creates ids and rejects malformed audit log entries', () => {
+    expect(createId('OP')).toMatch(/^OP/)
+    expect(createPlatformAuditLogEntry({ module: '', action: '', actorId: '', actorName: '', actorRole: '', targetType: '', targetId: '', result: 'success' })).toBeNull()
+    const entry = createPlatformAuditLogEntry({
+      module: 'orders', action: 'order.ship', actorId: 'A1', actorName: '管理员', actorRole: 'admin', targetType: 'order', targetId: 'O1', result: 'success'
+    })
+    expect(entry).toMatchObject({ module: 'orders', action: 'order.ship', targetId: 'O1' })
+    expect(entry?.id).toBeTruthy()
+  })
+
+  it('merges published after-sales snapshots over defaults', () => {
+    const base = [{ id: 'AS-1', orderId: 'O1', productName: '破损礼盒', applicant: '甲店', type: 'refund' as const, amount: 10, status: 'processing' as const }]
+    expect(mergePlatformAfterSales(base, null)).toBe(base)
+    const merged = mergePlatformAfterSales(base, {
+      'AS-1': { ...base[0], status: 'refunded' },
+      'AS-2': { ...base[0], id: 'AS-2' }
+    })
+    expect(merged.map((item) => item.id)).toEqual(['AS-2', 'AS-1'])
+    expect(merged.find((item) => item.id === 'AS-1')?.status).toBe('refunded')
+  })
+
+  it('maps catalog channels and round-trips named delivery routes', () => {
+    expect(catalogChannelFlags('store')).toEqual({ store: true, live: false })
+    expect(catalogChannelFlags('live')).toEqual({ store: false, live: true })
+    expect(catalogChannelFlags('all')).toEqual({ store: true, live: true })
+    expect(readNamedDeliveryRouteState()).toBeNull()
+    expect(readNamedDeliveryRoutes()).toEqual([])
+
+    const route = { id: 'NR-TEST', supplierId: 'S002', name: '测试线路', storeIds: ['F001'], updatedAt: '2026-10-16T00:00:00.000Z' }
+    expect(saveNamedDeliveryRoute(route, 0)).toMatchObject({ ok: true })
+    expect(readNamedDeliveryRoutes('S002').map((item) => item.id)).toEqual(['NR-TEST'])
+    expect(readNamedDeliveryRouteState()?.revision).toBe(1)
+    expect(readNamedDeliveryRoutes('S999')).toEqual([])
+  })
+
+  it('exposes tencent map deep links, region lookup and address formatting', () => {
+    expect(buildTencentNavigationUrl({ longitude: 112.9388, latitude: 28.2282, name: '石板溪门店' })).toContain('tocoord=28.2282%2C112.9388')
+    expect(buildTencentMapSearchUrl('湘西腊味')).toContain('keyword=')
+    expect(dashboardRegion('430104')).toMatchObject({ level: 'district', name: '岳麓区' })
+    expect(formatFarmAdministrativeAddress(buildFarmAdministrativeAddress('430104', '潇湘中路1号'))).toBe('湖南省长沙市岳麓区潇湘中路1号')
+    expect(DEFAULT_PLATFORM_OPERATION_RETENTION_MS).toBeGreaterThan(0)
+  })
+})
+
+describe('shared projection helpers', () => {
+  beforeEach(() => localStorage.clear())
+
+  it('formats numbers, money and order status labels', () => {
+    expect(round2(1.005)).toBe(1.01)
+    expect(round2(2.344)).toBe(2.34)
+    expect(formatNumber(1234.567)).toBe('1,234.57')
+    expect(money(1234.5)).toBe('¥1,234.5')
+    expect(orderStatusText('pending')).toBe('待发货')
+    expect(orderStatusText('not-a-status' as never)).toBe('not-a-status')
+  })
+
+  it('projects C-end price breakdown and normalizes commission records', () => {
+    const sku = { id: 'C1', name: '500g', image: '', stock: 10, basePrice: 20, level1Commission: 10, level2Commission: 15 }
+    expect(cPriceBreakdown(sku)).toEqual({ level1: 20, level2: 30, normal: 45 })
+
+    const normalized = normalizeCCommissionRecords([
+      { id: 'CC-1', orderId: 'CO-1', subOrderId: 'CSO-1', beneficiaryId: 'T001', beneficiaryLevel: 'level1', amount: 12.345, status: 'unknown', createdAt: '2026-10-15T10:00:00.000Z' }
+    ] as never)
+    expect(normalized).toHaveLength(1)
+    expect(normalized[0]).toMatchObject({ id: 'CC-1', amount: 12.35, status: 'pending' })
+    expect(normalizeCCommissionRecords([null, { id: 'BROKEN' }] as never)).toEqual([])
+  })
+
+  it('round-trips user links and validates the demo supplier account', () => {
+    expect(readUserLinks()).toBeNull()
+    expect(writeUserLink('openid-1', 'U-1')).toBe(true)
+    expect(readUserLinks()).toEqual({ 'openid-1': 'U-1' })
+    expect(writeUserLink('', 'U-1')).toBe(false)
+    expect(validateSupplierAccount(SUPPLIER_DEMO_ACCOUNT, SUPPLIER_DEMO_PASSWORD)).toBe(true)
+    expect(validateSupplierAccount('bad', 'bad')).toBe(false)
+  })
+})
+
+describe('supplier master data', () => {
+  beforeEach(() => localStorage.clear())
+
+  it('seeds promoter regions, single business-rep type and farm contacts', () => {
+    const promoter = promoters.find((item) => item.id === 'T003')!
+    expect(promoter.type).toBe('业务员')
+    expect(promoter.region).toBe('长沙市')
+    expect(promoters.every((item) => item.type === '业务员' && !!item.region)).toBe(true)
+    const farm = farms.find((item) => item.id === 'F001')!
+    expect(farm.contact).toBe('王店长')
+    expect(farm.contactPhone).toBe('13900000001')
+    expect(farms.every((item) => !!item.contact && !!item.contactPhone)).toBe(true)
+  })
+
+  it('flags sku restock warnings and keeps a stock change log', () => {
+    expect(catalogSkuNeedsRestock({ stock: 10, warningThreshold: 20 })).toBe(true)
+    expect(catalogSkuNeedsRestock({ stock: 20, warningThreshold: 20 })).toBe(true)
+    expect(catalogSkuNeedsRestock({ stock: 21, warningThreshold: 20 })).toBe(false)
+    expect(catalogSkuNeedsRestock({ stock: 1 })).toBe(false)
+
+    const product = {
+      skus: [
+        { stock: 5, warningThreshold: 10 },
+        { stock: 50, warningThreshold: 10 },
+        { stock: 0 }
+      ]
+    }
+    expect(catalogProductStockWarnings(product)).toHaveLength(1)
+
+    expect(readCatalogStockLogs()).toEqual([])
+    expect(appendCatalogStockLogs([{ id: 'SL-1', productId: 'P1', skuId: 'SKU-1', skuName: '标准装', before: 10, after: 4, delta: -6, reason: '商品库库存调整', operator: 'admin', createdAt: '2026-10-15T10:00:00.000Z' }])).toBe(true)
+    expect(readCatalogStockLogs()[0]).toMatchObject({ id: 'SL-1', before: 10, after: 4, delta: -6 })
+
+    const late = { id: 'SL-LATE', productId: 'P1', skuId: 'SKU-1', skuName: '标准装', before: 20, after: 12, delta: -8, reason: '商品库库存调整', operator: 'admin', createdAt: '2026-10-15T12:00:00.000Z' }
+    const early = { ...late, id: 'SL-EARLY', before: 12, after: 6, delta: -6, createdAt: '2026-10-15T09:00:00.000Z' }
+    expect(writeCatalogStockLogs([early, late])).toBe(true)
+    expect(readCatalogStockLogs().map((entry) => entry.id)).toEqual(['SL-LATE', 'SL-EARLY'])
+    expect(writeCatalogStockLogs([])).toBe(true)
+    expect(readCatalogStockLogs()).toEqual([])
+  })
+
+  it('seeds supplier brands and service regions for 供应品类管理', () => {
+    const supplier = suppliers.find((item) => item.id === 'S002')!
+    expect(supplier.brands).toEqual(['湘西腊味', '柴火腊味'])
+    expect(supplier.serviceRegions).toEqual(['湘西州'])
+    const crossRegion = suppliers.find((item) => item.id === 'S005')!
+    expect(crossRegion.serviceRegions).toEqual(['常德', '益阳', '长沙'])
+    expect(suppliers.every((item) => Array.isArray(item.brands) && Array.isArray(item.serviceRegions))).toBe(true)
   })
 })
 
@@ -490,6 +634,29 @@ describe('derivePlatformMetrics', () => {
     expect(m.afterSaleStats.resolved).toBe(2)
     expect(m.afterSaleStats.settlement).toBe(350)
     expect(m.afterSaleStats.rate).toBe('66.7%')
+  })
+
+  it('aggregates after-sale responsibility by supplier with order ownership fallback', () => {
+    const m = derivePlatformMetrics({
+      orders: [{ ...orders[0], id: 'O-S1', supplierId: 'S002' }],
+      products: [], farms: [], promoters: [],
+      suppliers: suppliers.filter((item) => item.id === 'S002' || item.id === 'S003'),
+      afterSales: [
+        { id: 'A1', orderId: 'O-S1', productName: 'X', applicant: '甲', type: 'refund' as const, amount: 100, status: 'refunded' as const, refundAmount: 60 },
+        { id: 'A2', orderId: 'O-S1', productName: 'Y', applicant: '乙', type: 'claim' as const, amount: 40, status: 'processing' as const },
+        { id: 'A3', orderId: 'O-UNKNOWN', productName: 'Z', applicant: '丙', type: 'refund' as const, amount: 10, status: 'processing' as const, responsibleSupplierId: 'S003' },
+      ],
+    })
+    expect(m.afterSaleStats.supplierResponsibility).toEqual([
+      { supplierId: 'S002', supplierName: '湘西腊味合作社', count: 2, amount: 100, rate: 66.7 },
+      { supplierId: 'S003', supplierName: '安化茶业集团', count: 1, amount: 10, rate: 33.3 }
+    ])
+  })
+
+  it('seeds responsible suppliers on supply-side after-sale cases', () => {
+    const caseItem = afterSales.find((item) => item.id === 'SH20609')!
+    expect(caseItem.responsibleSupplierId).toBe('S009')
+    expect(afterSales.some((item) => item.issue === '客户取消')).toBe(true)
   })
 })
 })
@@ -1026,14 +1193,14 @@ describe('统一商品目录', () => {
   })
 
   it('提供新增商品使用的默认价格配置', () => {
-    expect(DEFAULT_PRICING_DEFAULTS).toEqual({ promoterCommissionRate: 5, storeCommissionRate: 3, level1Amount: 10, level2Amount: 15 })
+    expect(DEFAULT_PRICING_DEFAULTS).toEqual({ promoterCommissionRate: 5, storeCommissionRate: 3, level1Amount: 10, level2Amount: 15, storePriceLevelDiscounts: { A: 0.95, B: 0.97, C: 1 } })
   })
 
   it('持久化价格默认值并从旧店员比例迁移门店佣金', () => {
     localStorage.setItem(PLATFORM_CONFIG_STORAGE_KEY, JSON.stringify({ promoterRate: 8, staffRate: 4 }))
-    expect(readPricingDefaults()).toEqual({ promoterCommissionRate: 8, storeCommissionRate: 4, level1Amount: 10, level2Amount: 15 })
+    expect(readPricingDefaults()).toEqual({ promoterCommissionRate: 8, storeCommissionRate: 4, level1Amount: 10, level2Amount: 15, storePriceLevelDiscounts: { A: 0.95, B: 0.97, C: 1 } })
     expect(writePricingDefaults({ promoterCommissionRate: 6, storeCommissionRate: 2, level1Amount: 12, level2Amount: 18 })).toBe(true)
-    expect(readPricingDefaults()).toEqual({ promoterCommissionRate: 6, storeCommissionRate: 2, level1Amount: 12, level2Amount: 18 })
+    expect(readPricingDefaults()).toEqual({ promoterCommissionRate: 6, storeCommissionRate: 2, level1Amount: 12, level2Amount: 18, storePriceLevelDiscounts: { A: 0.95, B: 0.97, C: 1 } })
     expect(writePricingDefaults({ promoterCommissionRate: 101, storeCommissionRate: 2, level1Amount: 12, level2Amount: 18 })).toBe(false)
   })
 
@@ -1042,7 +1209,7 @@ describe('统一商品目录', () => {
     expect(writePricingDefaults({ promoterCommissionRate: 6, storeCommissionRate: 2, level1Amount: 12, level2Amount: 18 })).toBe(true)
     writeShareConfig({ promoterRate: 9, staffRate: 7 })
 
-    expect(readPricingDefaults()).toEqual({ promoterCommissionRate: 6, storeCommissionRate: 2, level1Amount: 12, level2Amount: 18 })
+    expect(readPricingDefaults()).toEqual({ promoterCommissionRate: 6, storeCommissionRate: 2, level1Amount: 12, level2Amount: 18, storePriceLevelDiscounts: { A: 0.95, B: 0.97, C: 1 } })
     expect(readShareConfig()).toEqual({ promoterRate: 9, staffRate: 7 })
     expect(localStorage.getItem(PLATFORM_PRICING_DEFAULTS_STORAGE_KEY)).not.toBeNull()
     expect(localStorage.getItem(PLATFORM_SHARE_CONFIG_STORAGE_KEY)).not.toBeNull()

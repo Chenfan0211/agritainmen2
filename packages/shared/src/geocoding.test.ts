@@ -3,6 +3,7 @@ import { farms } from './index'
 import { createGeocodeProviders, createTencentGeocodeProvider, geocodeAddress, translateTencentCoordinates } from './geocoding'
 import type { FarmLocation } from './index'
 import type { GeocodeProvider } from './geocoding'
+import { isValidChinaCoordinate } from './geocoding'
 
 function location(provider: FarmLocation['provider'], longitude: number, latitude: number): FarmLocation {
   return { longitude, latitude, coordinateSystem: 'GCJ-02', provider, geocodedAt: '2026-08-25T00:00:00.000Z', adCode: '430104', province: '湖南省', city: '长沙市', district: '岳麓区', formattedAddress: '湖南省长沙市岳麓区潇湘中路' }
@@ -169,5 +170,15 @@ describe('translateTencentCoordinates', () => {
   it('rejects malformed gateway output', async () => {
     const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ coordinateSystem: 'WGS84', locations: [] }), { status: 200 }))
     await expect(translateTencentCoordinates({ source: 'BAIDU', locations: [{ longitude: 112.93, latitude: 28.22 }] }, { fetch: request })).rejects.toThrow('坐标转换响应无效')
+  })
+})
+
+describe('isValidChinaCoordinate', () => {
+  it('accepts inside-China coordinates and rejects out-of-range or non-numeric input', () => {
+    expect(isValidChinaCoordinate(112.9388, 28.2282)).toBe(true)
+    expect(isValidChinaCoordinate('112.9388', '28.2282')).toBe(true)
+    expect(isValidChinaCoordinate(10, 28)).toBe(false)
+    expect(isValidChinaCoordinate(112.9, 60)).toBe(false)
+    expect(isValidChinaCoordinate('abc', 28)).toBe(false)
   })
 })

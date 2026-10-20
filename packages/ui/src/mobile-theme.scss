@@ -128,10 +128,30 @@ button:not(:disabled):active {
   transform: scale(.98);
 }
 
+/* WXSS 不支持通配符 `*` 选择器（微信编译器报 unexpected token `*`），显式列出原生组件 */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  page,
+  view,
+  text,
+  image,
+  button,
+  input,
+  textarea,
+  navigator,
+  scroll-view,
+  swiper,
+  swiper-item,
+  cover-view,
+  cover-image,
+  label,
+  form,
+  picker,
+  canvas,
+  map,
+  video,
+  rich-text,
+  movable-view,
+  movable-area {
     scroll-behavior: auto !important;
     transition-duration: .01ms !important;
     animation-duration: .01ms !important;

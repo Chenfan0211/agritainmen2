@@ -1115,7 +1115,7 @@ export const useUserStore = defineStore('user', {
     async submitOrder(remark = '', selectedKeys?: string[]) {
       this.checkoutError = ''; const address = this.defaultAddress
       const checkoutCart = selectedKeys?.length ? this.cart.filter((line) => selectedKeys.includes(`${line.productId}-${line.skuId}`)) : this.cart
-      if (this.entryChecked && this.entryRestricted) { this.checkoutError = '请通过有效推客分享链接进入商城'; return false }
+      if (this.entryChecked && this.entryRestricted) { this.checkoutError = '请通过有效团长分享链接进入商城'; return false }
       if (!this.userId || !checkoutCart.length) { this.checkoutError = selectedKeys?.length ? '请先选择要结算的商品' : '购物车为空'; return false }
       if (!address) { this.checkoutError = '请先设置收货地址'; return false }
       const unavailableSupplier = unavailableSupplierName(checkoutCart.map((item) => item.supplierId))

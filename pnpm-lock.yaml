@@ -24,6 +24,9 @@ importers:
       lucide-static:
         specifier: ^0.468.0
         version: 0.468.0
+      playwright-core:
+        specifier: 1.55.0
+        version: 1.55.0
       typescript:
         specifier: ^5.4.5
         version: 5.9.3
@@ -2451,6 +2454,11 @@ packages:
 
   pkg-types@2.3.1:
     resolution: {integrity: sha512-y+ichcgc2LrADuhLNAx8DFjVfgz91pRxfZdI3UDhxHvcVEZsenLO+7XaU5vOp0u/7V/wZ+plyuQxtrDlZJ+yeg==}
+
+  playwright-core@1.55.0:
+    resolution: {integrity: sha512-GvZs4vU3U5ro2nZpeiwyb0zuFaqb9sUiAJuyrWpcGouD8y9/HLgGbNRjIph7zU9D3hnPaisMl9zG9CgFi/biIg==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   pngjs@3.4.0:
     resolution: {integrity: sha512-NCrCHhWmnQklfH4MtJMRjZ2a8c80qXeMlQMv2uVp9ISJMTt562SbGd6n2oq0PaPgKm7Z6pL9E2UlLIhC+SHL3w==}
@@ -5641,6 +5649,8 @@ snapshots:
       confbox: 0.2.4
       exsolve: 1.1.1
       pathe: 2.0.3
+
+  playwright-core@1.55.0: {}
 
   pngjs@3.4.0: {}
 

@@ -1,12 +1,12 @@
 {
-  "name": "中选科技门店订货商城",
+  "name": "门店订货商城",
   "appid": "__UNI__AGRITAINMENT_STORE",
-  "description": "门店向中选科技供应链供货价直采的订货商城",
+  "description": "门店向供应链供货价直采的订货商城",
   "versionName": "0.1.0",
   "versionCode": 100,
   "transformPx": false,
   "mp-weixin": {
-    "appid": "touristappid",
+    "appid": "wx4942e19ae41bc1b4",
     "setting": {
       "urlCheck": false
     },

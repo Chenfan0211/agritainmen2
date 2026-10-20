@@ -3,7 +3,7 @@ import type { COrder, CatalogProduct, CatalogProductSubmission, DailyDeliveryRou
 import {
   CATALOG_PRODUCT_REVIEW_RECOVERY_HANDLER_KEY, PLATFORM_AUDIT_LOG_STORAGE_KEY, PLATFORM_CATALOG_PRODUCT_SUBMISSIONS_STORAGE_KEY, PLATFORM_CATALOG_STORAGE_KEY, PLATFORM_C_ORDERS_STORAGE_KEY, PLATFORM_DAILY_DELIVERY_ROUTES_STORAGE_KEY, PLATFORM_DRIVERS_STORAGE_KEY, PLATFORM_DRIVER_STORE_SCOPES_STORAGE_KEY, PLATFORM_ENTITIES_STORAGE_KEY, PLATFORM_NAMED_DELIVERY_ROUTES_STORAGE_KEY, PLATFORM_ORDERS_STORAGE_KEY, PLATFORM_RECOVERY_QUEUE_STORAGE_KEY, PLATFORM_TRANSACTION_JOURNAL_STORAGE_KEY, SUPPLIER_DEMO_ID, acceptSupplierOrder, appendPlatformAuditLog, applyCatalogStockOperation, assignSupplierDriver, authenticateSupplier, buildSupplierAccountSeeds, clearPlatformJson, cloneSeed, confirmCourierDelivered, createCatalogProductReviewRecoveryHandlerRegistration, createCatalogProductSubmission, createId,
   deriveSupplierMetrics, deriveTodayFarmhouseQuantities, demoDrivers, demoNamedDeliveryRoutes, driverActiveTaskCounts, ensurePublishedRoutesForDate, ensureSupplierFulfillment, findActiveDriver, findDriverByAccount,
-  handoverSupplierIn, handoverSupplierOut, haversineKm, initializePlatformRecoveryHandlers, markShortageHandled, mergeDeliveryOrdersByStore, mergePlatformDrivers, mergePlatformEntities, mergePlatformSupplierAccounts, namedRouteForDriver, namedRoutesForDriver, orderStopsByNamedRoute, readCOrders, readCatalogProductSubmissionState, readCatalogState, readDailyDeliveryRouteState, readDailyDeliveryRoutes, readDriverStoreScopeState, readDriverStoreScopes, readNamedDeliveryRouteState, readNamedDeliveryRoutes, readPlatformAuditLogs, readPlatformCollectionRevision, readPlatformDrivers, readPlatformEntities, readPlatformJson, readPlatformOrders, readPlatformSupplierAccounts, readPlatformSupplierSettlements, saveDailyDeliveryRoute, saveNamedDeliveryRoute, snapshotDailyDeliveryRoute, validateStopCheckIn,
+  handoverSupplierIn, handoverSupplierOut, haversineKm, initializePlatformRecoveryHandlers, markShortageHandled, mergeDeliveryOrdersByStore, mergePlatformDrivers, mergePlatformEntities, mergePlatformSupplierAccounts, namedRouteForDriver, namedRoutesForDriver, orderStopsByNamedRoute, readCOrders, readCatalogProductSubmissionState, readCatalogState, readDailyDeliveryRouteState, readDailyDeliveryRoutes, readDriverStoreScopeState, readDriverStoreScopes, readNamedDeliveryRouteState, readNamedDeliveryRoutes, readPlatformAuditLogs, readPlatformCollectionRevision, readPlatformDrivers, readPlatformEntities, readPlatformJson, readPlatformOrders, readPlatformSupplierAccounts, readPlatformSupplierSettlements, saveDailyDeliveryRoute, saveNamedDeliveryRoute, snapshotDailyDeliveryRoute, validatePhone, validateStopCheckIn,
   completeRouteStopHandover as completeRouteStopHandoverState, createAbnormalWarehouseCheckIn, createRouteOutboundHandover as createRouteOutboundHandoverState, createStrictSnapshotRecoveryHandlerRegistration, dispatchRouteOutbound as dispatchRouteOutboundState, enqueuePlatformRecovery, getPlatformProviders, reconcilePendingPlatformTransactions, reassignSupplierDriver, rejectRouteOutboundHandover as rejectRouteOutboundHandoverState, reorderRouteStops as reorderRouteStopState, resolvePlatformJournal, reviewRouteOutboundHandover as reviewRouteOutboundHandoverState, rollbackPlatformCollectionSnapshot, runLockedPlatformCollectionTask, runLockedPlatformTransaction, runPlatformTransaction, saveCatalogProduct as persistCatalogProduct, saveRouteOutboundShortages as applyRouteOutboundShortages, shipSupplierCourier, supplierCanLogin, supplierCanReceiveNewOrders, suppliers as supplierSeeds, syncCSubOrderFromSupplier, todayString, upsertPlatformEntity, validateWarehouseCheckIn, writeCOrders, writeCatalogState, writePlatformDrivers, writePlatformJson, writePlatformOrder, writePlatformOrders
 } from '@agritainment/shared'
 import { deliveryDistanceKm, resolveOrderStore, seedSupplierDataOnce, storeDirectory, storeInfoOf, supplierInfo, supplierWarehouseOf } from '../services/repository'
@@ -1497,13 +1497,15 @@ export const useSupplierStore = defineStore('supplier', {
       this.dailyRouteRevision = readPlatformCollectionRevision(PLATFORM_DAILY_DELIVERY_ROUTES_STORAGE_KEY)
       return { ok: true, value: { generated: result.generated.length } }
     },
-    async updateWarehouse(input: { address: string; longitude?: number; latitude?: number }): Promise<WriteResult> {
+    async updateWarehouse(input: { address: string; longitude?: number; latitude?: number; contactName?: string; contactPhone?: string }): Promise<WriteResult> {
       const failed = (code: string, message: string): WriteResult => ({ ok: false, code, message })
       if (this.auth.role !== 'supplier') return failed('permission_denied', '无权维护仓点')
       const address = input.address.trim()
+      const contactName = input.contactName?.trim() || ''
+      const contactPhone = input.contactPhone?.trim() || ''
       const hasLongitude = input.longitude !== undefined
       const hasLatitude = input.latitude !== undefined
-      if (!address || hasLongitude !== hasLatitude || (hasLongitude && (!Number.isFinite(input.longitude) || !Number.isFinite(input.latitude) || input.longitude! < -180 || input.longitude! > 180 || input.latitude! < -90 || input.latitude! > 90))) return failed('invalid_warehouse', '仓点地址或坐标无效')
+      if (!address || (!!contactPhone && !validatePhone(contactPhone)) || hasLongitude !== hasLatitude || (hasLongitude && (!Number.isFinite(input.longitude) || !Number.isFinite(input.latitude) || input.longitude! < -180 || input.longitude! > 180 || input.latitude! < -90 || input.latitude! > 90))) return failed('invalid_warehouse', contactPhone && !validatePhone(contactPhone) ? '请输入正确的11位联系人手机号' : '仓点地址或坐标无效')
       const locked = await runLockedPlatformCollectionTask<{ result: WriteResult; updated?: Supplier }>({
         collections: [
           PLATFORM_ENTITIES_STORAGE_KEY, PLATFORM_DAILY_DELIVERY_ROUTES_STORAGE_KEY, PLATFORM_AUDIT_LOG_STORAGE_KEY,
@@ -1518,7 +1520,7 @@ export const useSupplierStore = defineStore('supplier', {
           const original = readSupplierRoutingSnapshot(collections)
           const persistedSupplier = original.entities?.suppliers?.[this.auth.supplierId]
           if (!persistedSupplier) return { result: failed('supplier_not_found', '供应商资料不存在') }
-          const updated: Supplier = { ...persistedSupplier, warehouse: { address, ...(hasLongitude ? { longitude: input.longitude, latitude: input.latitude } : {}), coordinateSystem: 'GCJ-02' } }
+          const updated: Supplier = { ...persistedSupplier, warehouse: { address, ...(contactName ? { contactName } : {}), ...(contactPhone ? { contactPhone } : {}), ...(hasLongitude ? { longitude: input.longitude, latitude: input.latitude } : {}), coordinateSystem: 'GCJ-02' } }
           const entities: PlatformEntities = {
             ...(original.entities || { updatedAt: '' }),
             suppliers: { ...(original.entities?.suppliers || {}), [updated.id]: updated },
@@ -1528,7 +1530,7 @@ export const useSupplierStore = defineStore('supplier', {
           const target: SupplierRoutingSnapshot = {
             ...cloneSeed(original), entities, ...(stale.stale.length ? { dailyRoutes: stale.state } : {}),
             auditLogs: routingAuditEntries(original.auditLogs, [
-              { module: 'routing', action: 'warehouse.update', actorId: this.auth.supplierId, actorName: this.auth.name, actorRole: 'supplier', targetType: 'supplier', targetId: updated.id, metadata: { address, hasCoordinates: hasLongitude } },
+              { module: 'routing', action: 'warehouse.update', actorId: this.auth.supplierId, actorName: this.auth.name, actorRole: 'supplier', targetType: 'supplier', targetId: updated.id, metadata: { address, hasCoordinates: hasLongitude, contactName, contactPhone } },
               ...stale.stale.map((route) => ({ module: 'routing', action: 'route.stale', actorId: this.auth.supplierId, actorRole: 'system', targetType: 'daily-delivery-route', targetId: route.id, metadata: { driverId: route.driverId, deliveryDate: route.deliveryDate } }))
             ])
           }

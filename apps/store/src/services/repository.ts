@@ -1,7 +1,7 @@
 import { applyPlatformMedia, cloneSeed, farms, mergePlatformEntities, mockDelay, products, purchaseSupplies, readPlatformEntities, readPlatformMedia, selectableProducts } from '@agritainment/shared'
 import type { BusinessMediaValue, MockScenario, Product, StoreAccount } from '@agritainment/shared'
 
-/** 中选科技门店订货商城本地补充的中台可订货商品（补齐套餐券/预制菜等分类展示） */
+/** 门店订货商城本地补充的中台可订货商品（补齐套餐券/预制菜等分类展示） */
 const storeExtras: Product[] = [
   { id: 'SP01', emoji: '🎫', name: '中台联名·农家欢聚套餐券', category: '套餐券', price: 288, cost: 198, stock: 300, sales: 56, source: 'platform', status: 'active', image: '/static/images/farmhouse.webp', supplier: '中台供应链', tags: ['中台甄选', '到店核销'], farmIds: [], skus: [{ id: 'SP01-4P', name: '四人欢聚', price: 288, cost: 198, stock: 300 }] },
   { id: 'SP02', emoji: '🍲', name: '山泉土鸡汤礼盒 2 只装', category: '预制菜', price: 108, cost: 66, stock: 260, sales: 128, source: 'platform', status: 'active', image: '/static/images/field.webp', supplier: '中台供应链', tags: ['中台甄选', '冷链直配'], farmIds: [], skus: [{ id: 'SP02-2', name: '2 只装', price: 108, cost: 66, stock: 260 }] },
@@ -34,7 +34,7 @@ const storeExtras: Product[] = [
 
 const p014 = products.find((item) => item.id === 'P014')
 
-/** 中选科技供应链可订货目录：平台零售商品 + 门店物料 + 本地补充 */
+/** 供应链可订货目录：平台零售商品 + 门店物料 + 本地补充 */
 export const storeCatalog: Product[] = [
   ...selectableProducts,
   ...(p014 ? [p014] : []),

@@ -23,6 +23,48 @@ describe('admin supplier and RBAC page', () => {
     expect(source).toContain('item.cooperationPauseReason')
   })
 
+  it('exposes supplier brands and service regions for 供应品类管理', () => {
+    expect(source).toContain('供应品牌（逗号分隔）')
+    expect(source).toContain('服务区域（逗号分隔）')
+    expect(source).toContain('brands: splitTags(form.value.brands), serviceRegions: splitTags(form.value.serviceRegions)')
+    expect(source).toContain('selectedSupplier.brands')
+    expect(source).toContain('selectedSupplier.serviceRegions')
+  })
+
+  it('renders after-sale supplier responsibility and order logistics tracking', () => {
+    expect(source).toContain('metrics.afterSaleStats.supplierResponsibility')
+    expect(source).toContain('供应商责任分布')
+    expect(source).toContain('orderCarrier(selectedOrder)')
+    expect(source).toContain('orderSignResult(selectedOrder)')
+    expect(source).toContain('orderLogisticsEvents(selectedOrder)')
+    expect(source).toContain('物流轨迹')
+  })
+
+  it('keeps 分销价 wording and configurable price level discounts', () => {
+    expect(source).toContain('分销价层级折让')
+    expect(source).toContain('saveStorePriceLevelDiscounts')
+    expect(source).toContain('accountPriceLevelOptions')
+    expect(source).not.toContain('集采价')
+    expect(source).not.toContain('集采单价')
+  })
+
+  it('removes the 主播/达人 wording and keeps a single business-rep ranking', () => {
+    expect(source).not.toContain('主播排行')
+    expect(source).not.toContain("type === '主播'")
+    expect(source).toContain("['推客', '主播', '达人'].includes(type) ? '业务员' : type")
+  })
+
+  it('exposes promoter region, farm contact and inventory warning capabilities', () => {
+    expect(source).toContain('负责区域')
+    expect(source).toContain('form.promoterRegion')
+    expect(source).toContain('门店联系人')
+    expect(source).toContain('库存预警')
+    expect(source).toContain('预警阈值')
+    expect(source).toContain('库存变动记录')
+    expect(source).toContain('退回运单号')
+    expect(source).toContain('较上期')
+  })
+
   it('uses full-width work pages for supplier, role and account forms', () => {
     expect(source).toContain('class="work-page"')
     expect(source).toContain('work-modal-mask')
@@ -359,7 +401,7 @@ describe('admin supplier and RBAC page', () => {
     ]
     const promoters = [
       { name: '李推客', settled: false },
-      { name: '张主播', settled: true }
+      { name: '张伟', settled: true }
     ]
     const dictItems = [
       { code: 'CITY-A', enabled: true },
@@ -370,7 +412,7 @@ describe('admin supplier and RBAC page', () => {
 
     expect(tickets.filter((item) => item.status === 'processing').map((item) => item.id)).toEqual(['AS1'])
     expect(storeAccounts.filter((item) => matchEnabled(item.enabled, '停用')).map((item) => item.account)).toEqual(['staff02'])
-    expect(promoters.filter((item) => matchSettled(!!item.settled, '已结算')).map((item) => item.name)).toEqual(['张主播'])
+    expect(promoters.filter((item) => matchSettled(!!item.settled, '已结算')).map((item) => item.name)).toEqual(['张伟'])
     expect(dictItems.filter((item) => matchEnabled(item.enabled, '停用')).map((item) => item.code)).toEqual(['CITY-B'])
 
     expect(source).toContain('const afterStatusFilter = ref')

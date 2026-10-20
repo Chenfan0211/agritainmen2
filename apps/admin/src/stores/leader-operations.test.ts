@@ -49,6 +49,7 @@ describe('admin leader and user operations', () => {
     writeUserBindings({ 'U-DEMO-NORMAL': { userId: 'U-DEMO-NORMAL', promoterId: 'T001', status: 'bound' } as UserBinding })
     expect(writeCOrder(order('O-U1', 'U-DEMO-L1', 128.5))).toBe(true)
     expect(writeCOrder(order('O-U2', 'U-DEMO-L1', 71.5))).toBe(true)
+    expect(writeCOrder(order('O-U3', 'U-NO-AVATAR', 10))).toBe(true)
 
     const rows = buildAdminUsers()
     const leader = rows.find((row) => row.id === 'U-DEMO-L1')
@@ -56,6 +57,10 @@ describe('admin leader and user operations', () => {
     expect(leader?.consumedAmount).toBe(200)
     const bound = rows.find((row) => row.id === 'U-DEMO-NORMAL')
     expect(bound).toMatchObject({ levelLabel: '普通用户', level1Leader: '张同学', bindingStatusLabel: '已绑定' })
+    // 用户资料含头像（清单「用户信息 / 用户资料」）：演示目录用户带头像，未登记用户走首字兜底
+    expect(leader).toMatchObject({ avatar: '/static/images/field.webp' })
+    expect(bound).toMatchObject({ avatar: '/static/images/peach.webp' })
+    expect(rows.find((row) => row.id === 'U-NO-AVATAR')).toMatchObject({ name: '用户 U-NO-AVATAR', avatar: undefined })
   })
 
   it('aggregates leader subordinates and commission buckets', () => {

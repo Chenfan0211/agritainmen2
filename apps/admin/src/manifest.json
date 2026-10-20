@@ -1,12 +1,12 @@
 {
-  "name": "中选科技供应链管理后台",
+  "name": "供应链管理后台",
   "appid": "__UNI__AGRITAINMENT_ADMIN",
-  "description": "中选科技数字供应链运营管理后台：维护门店商品、C 端商城商品和分佣配置",
+  "description": "数字供应链运营管理后台：维护门店商品、C 端商城商品和分佣配置",
   "versionName": "0.1.0",
   "versionCode": 100,
   "transformPx": false,
   "h5": {
-    "title": "中选科技供应链管理后台",
+    "title": "供应链管理后台",
     "router": { "mode": "hash", "base": "/" },
     "devServer": { "port": 5175 }
   }

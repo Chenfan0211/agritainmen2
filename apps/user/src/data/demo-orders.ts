@@ -30,7 +30,7 @@ export function seedDemoUserOrders(userId: string): boolean {
   const now = Date.now()
   const at = (hoursAgo: number) => new Date(now - hoursAgo * 60 * 60 * 1000).toISOString()
   const address: CAddress = {
-    id: `DEMO-ADDR-${idScope}`, userId, receiver: '中选科技演示用户', phone: '13800000000',
+    id: `DEMO-ADDR-${idScope}`, userId, receiver: '演示用户', phone: '13800000000',
     region: '湖南省湘西州', detail: '演示地址 1 号', isDefault: true, updatedAt: at(96)
   }
   const item = (productId: string, skuId: string, name: string, skuName: string, image: string, supplierId: string, quantity: number, unitPrice: number): COrderItem => ({

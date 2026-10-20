@@ -179,7 +179,8 @@ describe('admin visual contract', () => {
     expect(pageSource).not.toMatch(/\.period-button\.on\{background:var\(--green/)
     expect(pageSource).not.toMatch(/\.filter-chips\.solid button\.active\{background:#1d6b44/)
     expect(pageSource).not.toMatch(/\.source-pill\{[^}]*border-radius:999px/)
-    expect(pageSource).not.toMatch(/class="source-pill" :class="item\.type === '主播'/)
+    expect(pageSource).not.toContain('主播排行')
+    expect(pageSource).not.toMatch(/item\.type === '主播'/)
     expect(pageSource).toContain('{{ promoterTypeLabel(item.type) }}')
     expect(pageSource).not.toMatch(/\.table-head\{min-height:42px\}/)
     expect(pageSource).toMatch(/\.table-head\{min-height:40px\}/)
@@ -215,7 +216,8 @@ describe('admin visual contract', () => {
     }
     expect(pageSource).toMatch(/\.supplier-grid \{ grid-template-columns:[^}]*minmax\(240px, 1\.4fr\)/)
     expect(pageSource).toMatch(/\.supplier-grid \.row-actions\{[^}]*flex-wrap:wrap/)
-    expect(pageSource).toMatch(/\.after-grid \.row-actions\{[^}]*flex-wrap:nowrap/)
+    expect(pageSource).toMatch(/\.after-grid \.row-actions\{[^}]*flex-wrap:wrap/)
+    expect(pageSource).toContain('.fulfill-strip strong.is-wrap{white-space:normal;overflow:visible;text-overflow:clip;word-break:break-all}')
     expect(pageSource).toMatch(/\.filter-control\{[^}]*height:var\(--admin-control-height\)/)
     expect(pageSource).toMatch(/\.picker-field\{[^}]*height:var\(--admin-control-height\)/)
     expect(pageSource).toMatch(/\.filter-control\{[^}]*background:\s*var\(--color-card\)/)
@@ -249,7 +251,7 @@ describe('admin visual contract', () => {
       expect(pageSource).toContain(`class="${scroll}"`)
       expect(pageSource).toMatch(new RegExp(`\\.${scroll}\\{[^}]*overflow-x:auto`))
     }
-    expect(pageSource).toMatch(/\.after-grid \.row-actions\{[^}]*flex-wrap:nowrap/)
+    expect(pageSource).toMatch(/\.after-grid \.row-actions\{[^}]*flex-wrap:wrap/)
   })
 
   it('locks overlay sizes and toolbar search to admin density tokens', () => {
