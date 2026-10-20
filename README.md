@@ -47,6 +47,7 @@ pnpm audit:tokens       # 业务样式禁止硬编码 hex / rgb() 色值
 pnpm audit:mp-styles    # 小程序标签选择器 / 主题作用域 / 兼容语法
 pnpm check:supplier-assets
 pnpm check:mp-size      # 三端主包 <=1600KB、静态资源 <=700KB（需先 build）
+pnpm e2e:mp --app store --chain L1   # 模拟器链路自动化（需本机微信开发者工具，不进 CI）
 ```
 
 静态图（品类图母版 + 共享商品图）按真实渲染尺寸重编码，改动图片后按顺序执行：
