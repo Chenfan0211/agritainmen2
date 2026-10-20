@@ -41,6 +41,20 @@ pnpm typecheck
 pnpm test
 pnpm build
 pnpm audit:interfaces   # 四端写接口与 packages/shared 导出的测试覆盖门禁
+pnpm audit:typography   # 业务文字与图表文字 >= 12px
+pnpm audit:buttons      # 四端首页按钮必须绑定可归类的点击行为
+pnpm audit:tokens       # 业务样式禁止硬编码 hex / rgb() 色值
+pnpm audit:mp-styles    # 小程序标签选择器 / 主题作用域 / 兼容语法
+pnpm check:supplier-assets
+pnpm check:mp-size      # 三端主包 <=1600KB、静态资源 <=700KB（需先 build）
+```
+
+静态图（品类图母版 + 共享商品图）按真实渲染尺寸重编码，改动图片后按顺序执行：
+
+```bash
+pnpm compress:images        # 压缩母版与各端商品图（复用本机 Chrome/Edge，无需新增依赖）
+pnpm sync:category-images   # 把压缩后的品类图母版同步到四端
+pnpm build && pnpm check:mp-size
 ```
 
 `pnpm audit:interfaces` 静态核对四类接口并一次性检查四个维度：
@@ -54,6 +68,15 @@ pnpm audit:interfaces   # 四端写接口与 packages/shared 导出的测试覆�
 `pnpm build` 依次构建运营后台 H5 与门店订货端、用户端、供应商端的 `mp-weixin`，微信小程序产物分别位于 `apps/*/dist/build/mp-weixin`，可直接用微信开发者工具导入。运营后端到端用例已随 H5 交付形态一并移除，验收改为「构建 + 单测/契约测试 + 逐端人工冒烟」。
 
 运营后台地址解析和供应商端线路规划统一调用 `/api/tencent-map/*`。腾讯 WebService Key 与 Secret 仅配置在 Node 网关环境变量中，不会进入前端构建产物。详细配置和 Nginx 反代示例见 [`docs/tencent-map.md`](docs/tencent-map.md)。
+
+## 发布前检查清单
+
+1. **每端独立真实 AppID**：`pnpm mp:appid <app> <appid>` 写入 `apps/<app>/src/manifest.json`（`store` / `supplier` / `user` 三端**禁止共用同一个 AppID**，否则三端本地存储串端）；当前 `store` 是测试号、`supplier` / `user` 仍是 `touristappid`，仅用于本地演示。
+2. **微信后台配置合法域名**：`VITE_TENCENT_MAP_GATEWAY` 指向的网关域名需加 request 合法域名；网关部署与 Nginx 反代见 [`docs/tencent-map.md`](docs/tencent-map.md)。
+3. **重新生成腾讯地图 Key**：本地 `apps/supplier/.env.local` 存过真实 Key/Secret（已 gitignore），正式环境请改用服务端环境变量并轮换密钥。
+4. **包体与样式门禁**：`pnpm compress:images` → `pnpm sync:category-images` → `pnpm build` → `pnpm check:mp-size` 全绿后再上传。
+5. **真机逐页回归**：按 [`docs/qa/2026-10-20-四端演示链路验收清单.md`](docs/qa/2026-10-20-四端演示链路验收清单.md) 逐端走三条主链路（当前仅完成开发者工具模拟器验收）。
+6. **已知但本轮不修的告警**：构建期的 Dart Sass `legacy-js-api` 弃用提示（升级 uni-app / sass 依赖后消失，属依赖升级范畴）。
 
 ## 演示账号
 

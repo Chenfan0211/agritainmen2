@@ -1,0 +1,35 @@
+name: gates
+
+# 四端交付门禁：与本地验证命令一致（typecheck / test / audit / build / 包体）。
+# 说明：不在 CI 跑 scripts/compress-static-images.mjs —— 压缩图片需要本机 Chrome/Edge，属人工资产流水线。
+on:
+  push:
+    branches:
+      - 'dev/**'
+      - 'codex/**'
+      - 'main'
+  pull_request:
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm audit:typography
+      - run: pnpm audit:buttons
+      - run: pnpm audit:tokens
+      - run: pnpm audit:interfaces
+      - run: pnpm build
+      - run: pnpm audit:mp-styles
+      - run: pnpm check:supplier-assets
+      - run: pnpm check:mp-size
