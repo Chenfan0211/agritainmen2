@@ -1400,3 +1400,31 @@ describe('统一商品目录', () => {
     expect(validateCatalogSkuOrderQuantity({ stock: 0, minimumOrderQuantity: 0 }, 1)).toMatchObject({ ok: false, code: 'insufficient_stock' })
   })
 })
+
+import { readPlatformCollectionRevision, readPlatformJson, writePlatformJson } from './index'
+
+describe('平台存储桥接（小程序运行时）', () => {
+  it('在没有 localStorage、也没有 globalThis.uni 时回退到微信 wx 存储', () => {
+    const memory = new Map<string, unknown>()
+    const originalLocalStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+    const originalWx = Object.getOwnPropertyDescriptor(globalThis, 'wx')
+    const wxStub = {
+      getStorageSync: (key: string) => memory.get(key) ?? '',
+      setStorageSync: (key: string, value: unknown) => { memory.set(key, value) },
+      removeStorageSync: (key: string) => { memory.delete(key) }
+    }
+    Object.defineProperty(globalThis, 'localStorage', { value: undefined, configurable: true, writable: true })
+    Object.defineProperty(globalThis, 'wx', { value: wxStub, configurable: true, writable: true })
+    try {
+      expect(writePlatformJson('__bridge_probe__', { ok: true })).toBe(true)
+      expect(memory.has('__bridge_probe__')).toBe(true)
+      expect(readPlatformJson('__bridge_probe__')).toEqual({ ok: true })
+      expect(readPlatformCollectionRevision('__bridge_probe__')).toBe(1)
+    } finally {
+      if (originalLocalStorage) Object.defineProperty(globalThis, 'localStorage', originalLocalStorage)
+      else delete (globalThis as { localStorage?: unknown }).localStorage
+      if (originalWx) Object.defineProperty(globalThis, 'wx', originalWx)
+      else delete (globalThis as { wx?: unknown }).wx
+    }
+  })
+})

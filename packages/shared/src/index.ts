@@ -2874,6 +2874,49 @@ interface PlatformMediaStorage {
   write: (value: unknown) => void
 }
 
+type SyncStorageRef = {
+  getStorageSync?: (key: string) => unknown
+  setStorageSync?: (key: string, value: unknown) => void
+  removeStorageSync?: (key: string) => void
+}
+
+/**
+ * 小程序运行时的同步存储引用：
+ * uni-app 在小程序端把 uni 注入到模块作用域（globalThis.uni 往往不存在），因此这里再兜底微信原生 wx。
+ * 只认 localStorage/uni 会让平台级读写（catalog / orders / 媒体等）在小程序上全部静默失败。
+ */
+function isUsableSyncStorage(value: unknown): value is SyncStorageRef {
+  const ref = value as SyncStorageRef | undefined
+  return !!ref && typeof ref.getStorageSync === 'function' && typeof ref.setStorageSync === 'function'
+}
+
+function platformSyncStorageRef(): SyncStorageRef | null {
+  // 1) 挂在 globalThis 上的 uni / wx
+  try {
+    const scope = globalThis as { uni?: unknown; wx?: unknown }
+    if (isUsableSyncStorage(scope.uni)) return scope.uni
+    if (isUsableSyncStorage(scope.wx)) return scope.wx
+  } catch {
+    // 忽略
+  }
+  // 2) 小程序端 uni / wx 由运行时注入到模块作用域，未必挂在 globalThis 上
+  try {
+    if (typeof wx !== 'undefined' && isUsableSyncStorage(wx)) return wx
+  } catch {
+    // 忽略
+  }
+  try {
+    if (typeof uni !== 'undefined' && isUsableSyncStorage(uni)) return uni
+  } catch {
+    // 忽略
+  }
+  return null
+}
+
+// 小程序运行时注入的全局对象（shared 包不依赖平台类型定义，用 declare 占位后按 typeof 探测）
+declare const wx: unknown
+declare const uni: unknown
+
 function platformMediaStorage(): PlatformMediaStorage | null {
   // H5：直接使用 localStorage，保证同一 origin 下多端共享
   try {
@@ -2886,20 +2929,15 @@ function platformMediaStorage(): PlatformMediaStorage | null {
       }
     }
   } catch {
-    // 无 localStorage 时继续尝试 uni
+    // 无 localStorage 时继续尝试小程序存储
   }
-  // 小程序等端：尝试全局 uni
-  try {
-    const scope = globalThis as { uni?: { getStorageSync?: (key: string) => unknown; setStorageSync?: (key: string, value: unknown) => void } }
-    const uniRef = scope.uni
-    if (uniRef?.getStorageSync && uniRef.setStorageSync) {
-      return {
-        read: () => uniRef.getStorageSync!(PLATFORM_MEDIA_STORAGE_KEY),
-        write: (value) => uniRef.setStorageSync!(PLATFORM_MEDIA_STORAGE_KEY, value)
-      }
+  // 小程序端：uni 或微信原生 wx
+  const ref = platformSyncStorageRef()
+  if (ref) {
+    return {
+      read: () => ref.getStorageSync!(PLATFORM_MEDIA_STORAGE_KEY),
+      write: (value) => ref.setStorageSync!(PLATFORM_MEDIA_STORAGE_KEY, value)
     }
-  } catch {
-    // 忽略
   }
   return null
 }
@@ -3051,16 +3089,15 @@ function platformJsonStorage(): PlatformJsonStorage | null {
       return { read: (key) => storage.getItem(key), write: (key, value) => storage.setItem(key, String(value)), remove: (key) => storage.removeItem(key) }
     }
   } catch {
-    // 无 localStorage 时继续尝试 uni
+    // 无 localStorage 时继续尝试小程序存储
   }
-  try {
-    const scope = globalThis as { uni?: { getStorageSync?: (key: string) => unknown; setStorageSync?: (key: string, value: unknown) => void; removeStorageSync?: (key: string) => void } }
-    const uniRef = scope.uni
-    if (uniRef?.getStorageSync && uniRef.setStorageSync) {
-      return { read: (key) => uniRef.getStorageSync!(key), write: (key, value) => uniRef.setStorageSync!(key, value), remove: uniRef.removeStorageSync ? (key) => uniRef.removeStorageSync!(key) : undefined }
+  const ref = platformSyncStorageRef()
+  if (ref) {
+    return {
+      read: (key) => ref.getStorageSync!(key),
+      write: (key, value) => ref.setStorageSync!(key, value),
+      remove: ref.removeStorageSync ? (key) => ref.removeStorageSync!(key) : undefined
     }
-  } catch {
-    // 忽略
   }
   return null
 }
@@ -3159,13 +3196,10 @@ export function clearPlatformJson(key: string): void {
   } catch {
     // 忽略
   }
-  try {
-    const uniRef = (globalThis as unknown as { uni?: { removeStorageSync?: (key: string) => void } }).uni
-    uniRef?.removeStorageSync?.(key)
-    if (!isPlatformRevisionSidecar(key)) uniRef?.removeStorageSync?.(platformRevisionSidecarKey(key))
-  } catch {
-    // 忽略
-  }
+  const ref = platformSyncStorageRef()
+  if (!ref?.removeStorageSync) return
+  ref.removeStorageSync(key)
+  if (!isPlatformRevisionSidecar(key)) ref.removeStorageSync(platformRevisionSidecarKey(key))
 }
 
 export interface VersionedStorageRecord<T> {

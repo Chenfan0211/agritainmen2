@@ -80,6 +80,7 @@
 - 看板内的预约 / 直播聚合逻辑与 `DashboardBooking` / `DashboardLiveRoom` 类型已彻底删除;`DashboardDataDomain` 为 7 项(farms/accounts/catalog/orders/vouchers/afterSales/settlements),预约与直播不再计入交易额、趋势与数据新鲜度。
 - 商品渠道位 `live`(代码语义为「用户端」渠道,显示文案已改为「用户端商品」)与 `VoucherOrder.liveId` 作为内部标识保留,避免牵动商品渠道枚举与历史数据;门店「人气值」`FarmStore.livePopularity` 与 `farmPopularity` 素材位已随产地直播一并删除。
 - `docs/`、`docs/archive/原型图/`、`docs/archive/验收报告-1比1还原.md`、`docs/superpowers/` 保留三端历史资料（2026-10-15 归档至 `docs/archive/`）；`artifacts/` 保留三端 QA 截图，已删端截图归入 `artifacts/archive/`。
+- **平台存储桥接修复（2026-10-20）**：微信小程序端 `uni` 只在模块作用域、不挂 `globalThis`，旧解析器只认 `localStorage`/`globalThis.uni` 导致平台数据全部不落盘（门店端提交订单必失败）。现按 `globalThis.uni → globalThis.wx → 模块作用域 wx → 模块作用域 uni` 解析，`platformJsonStorage` / `platformMediaStorage` / `clearPlatformJson` 统一复用，并补了「无 localStorage、无 globalThis.uni、只有 wx」的回归用例。
 - 小程序 `appid`：三端当前统一为测试号 `wx4942e19ae41bc1b4`（仅本地 / 体验版测试，已可 `cli preview` 生成真机二维码）；共用同一 AppID 会让三端微信侧本地存储互通，逐端验收前请清缓存或执行 `wx.clearStorageSync()`。正式发布必须逐端替换为各自真实 AppID 并配置合法域名，**三端不得共用**，流程见 README「发布前检查清单」。
 - 构建期 Dart Sass `legacy-js-api` 弃用告警为已知项：处理它需要一起升级 uni-app / sass 依赖链，属独立依赖升级任务，本轮不动。
 - 三端小程序主包体积门禁（`pnpm check:mp-size`，1600KB / 静态 700KB）与静态图压缩脚本（`pnpm compress:images`）已落地；品类图母版压到 128 方形，改图后必须重跑 `pnpm sync:category-images`。
