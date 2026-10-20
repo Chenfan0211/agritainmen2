@@ -171,7 +171,7 @@ async function advanceOrder() { if (!order.value || !await store.advanceOrder(or
 .after-sale-status { padding:12px 14px;border-radius:12px;background:var(--store-info-soft);color:var(--store-info);font-size:13px;font-weight:800; }
 .empty-order { min-height:50vh;display:grid;place-items:center;align-content:center;gap:12px;color:var(--farm-muted); }
 .empty-order button { min-height:40px;padding:0 18px;border-radius:var(--mobile-radius-pill);background:var(--farm-green);color:var(--store-on-brand);font-weight:800; }
-.order-actions { position:fixed;left:0;right:0;bottom:0;z-index:20;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:var(--mobile-surface);border-top:1px solid var(--store-line-light);display:flex;gap:8px;align-items:center;overflow-x:auto;box-shadow:0 -10px 24px -18px rgba(90,50,10,.45); }
+.order-actions { position:fixed;left:0;right:0;bottom:0;z-index:20;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:var(--mobile-surface);border-top:1px solid var(--store-line-light);display:flex;gap:8px;align-items:center;overflow-x:auto;box-shadow:var(--store-shadow-bar); }
 .order-actions button { flex:0 0 auto;min-width:96px;min-height:43px;padding:0 12px;border-radius:var(--mobile-radius-pill);font-size:13px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap; }
 .outline-action { background:var(--mobile-surface);border:1px solid var(--store-line);color:var(--farm-ink); }
 .outline-action.danger { color:var(--farm-red); }

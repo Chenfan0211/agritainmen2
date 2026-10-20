@@ -239,7 +239,7 @@ export const ADMIN_PERMISSION_GROUPS: Array<{ key: AdminMenuKey; label: string; 
   { key: 'leaders', label: '团长管理', permissions: [{ code: 'leader.manage', label: '维护团长' }, { code: 'leader.price.manage', label: '维护团长价格' }, { code: 'leader.withdrawal.review', label: '审核团长提现' }] },
   { key: 'dict', label: '字典数据', permissions: [{ code: 'dictionary.manage', label: '维护字典' }] },
   { key: 'logs', label: '操作日志', permissions: [{ code: 'audit.export', label: '导出操作日志' }] },
-  { key: 'dashboard', label: '恢复中心', permissions: [{ code: 'recovery.resolve', label: '处理恢复任务' }] },
+  { key: 'dashboard', label: '数据看板', permissions: [{ code: 'recovery.resolve', label: '处理恢复任务' }] },
   { key: 'roles', label: '角色管理', permissions: [{ code: 'admin.role.create', label: '新增角色' }, { code: 'admin.role.update', label: '修改角色' }, { code: 'admin.role.permissions', label: '分配角色权限' }] },
   { key: 'accounts', label: '账号管理', permissions: [{ code: 'admin.account.create', label: '新增后台账号' }, { code: 'admin.account.update', label: '修改后台账号' }, { code: 'admin.account.status', label: '启停后台账号' }] }
 ]

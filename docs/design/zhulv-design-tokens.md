@@ -2,7 +2,7 @@
 
 全站唯一视觉源。改任何 UI 之前先读本文。Figma 源：`竹青绿-DesignTokens-figma.json`（农家乐/田园自然风 · Mode 1）。
 
-供应商端是第一块样板。Admin 运营后台是第二块样板（浅色 PC 工作台）。其它端未接线前，禁止把旧 hex 写回业务样式。
+供应商端是第一块样板。Admin 运营后台是第二块样板（浅色 PC 工作台）。用户端商城、门店订货端各自消费 `--color-user-*` / `--color-store-*` 别名；未接线端禁止把旧 hex 写回业务样式。
 
 ## 产品口径
 
@@ -29,6 +29,7 @@
 | `apps/supplier/src/pages.json` | `backgroundColor` 与 `--color-bg` 一致 |
 | `apps/admin/src/styles/global.scss` | Admin 消费变量，`--admin-*` 全部是 token 别名 |
 | `apps/admin/src/App.vue` | 引入 `design-tokens.css` |
+| `apps/store/src/styles/global.scss` | 门店端消费变量，`--store-*` 全部是 token 别名 |
 
 ## Token 表
 
@@ -148,6 +149,28 @@ Admin **不用** reserved 深色侧栏。参考浅色 SaaS 控制台：白侧栏
 - `--shadow-user-button`: `0 10px 20px -8px rgba(23, 99, 63, 0.5)`
 - `--shadow-user-cart`: `0 14px 30px -10px rgba(15, 74, 49, 0.55)`
 
+### 门店端订货商城（仅 `apps/store` 消费）
+
+门店保留橙色品牌（与全站竹青绿并存，属业务自定主题）；色值统一收在 `packages/ui/src/design-tokens.css` 的 `--color-store-*` / `--gradient-store*` / `--shadow-store*`，`apps/store/src/styles/global.scss` 只做 `--mobile-*` / `--store-*` 别名。
+
+- `--color-store-brand` / `--color-store-brand-deep` / `--color-store-brand-soft`: `#F0810F` / `#D66A00` / `#FDEBD7`
+- `--color-store-brand-rgb`: `240, 129, 15` — 供 `rgba(var(--color-store-brand-rgb), α)` 混色（`--store-focus`）
+- `--color-store-price`: `#E8501E` — 价格；`--color-store-warning`: `#C77A1E`
+- `--color-store-bg`: `#F7F3EE`；`--color-store-surface-subtle`: `#F3E9DF`
+- `--color-store-line` / `--color-store-line-light`: `#E9DED1` / `#F1E8DC`
+- `--color-store-ok` / `--color-store-ok-soft`: `#2F7A4D` / `#E9F3ED`
+- `--color-store-info` / `--color-store-info-soft`: `#2F6EA7` / `#E8F1F8`
+- `--color-store-on-brand`: `#FFFFFF`；`--color-store-disabled`: `#C9CFC9`
+- `--color-store-backdrop` / `--color-store-mask` / `--color-store-overlay` / `--color-store-glass` / `--color-store-glass-line` / `--color-store-glow-top` / `--color-store-glow-bottom`
+- `--gradient-store`、`--gradient-store-login` — 仅登录 / 身份头图
+- `--shadow-store-hero` / `--shadow-store-cart` / `--shadow-store-float` / `--shadow-store-bar`
+
+### 例外登记（无法引用 CSS 变量）
+
+- `apps/*/src/uni.scss` 的 `$uni-color-*` 是 uni-app 编译期变量：admin / supplier / user 取值对齐 `--color-brand-primary` / `--color-warning` / `--color-danger`；门店端 `$uni-color-success` `#2b7a52`、`$uni-color-warning` `#b8903f` 为历史值，与 `--color-store-ok` / `--color-store-warning` 有轻微色差，本轮保持不动。
+- `apps/store/src/pages.json` 的 `globalStyle.backgroundColor` `#f7f3ee` 是 JSON 配置项，必须字面量，值等同 `--color-store-bg`。
+- 上述例外是 `pnpm audit:tokens` 白名单的唯一来源；新增例外必须同时改本文件和 `scripts/audit-tokens.mjs`。
+
 ## 页面达标
 
 - 标题 / 正文 / 辅助：`--color-ink` / `--color-ink-2` / `--color-ink-3`（后者非必读）
@@ -205,3 +228,4 @@ Admin **不用** reserved 深色侧栏。参考浅色 SaaS 控制台：白侧栏
 | 2026-10-16 | 门店端主题变量改 `:root, page` | 与供应商/用户端对齐，避免小程序根节点读不到变量导致整端掉色 |
 | 2026-10-16 | `color-mix()` 改 `rgba(var(--x-rgb), α)`、`:has()` 改状态 class | 老微信内核不支持这两个特性，购物车底部留白与半透明底会失效 |
 | 2026-10-16 | 新增 `pnpm audit:mp-styles` 门禁 | 源码 + 构建产物双重校验：标签选择器、`page` 作用域、兼容语法、`!important` 白名单 |
+| 2026-10-20 | 门店橙色主题收进 `--color-store-*` | 业务保留门店橙色品牌；业务样式不再写 hex，色值只留在 token 文件 |

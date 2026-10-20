@@ -1,3 +1,5 @@
+// uni-app 编译期变量：无法引用 CSS 变量，取值对齐 packages/ui/src/design-tokens.css 的
+// --color-brand-primary / --color-warning / --color-danger；例外登记见 docs/design/zhulv-design-tokens.md
 $uni-color-primary: #2F7A4D;
 $uni-color-success: #2F7A4D;
 $uni-color-warning: #DE8A3B;

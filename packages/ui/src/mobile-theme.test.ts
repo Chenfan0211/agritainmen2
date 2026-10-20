@@ -169,7 +169,7 @@ describe('shared mobile visual theme', () => {
   it('aligns each pages.json background with that portal own --mobile-bg', () => {
     // pages.json 控制小程序启动底色，必须与该端 --mobile-bg 最终解析值一致，否则启动瞬间会出现色差闪烁。
     const designTokens = readFileSync(resolve(root, 'packages/ui/src/design-tokens.css'), 'utf8')
-    const tokenOf: Record<string, string | null> = { user: '--color-user-bg', store: null }
+    const tokenOf: Record<string, string | null> = { user: '--color-user-bg', store: '--color-store-bg' }
     for (const app of ownedMobileApps) {
       const pages = JSON.parse(readFileSync(resolve(root, `apps/${app}/src/pages.json`), 'utf8'))
       const globalStyle = readFileSync(resolve(root, `apps/${app}/src/styles/global.scss`), 'utf8')

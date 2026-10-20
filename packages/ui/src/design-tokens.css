@@ -105,4 +105,35 @@ page {
   --radius-user-login: 26px;
   --shadow-user-button: 0 10px 20px -8px rgba(23, 99, 63, 0.5);
   --shadow-user-cart: 0 14px 30px -10px rgba(15, 74, 49, 0.55);
+
+  /* store 订货商城 —— 仅 apps/store 消费；门店保留橙色品牌，不改全站主色 */
+  --color-store-brand: #F0810F;
+  --color-store-brand-deep: #D66A00;
+  --color-store-brand-soft: #FDEBD7;
+  --color-store-brand-rgb: 240, 129, 15;
+  --color-store-price: #E8501E;
+  --color-store-warning: #C77A1E;
+  --color-store-bg: #F7F3EE;
+  --color-store-surface-subtle: #F3E9DF;
+  --color-store-line: #E9DED1;
+  --color-store-line-light: #F1E8DC;
+  --color-store-on-brand: #FFFFFF;
+  --color-store-ok: #2F7A4D;
+  --color-store-ok-soft: #E9F3ED;
+  --color-store-info: #2F6EA7;
+  --color-store-info-soft: #E8F1F8;
+  --color-store-disabled: #C9CFC9;
+  --color-store-backdrop: rgba(255, 255, 255, 0.92);
+  --color-store-mask: rgba(43, 30, 14, 0.45);
+  --color-store-overlay: rgba(24, 25, 23, 0.55);
+  --color-store-glass: rgba(255, 255, 255, 0.14);
+  --color-store-glass-line: rgba(255, 255, 255, 0.25);
+  --color-store-glow-top: rgba(240, 129, 15, 0.1);
+  --color-store-glow-bottom: rgba(214, 106, 0, 0.08);
+  --gradient-store: linear-gradient(140deg, #F59B2C, #F0810F 55%, #D66A00);
+  --gradient-store-login: linear-gradient(168deg, #F59B2C 0%, #F0810F 46%, #E0740A 74%, #C96200 100%);
+  --shadow-store-hero: 0 16px 36px -18px rgba(90, 50, 10, 0.3);
+  --shadow-store-cart: 0 14px 30px -10px rgba(214, 106, 0, 0.55);
+  --shadow-store-float: 0 14px 34px -14px rgba(90, 50, 10, 0.35);
+  --shadow-store-bar: 0 -10px 24px -18px rgba(90, 50, 10, 0.45);
 }

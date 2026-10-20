@@ -132,7 +132,7 @@ async function submit() {
 .amount-row .saving { color:var(--farm-green); }
 .amount-row.total { padding-top:11px;border-top:1px solid var(--store-line-light);color:var(--farm-ink);font-weight:800; }
 .amount-row.total .val { color:var(--farm-red);font-size:19px; }
-.submit-bar { position:fixed;left:0;right:0;bottom:0;z-index:20;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:var(--mobile-surface);border-top:1px solid var(--store-line-light);display:flex;align-items:center;gap:14px;box-shadow:0 -10px 24px -18px rgba(90,50,10,.45); }
+.submit-bar { position:fixed;left:0;right:0;bottom:0;z-index:20;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:var(--mobile-surface);border-top:1px solid var(--store-line-light);display:flex;align-items:center;gap:14px;box-shadow:var(--store-shadow-bar); }
 .submit-total { flex:1;min-width:0; }
 .submit-total .meta { display:block;color:var(--farm-muted);font-size:12px; }
 .submit-total .val { display:block;margin-top:2px;color:var(--farm-red);font-size:19px;font-weight:800; }

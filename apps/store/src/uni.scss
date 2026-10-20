@@ -1,3 +1,6 @@
+// uni-app 编译期变量：无法引用 CSS 变量，primary / error 对应 packages/ui/src/design-tokens.css 的
+// --color-store-brand / --color-store-price；success / warning 为历史值，与 --color-store-ok /
+// --color-store-warning 存在轻微色差，本轮保持不动；例外登记见 docs/design/zhulv-design-tokens.md
 $uni-color-primary: #f0810f;
 $uni-color-success: #2b7a52;
 $uni-color-warning: #b8903f;

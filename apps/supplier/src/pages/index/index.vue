@@ -2379,11 +2379,11 @@ $control: var(--control-size);
 // ===== 司机配送现代化视觉 =====
 .driver-hero-panel { margin: 0 16px 12px; padding: 18px 16px 14px; border-radius: 24px; background: var(--gradient-brand); box-shadow: var(--shadow-card); }
 .driver-hero-panel .hero-top { padding: 0; }
-.driver-hero-panel .hero-avatar { background: rgba(255, 255, 255, .2); color: $on-brand; }
+.driver-hero-panel .hero-avatar { background: rgba(var(--color-on-brand-rgb), .2); color: $on-brand; }
 .driver-hero-panel .hero-title, .driver-hero-panel .hero-sub, .driver-hero-panel .hero-stat-label, .driver-hero-panel .hero-stat-value { color: $on-brand; }
 .driver-hero-identity { display: grid; gap: 3px; min-width: 0; }
 .driver-hero-warehouse { display: flex; align-items: center; gap: 5px; margin-top: 3px; color: var(--color-on-brand); font-size: var(--text-body); font-weight: 600; }
-.driver-hero-panel .hero-stats { margin-top: 14px; border: 0; background: rgba(255, 255, 255, .12); }
+.driver-hero-panel .hero-stats { margin-top: 14px; border: 0; background: rgba(var(--color-on-brand-rgb), .12); }
 .driver-hero-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; border-radius: 14px; overflow: hidden; }
 .driver-hero-stats .hero-stat { border: 0; background: transparent; }
 .driver-status-segments { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin-bottom: 14px; padding: 4px; border-radius: $radius-card; background: $green-soft; }
