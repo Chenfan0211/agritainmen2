@@ -4,6 +4,8 @@
 //   node tests/mp-e2e/run.mjs --app user --chain L2
 //   node tests/mp-e2e/run.mjs --app <app> --dump        # 打印当前页面可点元素清单，便于补链路
 // 前置：先 pnpm mp:appid <app> wx4942e19ae41bc1b4 && pnpm build:<app>，再运行本脚本（脚本内部不构建）。
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { APPS, EXIT, captureBlockedEvidence, count, createRun, cur, evidenceDirFor, parseArgs, preflightApp, resetAndRelaunch, screenshotStats, textOf } from './harness.mjs'
 
 const CHAINS = {
@@ -17,35 +19,42 @@ function usage() {
   console.log('前置: pnpm mp:appid <app> wx4942e19ae41bc1b4 && pnpm build:<app>（不要在项目打开时重建 dist）')
 }
 
-async function dumpPage(mp) {
+/**
+ * 打印当前页面可点元素清单，并落盘到证据目录的 dump.txt ——
+ * 用于把"能渲染的环境"上的选择器一次性交接回来（无需手工复制粘贴）。
+ */
+async function dumpPage(mp, evidenceDir) {
+  const lines = []
+  const log = (text) => {
+    lines.push(text)
+    console.log(text)
+  }
   const page = await cur(mp)
-  console.log(`--- page dump: ${page.path} ---`)
+  log(`--- page dump: ${page.path} ---`)
   for (const selector of ['button', 'input']) {
     const list = await page.$$(selector).catch(() => [])
-    console.log(`[${selector}] ${list.length} 个`)
-    for (const element of list.slice(0, 40)) {
+    log(`[${selector}] ${list.length} 个`)
+    for (const element of list.slice(0, 60)) {
       const cls = ((await element.attribute('class')) || '').replace(/data-v-\w+/g, '').trim()
-      const text = ((await element.text()) || '').replace(/\s+/g, ' ').trim().slice(0, 28)
+      const text = ((await element.text()) || '').replace(/\s+/g, ' ').trim().slice(0, 30)
       const value = selector === 'input' ? await element.value().catch(() => '') : ''
-      console.log(`  [${cls}] "${text}"${value ? ` value="${value}"` : ''}`)
+      log(`  [${cls}] "${text}"${value ? ` value="${value}"` : ''}`)
     }
   }
-  for (const selector of ['.tabbar button', '.order-card', '.product-card', '.cart-row', '.sheet-foot button']) {
-    try {
-      const list = await page.$$(selector)
-      if (!list.length) continue
-      console.log(`[${selector}] ${list.length} 个`)
-      for (const element of list.slice(0, 12)) {
-        console.log(`  "${((await element.text()) || '').replace(/\s+/g, ' ').trim().slice(0, 30)}"`)
-      }
-    } catch {
-      /* 忽略 */
+  for (const selector of ['.tabbar button', '.pc-tile', '.order-card', '.product-card', '.cart-row', '.sheet-foot button', '.chip', '.row']) {
+    const list = await page.$$(selector).catch(() => [])
+    if (!list.length) continue
+    log(`[${selector}] ${list.length} 个`)
+    for (const element of list.slice(0, 20)) {
+      log(`  "${((await element.text()) || '').replace(/\s+/g, ' ').trim().slice(0, 40)}"`)
     }
   }
-  const stats = await screenshotStats(`${process.env.TEMP}/mp-e2e-dump.png`)
-  console.log(`screenshot stats: ${JSON.stringify(stats)}`)
+  const shotPath = join(evidenceDir, 'dump.png')
+  await mp.screenshot({ path: shotPath }).catch(() => {})
+  log(`screenshot: ${shotPath}`)
+  writeFileSync(join(evidenceDir, 'dump.txt'), lines.join('\n'), 'utf8')
+  console.log(`dump 已落盘：${join(evidenceDir, 'dump.txt')}`)
 }
-
 async function main() {
   const args = parseArgs(process.argv.slice(2))
   if (!APPS[args.app]) {
@@ -76,7 +85,7 @@ async function main() {
   console.log(`[${args.app}] 模拟器就绪（第 ${ready.attempt} 次尝试，view 节点 ${ready.viewCount}，截图 ${ready.screenshotBytes}B）`)
 
   if (args.dump) {
-    await dumpPage(ready.mp)
+    await dumpPage(ready.mp, dir)
     await ready.mp.disconnect().catch(() => {})
     process.exit(EXIT.PASS)
   }
