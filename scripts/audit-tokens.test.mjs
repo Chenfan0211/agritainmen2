@@ -13,12 +13,20 @@ describe('auditTokenSource', () => {
 
   it('accepts token mixed rgba and variable only values', () => {
     const source = '.a { background: rgba(var(--color-on-brand-rgb), .2); color: var(--color-ink); }'
-    expect(auditTokenSource(source, 'apps/supplier/src/pages/index/index.vue')).toEqual([])
+    expect(auditTokenSource(source, 'apps/supplier/src/pages/index/index.wxss')).toEqual([])
   })
 
-  it('skips compile time uni.scss variables', () => {
-    expect(isTokenAuditAllowed('apps/store/src/uni.scss')).toBe(true)
-    expect(auditTokenSource('$uni-color-primary: #f0810f;', 'apps/store/src/uni.scss')).toEqual([])
+  it('only skips the admin compile-time uni.scss', () => {
+    expect(isTokenAuditAllowed('apps/admin/src/uni.scss')).toBe(true)
+    expect(auditTokenSource('$uni-color-primary: #f0810f;', 'apps/admin/src/uni.scss')).toEqual([])
+    expect(isTokenAuditAllowed('apps/store/src/uni.scss')).toBe(false)
+  })
+
+  it('no longer exempts the three mobile app.wxss entries', () => {
+    for (const app of ['store', 'supplier', 'user']) {
+      expect(isTokenAuditAllowed(`apps/${app}/src/app.wxss`)).toBe(false)
+      expect(auditTokenSource(':root { --color-brand-primary: #C8322B; }', `apps/${app}/src/app.wxss`)).toHaveLength(1)
+    }
   })
 })
 
@@ -30,7 +38,8 @@ describe('token contract', () => {
   it('scans business sources and skips test files', () => {
     const files = collectTokenAuditFiles()
     expect(files).toContain('apps/store/src/styles/global.scss')
-    expect(files).toContain('apps/store/src/uni.scss')
+    expect(files).toContain('apps/user/src/styles/global.scss')
+    expect(files).toContain('apps/store/src/app.wxss')
     expect(files.some((file) => file.includes('.test.'))).toBe(false)
   })
 

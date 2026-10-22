@@ -7,12 +7,12 @@ const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)))
 
 /** 商品品类图片母版清单（母版位于 assets/product-categories/master）。 */
 export const PRODUCT_CATEGORY_IMAGE_FILES = [
-  'agricultural-products.webp', 'prepared-foods.webp', 'ingredients-seasonings.webp',
-  'featured-ingredients.webp', 'local-specialties.webp', 'souvenirs.webp',
-  'cultural-tourism-gifts.webp', 'homestay-supplies.webp', 'packaging-consumables.webp',
-  'package-vouchers.webp', 'fresh-produce.webp', 'seasonal-fruit.webp',
-  'organic-vegetables.webp', 'grains-oils-noodles.webp', 'beverages.webp',
-  'all.webp', 'fallback.webp'
+  'agricultural-products.jpg', 'prepared-foods.jpg', 'ingredients-seasonings.jpg',
+  'featured-ingredients.jpg', 'local-specialties.jpg', 'souvenirs.jpg',
+  'cultural-tourism-gifts.jpg', 'homestay-supplies.jpg', 'packaging-consumables.jpg',
+  'package-vouchers.jpg', 'fresh-produce.jpg', 'seasonal-fruit.jpg',
+  'organic-vegetables.jpg', 'grains-oils-noodles.jpg', 'beverages.jpg',
+  'all.jpg', 'fallback.jpg'
 ]
 
 /** 需要同步的端目录。 */

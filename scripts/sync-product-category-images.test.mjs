@@ -29,8 +29,8 @@ describe('validateSourceFiles', () => {
 
 describe('validateSyncedHash', () => {
   it('accepts equal hashes and reports mismatches', () => {
-    expect(validateSyncedHash({ expectedHash: 'abc', actualHash: 'abc', app: 'admin', file: 'all.webp' })).toEqual([])
-    expect(validateSyncedHash({ expectedHash: 'abc', actualHash: 'def', app: 'admin', file: 'all.webp' })).toEqual(['admin 商品品类图片同步失败: all.webp'])
+    expect(validateSyncedHash({ expectedHash: 'abc', actualHash: 'abc', app: 'admin', file: 'all.jpg' })).toEqual([])
+    expect(validateSyncedHash({ expectedHash: 'abc', actualHash: 'def', app: 'admin', file: 'all.jpg' })).toEqual(['admin 商品品类图片同步失败: all.jpg'])
   })
 })
 

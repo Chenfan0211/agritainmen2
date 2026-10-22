@@ -12,10 +12,18 @@ const rootPath = fileURLToPath(new URL('..', import.meta.url))
 const TOKEN_AUDIT_APPS = ['admin', 'store', 'supplier', 'user']
 
 /** 业务样式与脚本可扫描的源码扩展名。 */
-const SOURCE_EXTENSIONS = new Set(['.vue', '.scss', '.css', '.ts'])
+const SOURCE_EXTENSIONS = new Set(['.vue', '.scss', '.css', '.ts', '.wxml', '.wxss'])
 
-/** 例外文件：uni.scss 是 uni-app 编译期变量，无法引用 CSS 变量。 */
-const TOKEN_AUDIT_ALLOWLIST = [/^apps\/[^/]+\/src\/uni\.scss$/]
+/**
+ * 例外文件：整文件跳过。
+ * - 仅管理端仍保留 uni-app H5，uni.scss 是 uni-app 编译期变量，无法引用 CSS 变量。
+ * - 供应商端原生地图组件需要把色值写进小程序 map 组件的 marker/polyline 数据（不能引用 CSS 变量）。
+ * 注意：三端 app.wxss 不再豁免——它现在只允许 `@import` 引用，不允许复制 token。
+ */
+const TOKEN_AUDIT_ALLOWLIST = [
+  /^apps\/admin\/src\/uni\.scss$/,
+  /^apps\/supplier\/src\/components\/DeliveryRouteMap\/index\.ts$/
+]
 
 const HEX_COLOR = /#[0-9a-fA-F]{3,8}\b/g
 const RGB_LITERAL = /\brgba?\(\s*[\d.]/g

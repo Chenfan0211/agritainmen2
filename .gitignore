@@ -10,6 +10,9 @@ test-results/
 .DS_Store
 .codex-logs/
 
+# 微信开发者工具误导入 apps/<端> 时生成的本地配置
+apps/*/project*.json
+
 # Tool / local artifacts
 .superpowers/
 .gstack/

@@ -174,7 +174,11 @@ function extractMembers(block) {
 
 /** 解析 store 动作：名称 + 方法体 + 是否写接口 + 审计 action 串。 */
 export function extractStoreActions(source) {
-  return extractMembers(extractActionsBlock(source)).map((member) => ({
+  const actionsBlock = extractActionsBlock(source)
+  const members = actionsBlock === null
+    ? extractModuleExports(source).functions.map((item) => ({ name: item.name, body: item.body }))
+    : extractMembers(actionsBlock)
+  return members.map((member) => ({
     ...member,
     write: WRITE_CALLS.some((call) => member.body.includes(call)),
     actionIds: [...new Set([...member.body.matchAll(/action: '([^']+)'/g)].map((item) => item[1]))]
@@ -183,7 +187,11 @@ export function extractStoreActions(source) {
 
 /** 解析 store getters（读接口）。 */
 export function extractStoreGetters(source) {
-  return extractMembers(extractGettersBlock(source))
+  const gettersBlock = extractGettersBlock(source)
+  if (gettersBlock !== null) return extractMembers(gettersBlock)
+  return extractModuleExports(source).functions
+    .filter((item) => /^(get|select|derive|read)[A-Z_]/.test(item.name))
+    .map((item) => ({ name: item.name, body: item.body }))
 }
 
 /** 解析模块导出：函数（带函数体）与常量名；barrel 的 re-export 不计入。 */

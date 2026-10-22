@@ -3,20 +3,20 @@ import { CATEGORY_MAX_EDGE, CONTENT_MAX_EDGE, appContentImageFiles, categoryMast
 
 describe('static image resize plan', () => {
   it('recognises both app category assets and product-category masters', () => {
-    expect(isCategoryImage('apps/store/src/static/images/categories/all.webp')).toBe(true)
-    expect(isCategoryImage('assets/product-categories/master/all.webp')).toBe(true)
-    expect(isCategoryImage('apps/user/src/static/images/farmhouse.webp')).toBe(false)
+    expect(isCategoryImage('apps/store/src/static/images/categories/all.jpg')).toBe(true)
+    expect(isCategoryImage('assets/product-categories/master/all.jpg')).toBe(true)
+    expect(isCategoryImage('apps/user/src/static/images/farmhouse.jpg')).toBe(false)
   })
 
-  it('uses 128 for category art and 750 for content imagery', () => {
-    expect(maxEdgeForImage('apps/store/src/static/images/categories/all.webp')).toBe(CATEGORY_MAX_EDGE)
-    expect(maxEdgeForImage('assets/images/farmhouse.webp')).toBe(CONTENT_MAX_EDGE)
+  it('uses 128 for category art and 640 for content imagery', () => {
+    expect(maxEdgeForImage('apps/store/src/static/images/categories/all.jpg')).toBe(CATEGORY_MAX_EDGE)
+    expect(maxEdgeForImage('assets/images/farmhouse.jpg')).toBe(CONTENT_MAX_EDGE)
   })
 
   it('keeps the aspect ratio and skips images that already fit', () => {
     expect(targetSize(512, 512, CATEGORY_MAX_EDGE)).toEqual({ width: 128, height: 128 })
-    expect(targetSize(900, 600, CONTENT_MAX_EDGE)).toEqual({ width: 750, height: 500 })
-    expect(targetSize(750, 1000, CONTENT_MAX_EDGE)).toEqual({ width: 563, height: 750 })
+    expect(targetSize(900, 600, CONTENT_MAX_EDGE)).toEqual({ width: 640, height: 427 })
+    expect(targetSize(750, 1000, CONTENT_MAX_EDGE)).toEqual({ width: 480, height: 640 })
     expect(targetSize(128, 128, CATEGORY_MAX_EDGE)).toBeNull()
     expect(targetSize(0, 0, CONTENT_MAX_EDGE)).toBeNull()
   })

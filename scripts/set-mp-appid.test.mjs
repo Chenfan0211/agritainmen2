@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { normalizeAppId, replaceWeixinAppId } from './set-mp-appid.mjs'
+import { normalizeAppId, replaceProjectAppId } from './set-mp-appid.mjs'
 
-const storeManifest = readFileSync(resolve(import.meta.dirname, '../apps/store/src/manifest.json'), 'utf8')
+const storeManifest = readFileSync(resolve(import.meta.dirname, '../apps/store/src/project.config.json'), 'utf8')
 
 describe('normalizeAppId', () => {
   it('accepts test/formal appids and tourist mode', () => {
@@ -19,23 +19,21 @@ describe('normalizeAppId', () => {
   })
 })
 
-describe('replaceWeixinAppId', () => {
-  it('only rewrites the mp-weixin appid and keeps the rest of the manifest intact', () => {
-    const updated = replaceWeixinAppId(storeManifest, 'wx1234567890abcdef')
+describe('replaceProjectAppId', () => {
+  it('only rewrites the mini-program appid and keeps the rest of the project config intact', () => {
+    const updated = replaceProjectAppId(storeManifest, 'wx1234567890abcdef')
     expect(updated).toContain('"appid": "wx1234567890abcdef"')
-    expect(updated).toContain('"name": "门店订货商城"')
-    expect(updated).toContain('"appid": "__UNI__AGRITAINMENT_STORE"')
     const parsed = JSON.parse(updated)
-    expect(parsed['mp-weixin'].appid).toBe('wx1234567890abcdef')
-    expect(parsed.appid).toBe('__UNI__AGRITAINMENT_STORE')
+    expect(parsed.appid).toBe('wx1234567890abcdef')
+    expect(parsed.projectname).toBe('agritainment-store')
   })
 
   it('can switch back to tourist mode', () => {
-    const updated = replaceWeixinAppId(replaceWeixinAppId(storeManifest, 'wx1234567890abcdef'), 'touristappid')
-    expect(JSON.parse(updated)['mp-weixin'].appid).toBe('touristappid')
+    const updated = replaceProjectAppId(replaceProjectAppId(storeManifest, 'wx1234567890abcdef'), 'touristappid')
+    expect(JSON.parse(updated).appid).toBe('touristappid')
   })
 
-  it('rejects manifests without the mp-weixin block', () => {
-    expect(() => replaceWeixinAppId('{"appid":"__UNI__X"}', 'touristappid')).toThrow(/mp-weixin/)
+  it('rejects project configs without an appid', () => {
+    expect(() => replaceProjectAppId('{"projectname":"store"}', 'touristappid')).toThrow(/appid/)
   })
 })

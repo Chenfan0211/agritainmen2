@@ -1,6 +1,6 @@
 [
   {
-    "file": "agricultural-products.webp",
+    "file": "agricultural-products.jpg",
     "library": "Unsplash",
     "author": "Megan Thomas",
     "page": "https://unsplash.com/photos/bundle-of-assorted-vegetable-lot-xMh_ww8HN_Q",
@@ -10,7 +10,7 @@
     "downloadedAt": "2026-09-02"
   },
   {
-    "file": "prepared-foods.webp",
+    "file": "prepared-foods.jpg",
     "library": "Unsplash",
     "author": "Stefan Vladimirov",
     "page": "https://unsplash.com/photos/white-plates-with-assorted-foods-Q_Moi2xjieU",
@@ -20,7 +20,7 @@
     "downloadedAt": "2026-09-02"
   },
   {
-    "file": "ingredients-seasonings.webp",
+    "file": "ingredients-seasonings.jpg",
     "library": "Pexels",
     "author": "Ruslan Rozanov",
     "page": "https://www.pexels.com/photo/close-up-shot-of-seasonings-in-wooden-bowls-11733646/",
@@ -30,7 +30,7 @@
     "downloadedAt": "2026-09-02"
   },
   {
-    "file": "featured-ingredients.webp",
+    "file": "featured-ingredients.jpg",
     "library": "Unsplash",
     "author": "Andrew Ridley",
     "page": "https://unsplash.com/photos/flat-lay-photography-of-mushrooms-bx0a2yq2hxs",
@@ -40,7 +40,7 @@
     "downloadedAt": "2026-09-02"
   },
   {
-    "file": "local-specialties.webp",
+    "file": "local-specialties.jpg",
     "library": "Pexels",
     "author": "Heather Brock",
     "page": "https://www.pexels.com/photo/top-view-of-tea-leaves-and-herbs-on-a-table-and-in-teapot-6978215/",
@@ -50,7 +50,7 @@
     "downloadedAt": "2026-09-02"
   },
   {
-    "file": "souvenirs.webp",
+    "file": "souvenirs.jpg",
     "library": "Unsplash",
     "author": "Alexander Mass",
     "page": "https://unsplash.com/photos/a-table-topped-with-baskets-filled-with-food-barnX4ZcLS0",
@@ -60,7 +60,7 @@
     "downloadedAt": "2026-09-02"
   },
   {
-    "file": "cultural-tourism-gifts.webp",
+    "file": "cultural-tourism-gifts.jpg",
     "library": "Unsplash",
     "author": "Claiton Conto",
     "page": "https://unsplash.com/photos/a-pile-of-colorful-bowls-sitting-on-top-of-a-table-BKHBKWNkBOI",
@@ -70,7 +70,7 @@
     "downloadedAt": "2026-09-02"
   },
   {
-    "file": "homestay-supplies.webp",
+    "file": "homestay-supplies.jpg",
     "library": "Pexels",
     "author": "Cup of Couple",
     "page": "https://www.pexels.com/photo/bathroom-accessories-on-white-8015837/",
@@ -80,7 +80,7 @@
     "downloadedAt": "2026-09-02"
   },
   {
-    "file": "packaging-consumables.webp",
+    "file": "packaging-consumables.jpg",
     "library": "Pexels",
     "author": "Mikhail Nilov",
     "page": "https://www.pexels.com/photo/food-and-dinks-delivery-in-disposable-containers-6613959/",
@@ -90,7 +90,7 @@
     "downloadedAt": "2026-09-02"
   },
   {
-    "file": "package-vouchers.webp",
+    "file": "package-vouchers.jpg",
     "library": "Unsplash",
     "author": "Rumman Amin",
     "page": "https://unsplash.com/photos/assorted-type-foods-nKs-oXRGGEg",
@@ -100,7 +100,7 @@
     "downloadedAt": "2026-09-02"
   },
   {
-    "file": "fresh-produce.webp",
+    "file": "fresh-produce.jpg",
     "library": "Unsplash",
     "author": "Carmen Gonzalez",
     "page": "https://unsplash.com/photos/a-basket-of-vegetables-UAVcdTeirS4",
@@ -110,7 +110,7 @@
     "downloadedAt": "2026-09-02"
   },
   {
-    "file": "seasonal-fruit.webp",
+    "file": "seasonal-fruit.jpg",
     "library": "Pexels",
     "author": "Unaizat Abdulgamidova",
     "page": "https://www.pexels.com/photo/close-up-photo-of-peaches-9265737/",
@@ -120,7 +120,7 @@
     "downloadedAt": "2026-09-02"
   },
   {
-    "file": "organic-vegetables.webp",
+    "file": "organic-vegetables.jpg",
     "library": "Pexels",
     "author": "Nataliya Vaitkevich",
     "page": "https://www.pexels.com/photo/fresh-vegetables-on-a-woven-basket-5425806/",
@@ -130,7 +130,7 @@
     "downloadedAt": "2026-09-02"
   },
   {
-    "file": "grains-oils-noodles.webp",
+    "file": "grains-oils-noodles.jpg",
     "library": "Pexels",
     "author": "Towfiqu barbhuiya",
     "page": "https://www.pexels.com/photo/clear-mini-glass-bottle-with-oil-on-sackcloth-beside-a-bowl-of-rice-grains-12408950/",
@@ -140,7 +140,7 @@
     "downloadedAt": "2026-09-02"
   },
   {
-    "file": "beverages.webp",
+    "file": "beverages.jpg",
     "library": "Pexels",
     "author": "Erika Ortiz",
     "page": "https://www.pexels.com/photo/clear-glass-bottles-with-orange-and-green-liquid-10895942/",
@@ -150,7 +150,7 @@
     "downloadedAt": "2026-09-02"
   },
   {
-    "file": "all.webp",
+    "file": "all.jpg",
     "library": "Unsplash",
     "author": "Bruno Guerrero",
     "page": "https://unsplash.com/photos/a-table-topped-with-baskets-of-fruit-and-vegetables-FSjjdGNUPf8",
@@ -160,7 +160,7 @@
     "downloadedAt": "2026-09-02"
   },
   {
-    "file": "fallback.webp",
+    "file": "fallback.jpg",
     "library": "Unsplash",
     "author": "Nina Luong",
     "page": "https://unsplash.com/photos/orange-and-green-vegetables-on-brown-woven-basket-dp06f70Eyvc",

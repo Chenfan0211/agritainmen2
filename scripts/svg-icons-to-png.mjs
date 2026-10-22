@@ -22,8 +22,8 @@ const color = '#1f2a22'
 export function collectIconNamesFromSource(source, validIcons) {
   const valid = new Set(validIcons)
   const names = new Set()
-  for (const match of source.matchAll(/UiIcon\s+name="([a-z-]+)"/g)) names.add(match[1])
-  for (const match of source.matchAll(/UiIcon\s+:name="([^"]+)"/g)) {
+  for (const match of source.matchAll(/(?:UiIcon|ui-icon)\s+name="([a-z-]+)"/g)) names.add(match[1])
+  for (const match of source.matchAll(/(?:UiIcon|ui-icon)\s+:name="([^"]+)"/g)) {
     for (const literal of match[1].matchAll(/'([a-z-]+)'/g)) if (valid.has(literal[1])) names.add(literal[1])
   }
   for (const match of source.matchAll(/icon:\s*'([a-z-]+)'/g)) {
@@ -37,7 +37,7 @@ function sourceFiles(dir) {
     const path = join(d, entry.name)
     return entry.isDirectory() ? walk(path) : [path]
   })
-  return walk(dir).filter((path) => /\.(vue|ts)$/.test(path))
+  return walk(dir).filter((path) => /\.(vue|ts|wxml)$/.test(path))
 }
 
 /** 按端读取源码，返回实际使用的图标名（排序去重）。 */

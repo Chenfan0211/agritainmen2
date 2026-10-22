@@ -7,16 +7,16 @@ const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)))
 /** 参与审计的页面：四端交互最密集的入口页。 */
 export const AUDIT_FILES = [
   'apps/admin/src/pages/index/index.vue',
-  'apps/store/src/pages/index/index.vue',
-  'apps/supplier/src/pages/index/index.vue',
-  'apps/user/src/pages/index/index.vue'
+  'apps/store/src/pages/index/index.wxml',
+  'apps/supplier/src/pages/index/index.wxml',
+  'apps/user/src/pages/index/index.wxml'
 ]
 
 /**
  * 声明式点击绑定：除 `@click="fn()"`，还必须识别 `@click.stop`、`@click.prevent` 等修饰符写法，
  * 否则带修饰符的真实处理器会被误判成「未绑定点击事件」。
  */
-const CLICK_BINDING = /@click(?:\.[\w-]+)*\s*=\s*(["'])(.*?)\1/s
+const CLICK_BINDING = /(?:@click(?:\.[\w-]+)*|(?:bind|catch)tap)\s*=\s*(["'])(.*?)\1/s
 
 /** 归类为「界面/业务函数」的处理函数名前缀。 */
 const SURFACE_PREFIXES = [
@@ -63,6 +63,7 @@ export function isHandlerDeclaredInPage(source, binding) {
     const patterns = [
       new RegExp('function\\s+' + name + '\\b'),
       new RegExp('\\b(?:const|let|var)\\s+' + name + '\\b'),
+      new RegExp('(?:^|[,\\n])\\s*(?:async\\s+)?' + name + '\\s*\\('),
       new RegExp('[{,]\\s*' + name + '\\s*[,}]'),
       new RegExp('\\b' + name + '\\s*[,}]')
     ]
@@ -109,7 +110,12 @@ export function auditButtons(root = ROOT) {
   let disabled = 0
 
   for (const file of AUDIT_FILES) {
-    const result = auditButtonsSource(readFileSync(resolve(root, file), 'utf8'), file)
+    let source = readFileSync(resolve(root, file), 'utf8')
+    if (file.endsWith('.wxml')) {
+      const logicFile = resolve(root, file.replace(/\.wxml$/, '.ts'))
+      source += '\n' + readFileSync(logicFile, 'utf8')
+    }
+    const result = auditButtonsSource(source, file)
     failures.push(...result.failures)
     matrix.store += result.matrix.store
     matrix.surface += result.matrix.surface

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)))
 
 /** 供应商端应存在的图标清单（PNG / SVG 双份）。 */
-export const EXPECTED_SUPPLIER_ICONS = ['arrow-left', 'chevron-left', 'chevron-right', 'layout-dashboard', 'list-tree', 'map-pin', 'navigation', 'package', 'package-check', 'search', 'store', 'user-round', 'users', 'x']
+export const EXPECTED_SUPPLIER_ICONS = ['arrow-left', 'check', 'chevron-left', 'chevron-right', 'layout-dashboard', 'list-tree', 'map-pin', 'navigation', 'package', 'package-check', 'search', 'store', 'user-round', 'users', 'x']
 
 /** 已删除、不得再出现在 MP 产物中的 SVG。 */
 export const REMOVED_SUPPLIER_SVGS = ['calendar-check', 'calendar-days', 'badge-dollar-sign', 'badge-percent', 'bell-ring', 'bell', 'chart-no-axes-combined', 'chevron-down', 'credit-card', 'crown', 'door-open', 'download', 'factory', 'headset', 'house', 'link', 'megaphone', 'package-plus', 'phone', 'play', 'plus', 'radio', 'route', 'shield-check', 'shopping-bag', 'shopping-cart', 'sprout', 'tags', 'trophy', 'truck', 'user-round-check', 'utensils']
