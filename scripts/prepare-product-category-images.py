@@ -64,7 +64,8 @@ def prepare(source: Path, target: Path) -> tuple[int, int, int]:
         image = ImageEnhance.Brightness(image).enhance(1.035)
         image = ImageEnhance.Color(image).enhance(1.035)
         image = ImageEnhance.Sharpness(image).enhance(1.04)
-        image.save(target, "WEBP", quality=82, method=6, exact=True, icc_profile=ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes())
+        # 仓库契约：品类图统一为 JPEG（三端小程序只使用 .jpg），测试用 JPEG 魔数守护
+        image.save(target, "JPEG", quality=82, optimize=True, progressive=False, icc_profile=ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes())
     size = target.stat().st_size
     if size > MAX_OUTPUT_BYTES:
         raise ValueError(f"{target.name} exceeds {MAX_OUTPUT_BYTES // 1024}KB: {size} bytes")

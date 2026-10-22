@@ -209,14 +209,16 @@ export function buildNativeApp({ root = ROOT, app, mode = 'dev' } = {}) {
 }
 
 async function watchNativeApp(options) {
+  // CLI 传入的 options 只有 app/mode/watch，这里补齐 root，否则 watch 路径解析会拿到 undefined。
+  const config = { ...options, root: options.root || ROOT }
   let running = false
   let pending = false
   const rebuild = () => {
     if (running) { pending = true; return }
     running = true
     try {
-      const result = buildNativeApp(options)
-      console.log(`[${options.app}] 构建完成: ${result.outputDir}`)
+      const result = buildNativeApp(config)
+      console.log(`[${config.app}] 构建完成: ${result.outputDir}`)
     } catch (error) {
       console.error(error instanceof Error ? error.message : error)
     } finally {
@@ -227,10 +229,10 @@ async function watchNativeApp(options) {
   rebuild()
   const { watch } = await import('node:fs')
   const watchers = [
-    watch(resolve(options.root, 'apps', options.app, 'src'), { recursive: true }, rebuild),
-    watch(resolve(options.root, 'packages/shared/src'), { recursive: true }, rebuild)
+    watch(resolve(config.root, 'apps', config.app, 'src'), { recursive: true }, rebuild),
+    watch(resolve(config.root, 'packages/shared/src'), { recursive: true }, rebuild)
   ]
-  console.log(`[${options.app}] 正在监听原生源码变化...`)
+  console.log(`[${config.app}] 正在监听原生源码变化...`)
   return watchers
 }
 
