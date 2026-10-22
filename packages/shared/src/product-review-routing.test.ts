@@ -71,9 +71,9 @@ const dailyRouteKey = 'agritainment-platform-daily-delivery-routes'
 function catalogProduct(overrides: Partial<CatalogProduct> = {}): CatalogProduct {
   return {
     id: 'P-REVIEW', name: '审核商品', category: '土特产', supplierId: 'S-1', supplierName: '供应商', source: 'farmhouse', status: 'active',
-    image: '/product.webp', images: [], tags: [], productType: 'goods', expressDelivery: true, channel: 'all', farmIds: ['STORE-1'],
+    image: '/product.jpg', images: [], tags: [], productType: 'goods', expressDelivery: true, channel: 'all', farmIds: ['STORE-1'],
     promoterCommissionRate: 5, storeCommissionRate: 3,
-    skus: [{ id: 'SKU-1', name: '标准装', image: '/product.webp', retailPrice: 30, cost: 20, stock: 8, level1Amount: 2, level2Amount: 3, minimumOrderQuantity: 4 }],
+    skus: [{ id: 'SKU-1', name: '标准装', image: '/product.jpg', retailPrice: 30, cost: 20, stock: 8, level1Amount: 2, level2Amount: 3, minimumOrderQuantity: 4 }],
     ...overrides
   } as CatalogProduct
 }

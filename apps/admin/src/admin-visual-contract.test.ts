@@ -172,7 +172,7 @@ describe('admin visual contract', () => {
     expect(pageSource).toMatch(/\.sidebar\s*\{[^}]*width:var\(--admin-sidebar-width\)/s)
     expect(pageSource).not.toMatch(/\.table-row\s*\{[^}]*min-height:76px/s)
     expect(pageSource).not.toMatch(/\.status\s*\{[^}]*border-radius:999px/s)
-    expect(pageSource).not.toContain("url('/static/images/farmhouse.webp')")
+    expect(pageSource).not.toContain("url('/static/images/farmhouse.jpg')")
     expect(pageSource).toMatch(/\.login-field input\{height:var\(--admin-control-height\)/)
     expect(pageSource).toMatch(/\.row-actions button:first-child:not\(\.danger\)\{background:var\(--(?:admin-green-2|color-brand-primary)\)/)
     expect(pageSource).not.toContain('left:184px')

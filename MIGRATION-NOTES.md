@@ -142,3 +142,9 @@
 ## 推送安全边界
 
 副本保留了完整 `.git` 历史。**不要**把 `codex/four-ends` 推送到原仓库 `Chenfan0211/agritainmen` 的同名分支——那会在该分支上删除其他三端。请推送到新仓库，或仅在本地使用。
+
+## 2026-10-22 原生小程序迁移（现状）
+
+- `apps/store`、`apps/supplier`、`apps/user` 已从 uni-app 编译产物改为**手写原生微信小程序**（`app.ts` / `app.json` / `app.wxss` + 页面 `.ts|.wxml|.json|.wxss|.scss`），构建由 `scripts/build-native-mp.mjs` 完成（临时目录构建 + 整体替换，产物目录被开发者工具占用时直接失败）。
+- 相关说明与验收口径见 [`docs/native-mini-program-migration.md`](docs/native-mini-program-migration.md)；发布流程见 [`docs/qa/2026-10-22-小程序发布前置清单.md`](docs/qa/2026-10-22-小程序发布前置清单.md)。
+- 本文档早前条目中出现的 `src/pages.json`、`src/manifest.json`、`src/uni.scss`、`UiIcon.vue`、`#ifndef MP-WEIXIN` 等均属 uni-app 时期描述，对三端小程序**不再适用**（admin 仍为 uni-app H5，其 `manifest.json` / `uni.scss` 仍有效）。

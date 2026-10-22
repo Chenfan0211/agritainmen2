@@ -35,7 +35,7 @@ describe('admin store interactions', () => {
   })
 
   function seedShippedCMallOrder(suffix: string) {
-    const item = { productId: `P-${suffix}`, skuId: `SKU-${suffix}`, name: '联调商品', skuName: '标准装', image: '/static/images/field.webp', quantity: 1, unitPrice: 100, basePrice: 75, level1Commission: 10, level2Commission: 15, supplierId: 'S002' }
+    const item = { productId: `P-${suffix}`, skuId: `SKU-${suffix}`, name: '联调商品', skuName: '标准装', image: '/static/images/field.jpg', quantity: 1, unitPrice: 100, basePrice: 75, level1Commission: 10, level2Commission: 15, supplierId: 'S002' }
     const sub = { id: `CSO-${suffix}`, supplierId: 'S002', supplierName: '湘西腊味合作社', items: [item], amount: 100, status: 'paid' as const, logistics: [] }
     const order: COrder = {
       id: `CO-${suffix}`, userId: `U-${suffix}`, level: 'normal',
@@ -62,7 +62,7 @@ describe('admin store interactions', () => {
     const supplierId = product.supplierId || 'S002'
     const item = {
       productId: product.id, skuId: sku.id, name: product.name, skuName: sku.name,
-      image: typeof product.image === 'string' ? product.image : '/static/images/field.webp', quantity: 2,
+      image: typeof product.image === 'string' ? product.image : '/static/images/field.jpg', quantity: 2,
       unitPrice: sku.retailPrice, basePrice: sku.cost, level1Commission: 10, level2Commission: 0, supplierId
     }
     const sub = {
@@ -974,9 +974,9 @@ describe('admin store interactions', () => {
 
     await expect(store.updateFarm(store.farms[0].id, {
       name: '图片规范化门店', region: '长沙市岳麓区', address: '湖南省长沙市岳麓区测试路1号',
-      image: '/static/images/farmhouse.webp'
+      image: '/static/images/farmhouse.jpg'
     }, geocode)).resolves.toBe(true)
-    expect(store.farms[0].image).toEqual({ source: 'builtin', path: '/static/images/farmhouse.webp' })
+    expect(store.farms[0].image).toEqual({ source: 'builtin', path: '/static/images/farmhouse.jpg' })
   })
 
   it('does not leave an account behind when supplier entity persistence fails', async () => {
@@ -1019,9 +1019,9 @@ describe('admin store interactions', () => {
     const existing = cloneSeed(store.catalogProducts[0])
     const product: CatalogProduct = {
       ...existing, name: '统一商品', category: '土特产', supplierId: store.suppliers[0].id, supplierName: store.suppliers[0].name,
-      source: 'platform', status: 'active', image: { source: 'builtin', path: '/static/images/product.webp' }, images: [], tags: ['演示'], productType: 'goods', expressDelivery: true,
+      source: 'platform', status: 'active', image: { source: 'builtin', path: '/static/images/product.jpg' }, images: [], tags: ['演示'], productType: 'goods', expressDelivery: true,
       channel: 'all', farmIds: [], promoterCommissionRate: 5, storeCommissionRate: 3,
-      skus: [{ id: existing.skus[0].id, name: '默认规格', image: { source: 'builtin', path: '/static/images/product.webp' }, retailPrice: 60, cost: 30, stock: 10, level1Amount: 10, level2Amount: 15 }]
+      skus: [{ id: existing.skus[0].id, name: '默认规格', image: { source: 'builtin', path: '/static/images/product.jpg' }, retailPrice: 60, cost: 30, stock: 10, level1Amount: 10, level2Amount: 15 }]
     }
 
     expect(await store.saveCatalogProduct(product)).toEqual({ ok: true })
@@ -2076,9 +2076,9 @@ describe('admin auth', () => {
   it('preserves the formal status when approving an update submission', async () => {
     const formal: CatalogProduct = {
       id: 'CAT-APPROVE-UPDATE', name: '正式更新商品', category: '土特产', supplierId: 'S002', supplierName: '湘西腊味合作社',
-      source: 'platform', status: 'active', image: '/static/images/bacon.webp', images: [], tags: [], productType: 'goods', expressDelivery: true,
+      source: 'platform', status: 'active', image: '/static/images/bacon.jpg', images: [], tags: [], productType: 'goods', expressDelivery: true,
       channel: 'live', farmIds: [], promoterCommissionRate: 5, storeCommissionRate: 3,
-      skus: [{ id: 'CAT-APPROVE-UPDATE-SKU', name: '标准装', image: '/static/images/bacon.webp', retailPrice: 60, cost: 30, stock: 10, level1Amount: 10, level2Amount: 15, minimumOrderQuantity: 2 }]
+      skus: [{ id: 'CAT-APPROVE-UPDATE-SKU', name: '标准装', image: '/static/images/bacon.jpg', retailPrice: 60, cost: 30, stock: 10, level1Amount: 10, level2Amount: 15, minimumOrderQuantity: 2 }]
     }
     expect(writeCatalogState({ schemaVersion: shared.CATALOG_SCHEMA_VERSION, revision: 0, products: [formal] })).toBe(true)
     const store = useAdminStore()

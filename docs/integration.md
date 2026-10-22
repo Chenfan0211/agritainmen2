@@ -7,14 +7,16 @@ pnpm install
 pnpm build          # admin(H5) + store/user/supplier(mp-weixin)
 ```
 
-| 端 | 产物 | 交付形态 |
-|---|---|---|
-| `apps/admin` | `apps/admin/dist/build/h5` | H5（PC 工作台），静态托管即可 |
-| `apps/store` | `apps/store/dist/build/mp-weixin` | 微信小程序，微信开发者工具导入 |
-| `apps/user` | `apps/user/dist/build/mp-weixin` | 微信小程序，微信开发者工具导入 |
-| `apps/supplier` | `apps/supplier/dist/build/mp-weixin` | 微信小程序，微信开发者工具导入 |
+| 端 | 开发态产物 | 构建态产物 | 交付形态 |
+|---|---|---|---|
+| `apps/admin` | - | `apps/admin/dist/build/h5` | H5（PC 工作台），静态托管即可 |
+| `apps/store` | `apps/store/dist/dev/mp-weixin` | `apps/store/dist/build/mp-weixin` | 微信小程序，微信开发者工具导入 |
+| `apps/user` | `apps/user/dist/dev/mp-weixin` | `apps/user/dist/build/mp-weixin` | 微信小程序，微信开发者工具导入 |
+| `apps/supplier` | `apps/supplier/dist/dev/mp-weixin` | `apps/supplier/dist/build/mp-weixin` | 微信小程序，微信开发者工具导入 |
 
-开发态：`pnpm dev:admin` 直接起 H5 开发服务；`pnpm dev:store`、`pnpm dev:user`、`pnpm dev:supplier` 产出 `dist/dev/mp-weixin`，用微信开发者工具导入该目录调试。
+开发态：`pnpm dev:admin` 直接起 H5 开发服务；`pnpm dev:store`、`pnpm dev:user`、`pnpm dev:supplier` 产出 `dist/dev/mp-weixin`。等待终端出现 `[store|supplier|user] 构建完成` 后，用微信开发者工具导入该目录，或执行 `pnpm mp:open <store|supplier|user>`。
+
+禁止把 `apps/store`、`apps/supplier`、`apps/user` 源码根目录直接导入微信开发者工具；这些目录没有 `app.json`，会报“在项目根目录未找到 app.json”。构建态验收使用 `pnpm mp:open <端> --mode build`。
 
 同源 H5 联调（`build/serve/check:single-origin`、`scripts/serve-dist.mjs`、Playwright e2e）已随端形态收敛一并移除：三端不再产出 H5，也不再存在共享 localStorage 的联调入口。
 

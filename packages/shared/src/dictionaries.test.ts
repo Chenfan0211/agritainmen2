@@ -10,6 +10,8 @@ import {
   getDictOptions,
   publishPlatformDictionaries,
   productCategoryImage,
+  defaultProductCategoryImage,
+  mergeLegacyProductCategories,
   readPlatformDictionaries,
   removeDictGroup,
   removeDictItem,
@@ -176,7 +178,7 @@ describe('platform dictionaries', () => {
     const custom = migrated.items.find((item) => item.code === 'CUSTOM')
     const uploaded = migrated.items.find((item) => item.code === 'UPLOADED')
 
-    expect(custom?.image).toEqual({ source: 'builtin', path: '/static/images/categories/fallback.webp' })
+    expect(custom?.image).toEqual({ source: 'builtin', path: '/static/images/categories/fallback.jpg' })
     expect(uploaded?.image).toEqual({ source: 'asset', assetId: 'media-uploaded' })
     expect(migrated.items.filter((item) => item.type === 'productCategory').every((item) => !!item.image)).toBe(true)
   })
@@ -192,7 +194,7 @@ describe('platform dictionaries', () => {
 
     const state = readPlatformDictionaries()
     expect(state.items).toContainEqual(expect.objectContaining({
-      type: 'productCategory', label: '老品类山货', image: { source: 'builtin', path: '/static/images/categories/fallback.webp' }
+      type: 'productCategory', label: '老品类山货', image: { source: 'builtin', path: '/static/images/categories/fallback.jpg' }
     }))
     expect(state.items.some((item) => item.label === '供应商旧分类')).toBe(false)
   })
@@ -215,8 +217,8 @@ describe('platform dictionaries', () => {
 
     expect(productCategoryImage('农产品', state)).toEqual(agriculture.image)
     expect(productCategoryImage(agriculture.code, state)).toEqual(agriculture.image)
-    expect(productCategoryImage('全部', state)).toEqual({ source: 'builtin', path: '/static/images/categories/all.webp' })
-    expect(productCategoryImage('历史未知品类', state)).toEqual({ source: 'builtin', path: '/static/images/categories/fallback.webp' })
+    expect(productCategoryImage('全部', state)).toEqual({ source: 'builtin', path: '/static/images/categories/all.jpg' })
+    expect(productCategoryImage('历史未知品类', state)).toEqual({ source: 'builtin', path: '/static/images/categories/fallback.jpg' })
   })
 
   it('keeps all specified initial business and locked system groups', () => {

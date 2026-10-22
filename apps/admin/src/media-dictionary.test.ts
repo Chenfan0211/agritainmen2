@@ -89,13 +89,13 @@ describe('admin media contracts', () => {
   it('只有 static/http/data/blob 字符串和 MediaReference 被识别为资质图片', async () => {
     const { readSupplierQualificationFields } = await loadHelpers()
     expect(readSupplierQualificationFields({
-      businessLicense: '/static/images/license.webp',
+      businessLicense: '/static/images/license.jpg',
       permit: 'https://cdn.example.com/permit.jpg',
       validUntil: '待补充',
       reviewNote: ''
     })).toMatchObject({
       businessLicenseNumber: '',
-      businessLicense: { source: 'builtin', path: '/static/images/license.webp' },
+      businessLicense: { source: 'builtin', path: '/static/images/license.jpg' },
       permitNumber: '',
       permit: { source: 'legacy', url: 'https://cdn.example.com/permit.jpg' }
     })
@@ -181,7 +181,7 @@ describe('admin media lifecycle', () => {
     const oldCover = await savedAsset(storage, 31)
     await bindMediaReference(storage, oldCover, 'farm:F-LIFE:cover')
     const previous = { id: 'F-LIFE', image: oldCover } as unknown as FarmStore
-    const next = { id: 'F-LIFE', image: { source: 'builtin', path: '/static/images/farmhouse.webp' } } as unknown as FarmStore
+    const next = { id: 'F-LIFE', image: { source: 'builtin', path: '/static/images/farmhouse.jpg' } } as unknown as FarmStore
     await persistAndFinalizeAdminMedia(storage, farmMediaBindings(previous), () => farmMediaBindings(next), async () => true, Boolean)
     expect(await readMediaAsset(storage, oldCover.assetId)).toBeNull()
   })

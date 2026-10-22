@@ -6,36 +6,31 @@ import { describe, expect, it } from 'vitest'
 const root = resolve(import.meta.dirname, '..')
 const apps = ['admin', 'store', 'user', 'supplier']
 const files = [
-  'agricultural-products.webp', 'prepared-foods.webp', 'ingredients-seasonings.webp',
-  'featured-ingredients.webp', 'local-specialties.webp', 'souvenirs.webp',
-  'cultural-tourism-gifts.webp', 'homestay-supplies.webp', 'packaging-consumables.webp',
-  'package-vouchers.webp', 'fresh-produce.webp', 'seasonal-fruit.webp',
-  'organic-vegetables.webp', 'grains-oils-noodles.webp', 'beverages.webp',
-  'all.webp', 'fallback.webp'
+  'agricultural-products.jpg', 'prepared-foods.jpg', 'ingredients-seasonings.jpg',
+  'featured-ingredients.jpg', 'local-specialties.jpg', 'souvenirs.jpg',
+  'cultural-tourism-gifts.jpg', 'homestay-supplies.jpg', 'packaging-consumables.jpg',
+  'package-vouchers.jpg', 'fresh-produce.jpg', 'seasonal-fruit.jpg',
+  'organic-vegetables.jpg', 'grains-oils-noodles.jpg', 'beverages.jpg',
+  'all.jpg', 'fallback.jpg'
 ]
 
-function webpDimensions(file: string) {
+function jpegDimensions(file: string) {
   const bytes = readFileSync(file)
-  expect(bytes.subarray(0, 4).toString()).toBe('RIFF')
-  expect(bytes.subarray(8, 12).toString()).toBe('WEBP')
-  const format = bytes.subarray(12, 16).toString()
-  if (format === 'VP8X') {
-    return {
-      width: 1 + bytes[24]! + (bytes[25]! << 8) + (bytes[26]! << 16),
-      height: 1 + bytes[27]! + (bytes[28]! << 8) + (bytes[29]! << 16)
+  expect(bytes[0]).toBe(0xff)
+  expect(bytes[1]).toBe(0xd8)
+  let offset = 2
+  while (offset < bytes.length) {
+    if (bytes[offset] !== 0xff) throw new Error(`无效 JPEG 标记: ${file}`)
+    const marker = bytes[offset + 1]!
+    offset += 2
+    if (marker === 0xd9 || marker === 0xda) break
+    const length = bytes.readUInt16BE(offset)
+    if ([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf].includes(marker)) {
+      return { height: bytes.readUInt16BE(offset + 3), width: bytes.readUInt16BE(offset + 5) }
     }
+    offset += length
   }
-  if (format === 'VP8L') {
-    return {
-      width: 1 + bytes[21]! + ((bytes[22]! & 0x3f) << 8),
-      height: 1 + ((bytes[22]! & 0xc0) >> 6) + (bytes[23]! << 2) + ((bytes[24]! & 0x0f) << 10)
-    }
-  }
-  expect(format).toBe('VP8 ')
-  return {
-    width: bytes.readUInt16LE(26) & 0x3fff,
-    height: bytes.readUInt16LE(28) & 0x3fff
-  }
+  throw new Error(`未找到 JPEG 尺寸: ${file}`)
 }
 
 describe('商品品类实拍图资产', () => {
@@ -53,11 +48,11 @@ describe('商品品类实拍图资产', () => {
     }
   })
 
-  it('母版和四端资源均为 128 方形 WebP、大小合规且哈希一致', () => {
+  it('母版和四端资源均为 128 方形 JPEG、大小合规且哈希一致', () => {
     for (const file of files) {
       const master = resolve(root, 'assets/product-categories/master', file)
       expect(existsSync(master), `缺少母版 ${file}`).toBe(true)
-      expect(webpDimensions(master)).toEqual({ width: 128, height: 128 })
+      expect(jpegDimensions(master)).toEqual({ width: 128, height: 128 })
       expect(statSync(master).size, `${file} 超过 24KB`).toBeLessThanOrEqual(24 * 1024)
       const expectedHash = createHash('sha256').update(readFileSync(master)).digest('hex')
       for (const app of apps) {

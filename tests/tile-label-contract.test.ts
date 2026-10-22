@@ -6,9 +6,9 @@ const root = resolve(import.meta.dirname, '..')
 const source = (path: string) => readFileSync(resolve(root, path), 'utf8')
 
 const pages = [
-  'apps/user/src/pages/index/index.vue',
-  'apps/store/src/pages/index/index.vue',
-  'apps/supplier/src/pages/index/index.vue'
+  'apps/user/src/pages/index/index.wxml',
+  'apps/store/src/pages/index/index.wxml',
+  'apps/supplier/src/pages/index/index.wxml'
 ]
 
 function tileLabels(page: string) {
@@ -40,7 +40,7 @@ describe('宫格入口名最多四字', () => {
   })
 
   it('供应商工作台 supplierWorkItems 标题不超过四个字', () => {
-    const labels = workItemLabels(source('apps/supplier/src/pages/index/index.vue'))
+    const labels = workItemLabels(source('apps/supplier/src/pages/index/index.ts'))
     expect(labels).toEqual(['司机管理', '线路规划', '出仓交接', '结算账单', '交接日志', '仓点设置'])
     for (const label of labels) {
       expect(hanLength(label), label).toBeLessThanOrEqual(4)

@@ -19,7 +19,7 @@ import { createId, createPlatformAuditLogEntry, mergePlatformAfterSales, catalog
 
 describe('C端分销商城 helpers', () => {
   beforeEach(() => localStorage.clear())
-  const sku: CProductSku = { id: 'C001-SKU', name: '500g', image: '/static/images/bacon.webp', stock: 20, basePrice: 20, level1Commission: 10, level2Commission: 15 }
+  const sku: CProductSku = { id: 'C001-SKU', name: '500g', image: '/static/images/bacon.jpg', stock: 20, basePrice: 20, level1Commission: 10, level2Commission: 15 }
 
   it('derives cumulative prices by user level', () => {
     expect(cPriceForSku(sku, 'level1')).toBe(20)
@@ -663,8 +663,8 @@ describe('derivePlatformMetrics', () => {
 
 describe('platform media library', () => {
   it('applies uploaded farm and product images over seeds', () => {
-    const farm = { ...farms[0], image: '/static/images/farmhouse.webp' }
-    const product = { ...products[0], image: '/static/images/bacon.webp', images: ['/static/images/bacon.webp'] }
+    const farm = { ...farms[0], image: '/static/images/farmhouse.jpg' }
+    const product = { ...products[0], image: '/static/images/bacon.jpg', images: ['/static/images/bacon.jpg'] }
     const media = {
       farms: { [farm.id]: 'data:image/jpeg;base64,AAA' },
       products: { [product.id]: { image: 'data:image/jpeg;base64,BBB', images: ['data:image/jpeg;base64,CCC'] } },
@@ -677,24 +677,24 @@ describe('platform media library', () => {
   })
 
   it('keeps original images when media has no record', () => {
-    const farm = { ...farms[0], image: '/static/images/farmhouse.webp' }
+    const farm = { ...farms[0], image: '/static/images/farmhouse.jpg' }
     applyPlatformMedia([farm], [], emptyPlatformMedia())
-    expect(farm.image).toBe('/static/images/farmhouse.webp')
+    expect(farm.image).toBe('/static/images/farmhouse.jpg')
   })
 
   it('upserts and removes farm media records by upload state', () => {
     let media = emptyPlatformMedia()
     media = upsertPlatformFarm(media, 'F999', 'data:image/png;base64,XXX')
     expect(media.farms['F999']).toBe('data:image/png;base64,XXX')
-    media = upsertPlatformFarm(media, 'F999', '/static/images/farmhouse.webp')
+    media = upsertPlatformFarm(media, 'F999', '/static/images/farmhouse.jpg')
     expect(media.farms['F999']).toBeUndefined()
   })
 
   it('upserts product media only when an uploaded image exists', () => {
     let media = emptyPlatformMedia()
-    media = upsertPlatformProduct(media, 'P999', '/static/images/rice.webp')
+    media = upsertPlatformProduct(media, 'P999', '/static/images/rice.jpg')
     expect(media.products['P999']).toBeUndefined()
-    media = upsertPlatformProduct(media, 'P999', 'data:image/jpeg;base64,YYY', ['/static/images/field.webp'])
+    media = upsertPlatformProduct(media, 'P999', 'data:image/jpeg;base64,YYY', ['/static/images/field.jpg'])
     expect(media.products['P999']).toEqual({ image: 'data:image/jpeg;base64,YYY', images: [] })
     media = upsertPlatformProduct(media, 'P999', 'data:image/jpeg;base64,YYY', ['data:image/jpeg;base64,ZZZ'])
     expect(media.products['P999']).toEqual({ image: 'data:image/jpeg;base64,YYY', images: ['data:image/jpeg;base64,ZZZ'] })
@@ -815,7 +815,7 @@ describe('share settlement helpers', () => {
 describe('supplier fulfillment helpers', () => {
   beforeEach(() => localStorage.clear())
 
-  const item = (skuId: string, name: string, quantity: number): OrderItem => ({ productId: skuId, skuId, name, skuName: name, image: '/static/images/bacon.webp', quantity, price: 10 })
+  const item = (skuId: string, name: string, quantity: number): OrderItem => ({ productId: skuId, skuId, name, skuName: name, image: '/static/images/bacon.jpg', quantity, price: 10 })
 
   it('computes shortage from actual quantities and clamps out-of-range inputs', () => {
     const items = [item('S1', '腊肉', 10), item('S2', '辣椒酱', 5)]
@@ -1130,8 +1130,8 @@ describe('统一商品目录', () => {
   beforeEach(() => localStorage.clear())
 
   const catalogProduct: CatalogProduct = {
-    id: 'U001', name: '统一腊肉', category: '土特产', supplierId: 'S002', supplierName: '湘西腊味合作社', source: 'platform', status: 'active', image: '/static/images/bacon.webp', images: [], tags: ['精选'], productType: 'goods', expressDelivery: true, channel: 'all', farmIds: ['F001'], promoterCommissionRate: 5, storeCommissionRate: 3,
-    skus: [{ id: 'U001-500', name: '500g', image: '/static/images/bacon.webp', retailPrice: 45, cost: 20, stock: 8, level1Amount: 10, level2Amount: 15 }]
+    id: 'U001', name: '统一腊肉', category: '土特产', supplierId: 'S002', supplierName: '湘西腊味合作社', source: 'platform', status: 'active', image: '/static/images/bacon.jpg', images: [], tags: ['精选'], productType: 'goods', expressDelivery: true, channel: 'all', farmIds: ['F001'], promoterCommissionRate: 5, storeCommissionRate: 3,
+    skus: [{ id: 'U001-500', name: '500g', image: '/static/images/bacon.jpg', retailPrice: 45, cost: 20, stock: 8, level1Amount: 10, level2Amount: 15 }]
   }
 
   it('按零售价和两级固定金额计算三种身份价格', () => {
@@ -1315,11 +1315,11 @@ describe('统一商品目录', () => {
     const asset = { source: 'asset', assetId: 'ASSET-1' } as const
     const saved = saveCatalogProduct({
       ...catalogProduct,
-      image: '/static/images/product.webp',
+      image: '/static/images/product.jpg',
       images: ['https://cdn.example.com/gallery.jpg', asset],
       skus: catalogProduct.skus.map((sku) => ({ ...sku, image: 'data:image/png;base64,AAAA' }))
     }, 0)
-    expect(saved?.products[0].image).toEqual({ source: 'builtin', path: '/static/images/product.webp' })
+    expect(saved?.products[0].image).toEqual({ source: 'builtin', path: '/static/images/product.jpg' })
     expect(saved?.products[0].images).toEqual([
       { source: 'legacy', url: 'https://cdn.example.com/gallery.jpg' },
       asset

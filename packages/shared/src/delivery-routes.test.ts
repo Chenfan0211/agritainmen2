@@ -43,7 +43,7 @@ function orderOf(id: string, storeId: string): Order {
   return {
     id, productName: '腊肉', quantity: 1, amount: 10, customer: storeId, channel: 'purchase', status: 'shipping',
     createdAt: '2026-09-07T08:00:00.000Z', supplierId: 'S-1', storeId, storeName: storeId,
-    items: [{ productId: 'P1', skuId: 'P1-1', name: '腊肉', skuName: '500g', image: '/x.webp', quantity: 1, price: 10 }],
+    items: [{ productId: 'P1', skuId: 'P1-1', name: '腊肉', skuName: '500g', image: '/x.jpg', quantity: 1, price: 10 }],
     supplierFulfillment: {
       status: 'delivering', shipType: 'driver', driverId: 'D-1', driverName: '张伟', deliverDate: '2026-09-07',
       shortages: [], handovers: [], updatedAt: '2026-09-07T08:00:00.000Z'

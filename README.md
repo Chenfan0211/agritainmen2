@@ -1,6 +1,6 @@
 # 数字供应链平台前端
 
-基于 Uni-app、Vue 3、TypeScript 和 Pinia 的多端前端演示工程。项目不包含后端服务，业务数据和状态流转均在本地完成。
+多端前端演示工程。运营后台保留 Uni-app H5；门店订货端、用户端、供应商端使用原生微信小程序 WXML/WXSS/TS。项目不包含后端服务，业务数据和状态流转均在本地完成。
 
 本仓库是平台工程的四端裁剪副本，只保留运营后台、供应商端、门店订货端和用户端；裁剪范围、来源提交与"恢复/新增一端"的操作规程见 [`MIGRATION-NOTES.md`](MIGRATION-NOTES.md)。
 
@@ -13,9 +13,9 @@
 ## 应用
 
 - `apps/admin`：供应链管理后台（运营后台），仅构建 H5。
-- `apps/store`：门店订货商城（门店订货端），只构建微信小程序；门店与业务员两类角色登录，以分销价向供应链中台直采下单并查看订单。
-- `apps/user`：用户端 C 端分销商城，只构建微信小程序；浏览快递直发商品，按普通用户/一级团长/二级团长身份显示价格，购物车结算、查看多供应商子订单和佣金。
-- `apps/supplier`：供应商配送工作台，只构建微信小程序；供应商按 `supplierId` 隔离订单，处理 C 端商城快递订单和门店进货单，司机仅处理门店配送任务，缺货自动统计。
+- `apps/store`：门店订货商城（门店订货端），原生微信小程序；门店与业务员两类角色登录，以分销价向供应链中台直采下单并查看订单。
+- `apps/user`：用户端 C 端分销商城，原生微信小程序；浏览快递直发商品，按普通用户/一级团长/二级团长身份显示价格，购物车结算、查看多供应商子订单和佣金。
+- `apps/supplier`：供应商配送工作台，原生微信小程序；供应商按 `supplierId` 隔离订单，处理 C 端商城快递订单和门店进货单，司机仅处理门店配送任务，缺货自动统计。
 - `packages/shared`：公共业务类型、演示数据和纯函数。
 - `packages/ui`：共享设计令牌、移动端主题、业务图片组件与媒体运行时。
 - `packages/tencent-map-gateway`：腾讯地图 WebService 同源网关，供运营后台地址解析和供应商端线路规划使用。
@@ -31,6 +31,29 @@ pnpm dev:supplier     # 供应商端，产出 dist/dev/mp-weixin，用微信开�
 pnpm dev:gateway      # 独立腾讯地图网关（默认 http://127.0.0.1:8790）
 ```
 
+### 微信开发者工具导入
+
+`apps/store`、`apps/supplier`、`apps/user` 是原生微信小程序源码工程，构建产物中才包含 `app.json`。先启动对应端，再导入构建产物；也可以使用 `pnpm mp:open` 自动打开已经存在的产物：
+
+```bash
+pnpm dev:store
+# 等终端出现 [store] 构建完成
+pnpm mp:open store
+
+pnpm build:store
+pnpm mp:open store --mode build
+```
+
+| 端 | 开发命令 | 开发态导入目录 | 构建态导入目录 |
+|---|---|---|---|
+| store | `pnpm dev:store` | `apps/store/dist/dev/mp-weixin` | `apps/store/dist/build/mp-weixin` |
+| supplier | `pnpm dev:supplier` | `apps/supplier/dist/dev/mp-weixin` | `apps/supplier/dist/build/mp-weixin` |
+| user | `pnpm dev:user` | `apps/user/dist/dev/mp-weixin` | `apps/user/dist/build/mp-weixin` |
+
+`pnpm mp:open` 默认打开开发态产物；`--mode build` 打开构建态产物，`--dry-run` 只打印路径不启动开发者工具。若本机不在标准位置安装开发者工具，可设置 `WECHAT_DEVTOOLS_CLI`，或复制命令打印的绝对目录手动导入。
+
+> 报错 `[ app.json 文件内容错误 ] app.json: 在项目根目录未找到 app.json`，通常是因为导入了 `apps/<端>` 源码根目录。关闭该开发者工具项目，按上表导入 `dist/dev/mp-weixin` 或 `dist/build/mp-weixin` 即可。
+
 运营后台的腾讯地图网关由 Vite 开发服务器直接挂载，无需单独启动；微信小程序不能走 Vite devServer，需启动 `pnpm dev:gateway` 并把 `VITE_TENCENT_MAP_GATEWAY` 配成网关绝对地址（例如 `http://127.0.0.1:8790/api/tencent-map/geocode`）。
 
 ## 验证
@@ -45,8 +68,10 @@ pnpm audit:typography   # 业务文字与图表文字 >= 12px
 pnpm audit:buttons      # 四端首页按钮必须绑定可归类的点击行为
 pnpm audit:tokens       # 业务样式禁止硬编码 hex / rgb() 色值
 pnpm audit:mp-styles    # 小程序标签选择器 / 主题作用域 / 兼容语法
+pnpm audit:mp-wxs       # WXS 只允许 ES5 子集（禁 for...in / 正则字面量 / $event 等）
 pnpm check:supplier-assets
 pnpm check:mp-size      # 三端主包 <=1600KB、静态资源 <=700KB（需先 build）
+pnpm check:native-assets # 三端页面/组件解析、图片存在与 JPEG 校验、产物残留（需先 build）
 pnpm e2e:mp --app store --chain L1   # 模拟器链路自动化（需本机微信开发者工具，不进 CI）
 ```
 
@@ -66,13 +91,13 @@ pnpm build && pnpm check:mp-size
 
 任一维度出现未覆盖项时 `scripts/audit-interfaces.mjs` 会打印清单并以非零码退出；同一门禁也作为用例运行在 `pnpm test` 中（`scripts/audit-interfaces.test.mjs`）。
 
-`pnpm build` 依次构建运营后台 H5 与门店订货端、用户端、供应商端的 `mp-weixin`，微信小程序产物分别位于 `apps/*/dist/build/mp-weixin`，可直接用微信开发者工具导入。运营后端到端用例已随 H5 交付形态一并移除，验收改为「构建 + 单测/契约测试 + 逐端人工冒烟」。
+`pnpm build` 依次构建运营后台 H5 与门店订货端、用户端、供应商端的 `mp-weixin`，微信小程序产物分别位于 `apps/*/dist/build/mp-weixin`，可直接用微信开发者工具导入。三端小程序是**原生**实现（不含 uni-app 运行时），构建先在临时目录产出再整体替换产物目录；若开发者工具正打开该项目导致目录被占用，构建会直接失败并提示先关闭项目，不会覆盖写入留下旧文件，详见 [docs/native-mini-program-migration.md](docs/native-mini-program-migration.md)。运营后端到端用例已随 H5 交付形态一并移除，验收改为「构建 + 单测/契约测试 + 逐端人工冒烟」。
 
 运营后台地址解析和供应商端线路规划统一调用 `/api/tencent-map/*`。腾讯 WebService Key 与 Secret 仅配置在 Node 网关环境变量中，不会进入前端构建产物。详细配置和 Nginx 反代示例见 [`docs/tencent-map.md`](docs/tencent-map.md)。
 
 ## 发布前检查清单
 
-1. **每端独立真实 AppID**：`pnpm mp:appid <app> <appid>` 写入 `apps/<app>/src/manifest.json`（命令支持 `--dry-run`），改完重新 `pnpm build:<app>`。当前三端**统一使用测试号 `wx4942e19ae41bc1b4`**，仅用于本地 / 体验版测试：共用同一 AppID 会让三端微信侧本地存储互通，逐端验收前请在开发者工具执行 `wx.clearStorageSync()` 或清缓存。正式发布必须逐端替换为各自真实 AppID，**三端禁止共用**。
+1. **每端独立真实 AppID**：`pnpm mp:appid <app> <appid>` 写入 `apps/<app>/src/project.config.json` 的 `appid`（命令支持 `--dry-run`），改完重新 `pnpm build:<app>`。当前三端**统一使用测试号 `wx4942e19ae41bc1b4`**，仅用于本地 / 体验版测试：共用同一 AppID 会让三端微信侧本地存储互通，逐端验收前请在开发者工具执行 `wx.clearStorageSync()` 或清缓存。正式发布必须逐端替换为各自真实 AppID，**三端禁止共用**；逐端替换、合法域名、真机逐页与回滚的完整步骤见 [`docs/qa/2026-10-22-小程序发布前置清单.md`](docs/qa/2026-10-22-小程序发布前置清单.md)。
 2. **微信后台配置合法域名**：`VITE_TENCENT_MAP_GATEWAY` 指向的网关域名需加 request 合法域名；网关部署与 Nginx 反代见 [`docs/tencent-map.md`](docs/tencent-map.md)。
 3. **重新生成腾讯地图 Key**：本地 `apps/supplier/.env.local` 存过真实 Key/Secret（已 gitignore），正式环境请改用服务端环境变量并轮换密钥。
 4. **包体与样式门禁**：`pnpm compress:images` → `pnpm sync:category-images` → `pnpm build` → `pnpm check:mp-size` 全绿后再上传。

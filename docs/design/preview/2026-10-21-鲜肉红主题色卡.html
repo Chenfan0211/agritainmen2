@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>鲜肉红主题色卡 · 生鲜猪肉供应链平台</title>
+<style>
+  /* ===== 新主题 token（与 packages/ui/src/design-tokens.css 目标值一致） ===== */
+  :root{
+    --c-brand:#C8322B;
+    --c-brand-dark:#A8261F;
+    --c-brand-deep:#8C1E17;
+    --c-brand-soft:#FCECEA;
+    --c-brand-light:#E1503F;
+    --c-on-brand:#FFFFFF;
+
+    --c-success:#2F7A4D;
+    --c-success-dark:#245E3B;
+    --c-success-soft:#E9F3ED;
+    --c-warning:#DE8A3B;
+    --c-warning-dark:#A9631F;
+    --c-warning-soft:#FDF1E4;
+    --c-info:#3D7CB0;
+    --c-info-dark:#2C6188;
+    --c-info-soft:#E8F1F8;
+    --c-danger:#B3203B;
+    --c-danger-dark:#8E1830;
+    --c-danger-soft:#FBEBEE;
+    --c-purple:#7A6BB5;
+    --c-purple-dark:#5E4E9E;
+    --c-purple-soft:#F0EDFA;
+    --c-gold:#C99A4E;
+    --c-gold-dark:#8C6A2E;
+    --c-gold-soft:#FBF3E6;
+
+    --c-price:#E8501E;
+    --c-promo:#F0810F;
+    --c-promo-deep:#B85C00;
+    --c-promo-ink:#8A4800;
+    --c-promo-soft:#FDEBD7;
+
+    --c-bg:#FBF7F4;
+    --c-card:#FFFFFF;
+    --c-card-alt:#FDFAF8;
+    --c-ink:#2A1F1C;
+    --c-ink-2:#6B5A54;
+    --c-ink-3:#9C8C86;
+    --c-nav:#584A46;
+    --c-line:#EFE4E0;
+    --c-line-light:#F6EFEC;
+    --c-hover:#FEFCFB;
+    --c-subtle:#FDF5F3;
+
+    --r-card:14px;
+    --r-icon:11px;
+    --r-btn:12px;
+    --r-pill:20px;
+    --shadow-card:0 1px 2px rgba(42,31,28,.04), 0 10px 28px -16px rgba(42,31,28,.18);
+    --shadow-btn:0 8px 18px -8px rgba(200,50,43,.35);
+
+    /* ===== 上一版（竹青绿）用于新旧对比 ===== */
+    --old-brand:#2F7A4D;
+    --old-brand-dark:#245E3B;
+    --old-brand-soft:#E9F3ED;
+    --old-brand-light:#3E9B62;
+    --old-bg:#F4F7F2;
+    --old-ink:#1D2A22;
+    --old-ink-2:#5E6F64;
+    --old-line:#E7ECE6;
+    --old-price:#D2543C;
+    --old-store:#F0810F;
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--c-bg);
+    color:var(--c-ink);
+    font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;
+    font-size:14px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1220px;margin:0 auto;padding:40px 28px 80px}
+
+  /* ===== 页头 ===== */
+  header.top{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-end;justify-content:space-between;
+    padding-bottom:24px;border-bottom:1px solid var(--c-line)}
+  .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--c-ink-3);font-weight:700}
+  h1{margin:8px 0 6px;font-size:34px;line-height:1.2;font-weight:800;letter-spacing:-.4px}
+  h1 .accent{color:var(--c-brand)}
+  .lede{margin:0;max-width:640px;color:var(--c-ink-2);font-size:14px}
+  .stamp{font-size:12px;color:var(--c-ink-3);text-align:right;line-height:1.8}
+  .stamp b{color:var(--c-ink-2);font-weight:600}
+
+  .keyfacts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:24px}
+  .fact{background:var(--c-card);border:1px solid var(--c-line);border-radius:var(--r-card);padding:16px 18px;box-shadow:var(--shadow-card)}
+  .fact .k{font-size:12px;color:var(--c-ink-3);font-weight:600}
+  .fact .v{display:flex;align-items:center;gap:9px;margin-top:7px;font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+  .fact .dot{width:16px;height:16px;border-radius:6px;flex:none;box-shadow:inset 0 0 0 1px rgba(42,31,28,.08)}
+  .fact .n{font-size:12px;color:var(--c-ink-2);font-weight:500}
+
+  /* ===== 区块 ===== */
+  section{margin-top:38px}
+  .sec-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  h2{margin:0;font-size:20px;font-weight:800;letter-spacing:-.2px}
+  .sec-note{margin:0;color:var(--c-ink-2);font-size:13px}
+  .card{background:var(--c-card);border:1px solid var(--c-line);border-radius:var(--r-card);box-shadow:var(--shadow-card)}
+
+  /* ===== 新旧对比 ===== */
+  .compare{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:18px}
+  .pane{border-radius:var(--r-card);overflow:hidden;border:1px solid var(--c-line);background:var(--c-card);box-shadow:var(--shadow-card)}
+  .pane-head{padding:13px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-weight:700}
+  .pane-head .tag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px}
+  .pane-old .pane-head{background:var(--old-brand-soft);color:var(--old-brand-dark)}
+  .pane-old .pane-head .tag{background:#fff;color:var(--old-ink-2)}
+  .pane-new .pane-head{background:var(--c-brand-soft);color:var(--c-brand-dark)}
+  .pane-new .pane-head .tag{background:var(--c-brand);color:#fff}
+  .pane-body{padding:18px}
+  .mockscreen{border-radius:var(--r-card);padding:14px;display:flex;flex-direction:column;gap:11px}
+  .pane-old .mockscreen{background:var(--old-bg)}
+  .pane-new .mockscreen{background:var(--c-bg)}
+  .mock-top{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:10px;color:#fff;font-weight:700;font-size:13px}
+  .pane-old .mock-top{background:linear-gradient(140deg,var(--old-brand-light),var(--old-brand))}
+  .pane-new .mock-top{background:linear-gradient(140deg,var(--c-brand-light),var(--c-brand) 55%,var(--c-brand-dark))}
+  .mock-card{border-radius:var(--r-icon);padding:12px;display:flex;gap:11px;align-items:center}
+  .pane-old .mock-card{background:#fff;border:1px solid var(--old-line)}
+  .pane-new .mock-card{background:var(--c-card);border:1px solid var(--c-line)}
+  .thumb{width:52px;height:52px;border-radius:var(--r-icon);flex:none;display:grid;place-items:center;font-size:22px}
+  .pane-old .thumb{background:var(--old-brand-soft)}
+  .pane-new .thumb{background:var(--c-brand-soft)}
+  .mock-title{font-size:13px;font-weight:700}
+  .pane-old .mock-title{color:var(--old-ink)}
+  .pane-new .mock-title{color:var(--c-ink)}
+  .mock-meta{font-size:12px}
+  .pane-old .mock-meta{color:var(--old-ink-2)}
+  .pane-new .mock-meta{color:var(--c-ink-2)}
+  .mock-price{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}
+  .pane-old .mock-price{color:var(--old-price)}
+  .pane-new .mock-price{color:var(--c-price)}
+  .mock-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .pill{font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px}
+  .pane-old .pill-soft{background:var(--old-brand-soft);color:var(--old-brand-dark)}
+  .pane-new .pill-soft{background:var(--c-brand-soft);color:var(--c-brand-dark)}
+  .pane-new .pill-promo{background:var(--c-promo-deep);color:#fff}
+  .pane-old .pill-promo{background:var(--old-store);color:#fff}
+  .mock-btn{border:0;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700;color:#fff;font-family:inherit}
+  .pane-old .mock-btn{background:var(--old-brand)}
+  .pane-new .mock-btn{background:var(--c-brand);box-shadow:var(--shadow-btn)}
+  .verdict{display:grid;gap:6px;margin-top:14px;font-size:12.5px;color:var(--c-ink-2)}
+  .verdict div{display:flex;gap:8px;align-items:baseline}
+  .verdict span.arrow{color:var(--c-brand);font-weight:800}
+
+  /* ===== 色卡网格 ===== */
+  .swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:14px}
+  .sw{border:1px solid var(--c-line);border-radius:var(--r-icon);overflow:hidden;background:var(--c-card)}
+  .sw .chip{height:76px;display:grid;place-items:end start;padding:9px 11px;font-size:11px;font-weight:700}
+  .sw .meta{padding:10px 12px 12px}
+  .sw .name{font-size:12.5px;font-weight:700;color:var(--c-ink)}
+  .sw code{display:block;margin-top:3px;font-size:12px;color:var(--c-ink-2);font-family:ui-monospace,Consolas,monospace}
+  .sw .use{margin-top:6px;font-size:11.5px;color:var(--c-ink-3);line-height:1.5}
+  .sw .ratio{margin-top:7px;font-size:11.5px;font-weight:700}
+  .ok{color:var(--c-success)}
+  .warn{color:var(--c-promo-ink)}
+
+  /* ===== 对比度表 ===== */
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  thead th{text-align:left;padding:11px 14px;background:var(--c-card-alt);color:var(--c-ink-2);font-weight:700;border-bottom:1px solid var(--c-line);white-space:nowrap}
+  tbody td{padding:10px 14px;border-bottom:1px solid var(--c-line-light);vertical-align:middle}
+  tbody tr:last-child td{border-bottom:0}
+  tbody td.num{font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
+  .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700}
+  .badge.pass{background:var(--c-success-soft);color:var(--c-success-dark)}
+  .badge.limit{background:var(--c-promo-soft);color:var(--c-promo-ink)}
+  .badge.known{background:var(--c-warning-soft);color:var(--c-warning-dark)}
+  .sample{display:inline-flex;align-items:center;justify-content:center;min-width:64px;padding:3px 9px;border-radius:6px;font-size:12px;font-weight:700}
+
+  /* ===== 组件区 ===== */
+  .components{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+  .panel{padding:18px}
+  .panel h3{margin:0 0 14px;font-size:14px;font-weight:800;color:var(--c-ink)}
+  .stack{display:flex;flex-direction:column;gap:11px}
+  .inline{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+  .btn{border:0;border-radius:var(--r-btn);padding:10px 16px;font-size:13.5px;font-weight:700;font-family:inherit;cursor:default;min-height:40px}
+  .btn-primary{background:var(--c-brand);color:var(--c-on-brand);box-shadow:var(--shadow-btn)}
+  .btn-secondary{background:var(--c-card);color:var(--c-brand);border:1px solid var(--c-brand)}
+  .btn-danger{background:var(--c-danger);color:#fff}
+  .btn-ghost{background:var(--c-brand-soft);color:var(--c-brand-dark)}
+  .btn-disabled{background:var(--c-brand);color:#fff;opacity:.45}
+  .btn-loading{background:var(--c-brand);color:#fff;opacity:.8}
+  .field{display:flex;align-items:center;gap:9px;min-height:44px;padding:0 13px;border:1px solid var(--c-line);border-radius:var(--r-btn);background:var(--c-card)}
+  .field:focus-within{border-color:var(--c-brand);box-shadow:0 0 0 3px rgba(200,50,43,.22)}
+  .field input{border:0;outline:0;flex:1;font:inherit;color:var(--c-ink);background:transparent;min-width:0}
+  .field input::placeholder{color:var(--c-ink-3)}
+  .statuses{display:flex;gap:8px;flex-wrap:wrap}
+  .st{font-size:12px;font-weight:700;padding:4px 11px;border-radius:999px}
+  .st-ok{background:var(--c-success-soft);color:var(--c-success-dark)}
+  .st-run{background:var(--c-brand-soft);color:var(--c-brand-dark)}
+  .st-warn{background:var(--c-warning-soft);color:var(--c-warning-dark)}
+  .st-err{background:var(--c-danger-soft);color:var(--c-danger-dark)}
+  .st-info{background:var(--c-info-soft);color:var(--c-info-dark)}
+  .st-plain{background:var(--c-line-light);color:var(--c-ink-2)}
+  .tabbar{display:flex;justify-content:space-around;background:var(--c-card);border:1px solid var(--c-line);border-radius:var(--r-card);padding:9px 6px}
+  .tabitem{display:grid;justify-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--c-ink-3)}
+  .tabitem i{width:20px;height:20px;border-radius:6px;background:var(--c-ink-3);opacity:.55;display:block}
+  .tabitem.active{color:var(--c-brand-dark)}
+  .tabitem.active i{background:var(--c-brand-dark);opacity:1}
+  .empty{text-align:center;padding:22px 14px;border:1px dashed var(--c-line);border-radius:var(--r-card);background:var(--c-card-alt)}
+  .empty .ico{width:44px;height:44px;margin:0 auto 10px;border-radius:50%;background:var(--c-brand-soft);display:grid;place-items:center;font-size:20px}
+  .empty .t{font-size:13px;font-weight:700}
+  .empty .s{font-size:12px;color:var(--c-ink-2);margin-top:3px}
+
+  /* ===== 四端示意 ===== */
+  .ends{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+  .end{padding:18px;display:flex;flex-direction:column;gap:14px}
+  .end h3{margin:0;font-size:13.5px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .end h3 em{font-style:normal;font-size:11px;font-weight:600;color:var(--c-ink-3);background:var(--c-line-light);padding:2px 8px;border-radius:999px}
+  .phone{width:100%;max-width:430px;margin:0 auto;border:1px solid var(--c-line);border-radius:18px;background:var(--c-bg);padding:10px;display:flex;flex-direction:column;gap:10px}
+  .phone .bar{height:26px;border-radius:8px;background:var(--c-brand-soft)}
+  .kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+  .kpi{background:var(--c-card);border:1px solid var(--c-line);border-radius:var(--r-icon);padding:9px}
+  .kpi .k{font-size:11px;color:var(--c-ink-3)}
+  .kpi .v{font-size:16px;font-weight:800;color:var(--c-brand-dark);font-variant-numeric:tabular-nums}
+  .admin-shell{display:flex;gap:12px;min-height:236px}
+  .aside{width:132px;flex:none;background:var(--c-card);border:1px solid var(--c-line);border-radius:var(--r-icon);padding:9px;display:flex;flex-direction:column;gap:5px}
+  .aside .brandline{display:flex;align-items:center;gap:7px;padding:4px 6px 9px;font-size:11.5px;font-weight:800}
+  .aside .brandline b{width:22px;height:22px;border-radius:7px;background:linear-gradient(140deg,var(--c-brand-light),var(--c-brand) 55%,var(--c-brand-dark));display:block}
+  .navi{font-size:11.5px;padding:6px 8px;border-radius:9px;color:var(--c-nav);font-weight:600}
+  .navi.on{background:var(--c-brand-soft);color:var(--c-brand-dark);font-weight:700}
+  .main{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px}
+  .table-mock{background:var(--c-card);border:1px solid var(--c-line);border-radius:var(--r-icon);overflow:hidden;font-size:11.5px}
+  .tr{display:grid;grid-template-columns:1.4fr .9fr .8fr;gap:8px;padding:7px 10px;border-bottom:1px solid var(--c-line-light);align-items:center}
+  .tr:last-child{border-bottom:0}
+  .tr.head{background:var(--c-card-alt);color:var(--c-ink-2);font-weight:700}
+  .tr .num{font-variant-numeric:tabular-nums;text-align:right}
+  .chartline{display:flex;gap:8px;align-items:center}
+  .segs{display:flex;gap:5px}
+  .segs i{width:16px;height:16px;border-radius:5px;display:block}
+
+  footer{margin-top:44px;padding-top:20px;border-top:1px solid var(--c-line);font-size:12px;color:var(--c-ink-3);display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between}
+  footer code{font-family:ui-monospace,Consolas,monospace;color:var(--c-ink-2)}
+  @media (max-width:560px){
+    .wrap{padding:24px 16px 60px}
+    h1{font-size:26px}
+    .stamp{text-align:left}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <div class="eyebrow">Design Token Preview</div>
+      <h1>「<span class="accent">鲜肉红</span>」主题色卡</h1>
+      <p class="lede">生鲜猪肉供应链平台四端统一主题：品牌红承载交易与信任，竹青绿退居「新鲜 / 冷链 / 成功」，原门店橙收编为「价格 / 促销」。本页为色卡留档，四端已按此落地；色值以 <b>docs/design/zhulv-design-tokens.md</b> 为准。</p>
+    </div>
+    <div class="stamp">
+      <div>版本 <b>v1 · 2026-10-21</b></div>
+      <div>范围 <b>admin / supplier / store / user</b></div>
+      <div>状态 <b>已落地 · 2026-10-21</b></div>
+    </div>
+  </header>
+
+  <div class="keyfacts">
+    <div class="fact"><div class="k">品牌主色</div><div class="v"><span class="dot" style="background:#C8322B"></span>#C8322B</div><div class="n">白字 5.32:1</div></div>
+    <div class="fact"><div class="k">页面底色</div><div class="v"><span class="dot" style="background:#FBF7F4"></span>#FBF7F4</div><div class="n">冷绿灰转暖白</div></div>
+    <div class="fact"><div class="k">新鲜 / 成功</div><div class="v"><span class="dot" style="background:#2F7A4D"></span>#2F7A4D</div><div class="n">原竹青绿降级复用</div></div>
+    <div class="fact"><div class="k">价格 / 促销</div><div class="v"><span class="dot" style="background:#E8501E"></span>#E8501E</div><div class="n">促销底 #B85C00</div></div>
+  </div>
+
+  <section>
+    <div class="sec-head">
+      <h2>新旧并排</h2>
+      <p class="sec-note">同一套组件，只换 token：旧版灰底泛绿、绿色按钮与价格红互抢；新版暖白底让红主色更干净，价格橙独立成层。</p>
+    </div>
+    <div class="compare">
+      <div class="pane pane-old">
+        <div class="pane-head"><span>旧版 · 竹青绿</span><span class="tag">停用</span></div>
+        <div class="pane-body">
+          <div class="mockscreen">
+            <div class="mock-top"><span>供应商工作台</span><span>今日 12 单</span></div>
+            <div class="mock-card">
+              <div class="thumb">&#127830;</div>
+              <div style="flex:1;min-width:0">
+                <div class="mock-title">农家土猪肉 2kg</div>
+                <div class="mock-meta">冷鲜直配 · 待发货</div>
+              </div>
+              <div class="mock-price">&#165;108</div>
+            </div>
+            <div class="mock-row">
+              <span class="pill pill-soft">待发货</span>
+              <span class="pill pill-promo">限时省 12 元</span>
+              <button class="mock-btn">确认出库</button>
+            </div>
+          </div>
+          <div class="verdict">
+            <div><span class="arrow">&#215;</span><span>主色绿与「新鲜肉质」卖点无关，页面偏农家乐气质</span></div>
+            <div><span class="arrow">&#215;</span><span>价格红 #D2543C 与危险红 #C9553F 相距过近</span></div>
+            <div><span class="arrow">&#215;</span><span>底色 #F4F7F2 泛绿，与红/橙强调色互相污染</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="pane pane-new">
+        <div class="pane-head"><span>新版 · 鲜肉红</span><span class="tag">建议采用</span></div>
+        <div class="pane-body">
+          <div class="mockscreen">
+            <div class="mock-top"><span>供应商工作台</span><span>今日 12 单</span></div>
+            <div class="mock-card">
+              <div class="thumb">&#127830;</div>
+              <div style="flex:1;min-width:0">
+                <div class="mock-title">农家土猪肉 2kg</div>
+                <div class="mock-meta">冷鲜直配 · 待发货</div>
+              </div>
+              <div class="mock-price">&#165;108</div>
+            </div>
+            <div class="mock-row">
+              <span class="pill pill-soft">待发货</span>
+              <span class="pill pill-promo">限时省 12 元</span>
+              <button class="mock-btn">确认出库</button>
+            </div>
+          </div>
+          <div class="verdict">
+            <div><span class="arrow">&#8594;</span><span>品牌红直接对应鲜肉交易场景，CTA 更醒目</span></div>
+            <div><span class="arrow">&#8594;</span><span>危险色改玫红 #B3203B，与品牌红拉开色相</span></div>
+            <div><span class="arrow">&#8594;</span><span>暖白底 #FBF7F4 让红不显脏、橙不显旧</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>品牌红色阶</h2>
+      <p class="sec-note">主色用于主按钮 / 选中 / 链接；深色用于按压与 Tab 选中；最深色只进渐变尾与深压；浅底用于选中态与 KPI 底。</p>
+    </div>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:var(--c-brand);color:#fff">primary</div><div class="meta"><div class="name">品牌主色</div><code>#C8322B</code><div class="use">主按钮、选中、链接、导航激活</div><div class="ratio ok">白字 5.32:1 · 暖底 4.99:1</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-brand-dark);color:#fff">dark</div><div class="meta"><div class="name">品牌深色</div><code>#A8261F</code><div class="use">按压态、Tab 选中、导航文字</div><div class="ratio ok">白字 7.09:1</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-brand-deep);color:#fff">deep</div><div class="meta"><div class="name">品牌最深</div><code>#8C1E17</code><div class="use">渐变尾、深压、购物车栏</div><div class="ratio ok">白字 9.08:1</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-brand-soft);color:var(--c-brand-dark)">soft</div><div class="meta"><div class="name">品牌浅底</div><code>#FCECEA</code><div class="use">选中底、KPI 底、图标底</div><div class="ratio ok">主色文字 4.64:1</div></div></div>
+      <div class="sw"><div class="chip" style="background:linear-gradient(140deg,var(--c-brand-light),var(--c-brand) 55%,var(--c-brand-dark));color:#fff">gradient</div><div class="meta"><div class="name">品牌渐变</div><code>#E1503F &#8594; #C8322B &#8594; #A8261F</code><div class="use">仅登录头、身份卡、主按钮填充</div><div class="ratio ok">140deg · 白字全段达标</div></div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>暖中性色阶</h2>
+      <p class="sec-note">旧底色 #F4F7F2 带绿相，与红主色同屏会显脏；统一转暖白后，正文对比度不降反升。</p>
+    </div>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:var(--c-bg);color:var(--c-ink-2)">bg</div><div class="meta"><div class="name">页面底色</div><code>#FBF7F4</code><div class="use">全站背景、手机框外背景</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-card);color:var(--c-ink-3);box-shadow:inset 0 0 0 1px var(--c-line)">card</div><div class="meta"><div class="name">卡片</div><code>#FFFFFF</code><div class="use">卡片、弹层、侧栏</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-card-alt);color:var(--c-ink-3);box-shadow:inset 0 0 0 1px var(--c-line)">card-alt</div><div class="meta"><div class="name">卡片次底</div><code>#FDFAF8</code><div class="use">表头、次级面板</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-ink);color:#fff">ink</div><div class="meta"><div class="name">标题正文</div><code>#2A1F1C</code><div class="use">标题与主体文字</div><div class="ratio ok">暖底 15.03:1</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-ink-2);color:#fff">ink-2</div><div class="meta"><div class="name">次级文字</div><code>#6B5A54</code><div class="use">正文、说明、表头</div><div class="ratio ok">暖底 6.13:1</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-ink-3);color:#fff">ink-3</div><div class="meta"><div class="name">装饰灰</div><code>#9C8C86</code><div class="use">仅 placeholder / 装饰</div><div class="ratio warn">白底 3.23:1，禁当正文</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-nav);color:#fff">nav</div><div class="meta"><div class="name">导航文字</div><code>#584A46</code><div class="use">导航未选中、Tab 文字</div><div class="ratio ok">白底 8.46:1</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-line);color:var(--c-ink-2)">line</div><div class="meta"><div class="name">分割线</div><code>#EFE4E0</code><div class="use">边框、分隔线</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-line-light);color:var(--c-ink-2)">line-light</div><div class="meta"><div class="name">浅分割线</div><code>#F6EFEC</code><div class="use">表格行、次级分隔</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-hover);color:var(--c-ink-3);box-shadow:inset 0 0 0 1px var(--c-line)">hover</div><div class="meta"><div class="name">悬停底</div><code>#FEFCFB</code><div class="use">列表 hover（仅 hover 媒体查询内）</div></div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>语义与强调色</h2>
+      <p class="sec-note">success / warning / info / purple / gold 沿用旧值；danger 由 #C9553F 改玫红；价格与促销接管原门店橙。</p>
+    </div>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:var(--c-success);color:#fff">success</div><div class="meta"><div class="name">新鲜 / 成功</div><code>#2F7A4D</code><div class="use">原竹青绿，用于完成、冷链、上架</div><div class="ratio ok">浅底 4.61:1</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-warning);color:#fff">warning</div><div class="meta"><div class="name">警示</div><code>#DE8A3B</code><div class="use">缺货、库存预警、待处理</div><div class="ratio known">深色 #A9631F 在浅底 4.20:1（既有）</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-info);color:#fff">info</div><div class="meta"><div class="name">信息</div><code>#3D7CB0</code><div class="use">提示、运输中、说明</div><div class="ratio known">在浅底 3.90:1（既有）</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-danger);color:#fff">danger</div><div class="meta"><div class="name">危险 / 失败</div><code>#B3203B</code><div class="use">失败、退款、删除、异常</div><div class="ratio ok">白字 6.59:1</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-purple);color:#fff">purple</div><div class="meta"><div class="name">紫色</div><code>#7A6BB5</code><div class="use">团长、分销、会员标识</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-gold);color:#fff">gold</div><div class="meta"><div class="name">金色</div><code>#C99A4E</code><div class="use">腊味 / 礼盒 / 甄选标签</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-price);color:#fff">price</div><div class="meta"><div class="name">价格</div><code>#E8501E</code><div class="use">金额文字，仅 &#8805;16px / 600</div><div class="ratio warn">暖底 3.52:1 · 大字号可用</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-promo);color:var(--c-promo-ink)">promo</div><div class="meta"><div class="name">促销装饰</div><code>#F0810F</code><div class="use">色块 / 图标底 / 渐变，不承载文字</div><div class="ratio warn">白字 2.67:1，禁放文字</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-promo-deep);color:#fff">promo-deep</div><div class="meta"><div class="name">促销标签底</div><code>#B85C00</code><div class="use">限时 / 直降标签，配白字</div><div class="ratio ok">白字 4.60:1</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--c-promo-soft);color:var(--c-promo-ink)">promo-soft</div><div class="meta"><div class="name">促销浅底</div><code>#FDEBD7</code><div class="use">促销条、浅色标签底</div><div class="ratio ok">文字 #8A4800 6.00:1</div></div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>对比度核验</h2>
+      <p class="sec-note">按 WCAG 2.1 实测（正文 &#8805;4.5:1；金额等大字号 &#8805;3:1）。落地后需在构建产物上再核一次。</p>
+    </div>
+    <div class="card" style="overflow:hidden">
+      <table>
+        <thead>
+          <tr><th>用途</th><th>前景 / 背景</th><th>实测</th><th>判定</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>主按钮文字</td><td><span class="sample" style="background:#C8322B;color:#fff">白字</span> / #C8322B</td><td class="num">5.32:1</td><td><span class="badge pass">通过</span></td></tr>
+          <tr><td>按压 / Tab 选中</td><td><span class="sample" style="background:#A8261F;color:#fff">白字</span> / #A8261F</td><td class="num">7.09:1</td><td><span class="badge pass">通过</span></td></tr>
+          <tr><td>选中底上的主色文字</td><td><span class="sample" style="background:#FCECEA;color:#C8322B">文字</span> / #FCECEA</td><td class="num">4.64:1</td><td><span class="badge pass">通过</span></td></tr>
+          <tr><td>页面底上的主色文字</td><td><span class="sample" style="background:#FBF7F4;color:#C8322B">文字</span> / #FBF7F4</td><td class="num">4.99:1</td><td><span class="badge pass">通过</span></td></tr>
+          <tr><td>正文 / 次级文字</td><td><span class="sample" style="background:#FBF7F4;color:#2A1F1C">正文</span> <span class="sample" style="background:#FBF7F4;color:#6B5A54">次文</span></td><td class="num">15.03 / 6.13</td><td><span class="badge pass">通过</span></td></tr>
+          <tr><td>导航未选中文字</td><td><span class="sample" style="background:#fff;color:#584A46">导航</span> / #FFFFFF</td><td class="num">8.46:1 / 7.94:1</td><td><span class="badge pass">通过</span></td></tr>
+          <tr><td>危险态按钮 / 标签</td><td><span class="sample" style="background:#B3203B;color:#fff">白字</span> / #B3203B</td><td class="num">6.59:1</td><td><span class="badge pass">通过</span></td></tr>
+          <tr><td>促销标签</td><td><span class="sample" style="background:#B85C00;color:#fff">白字</span> / #B85C00</td><td class="num">4.60:1</td><td><span class="badge pass">通过</span></td></tr>
+          <tr><td>促销浅底文字</td><td><span class="sample" style="background:#FDEBD7;color:#8A4800">文字</span> / #FDEBD7</td><td class="num">6.00:1</td><td><span class="badge pass">通过</span></td></tr>
+          <tr><td>价格金额（&#8805;16px / 600）</td><td><span class="sample" style="background:#FBF7F4;color:#E8501E;font-size:17px">&#165;108</span> / #FBF7F4</td><td class="num">3.52:1</td><td><span class="badge limit">限大字号</span></td></tr>
+          <tr><td>促销装饰色</td><td><span class="sample" style="background:#fff;color:#F0810F">色块</span> / #FFFFFF</td><td class="num">2.67:1</td><td><span class="badge limit">仅装饰，禁放文字</span></td></tr>
+          <tr><td>装饰灰（placeholder）</td><td><span class="sample" style="background:#fff;color:#9C8C86">占位</span> / #FFFFFF</td><td class="num">3.23:1</td><td><span class="badge limit">仅 placeholder</span></td></tr>
+          <tr><td>警示深色 / 警示浅底</td><td><span class="sample" style="background:#FDF1E4;color:#A9631F">状态</span> / #FDF1E4</td><td class="num">4.20:1</td><td><span class="badge known">既有，本轮不改</span></td></tr>
+          <tr><td>信息色 / 信息浅底</td><td><span class="sample" style="background:#E8F1F8;color:#3D7CB0">状态</span> / #E8F1F8</td><td class="num">3.90:1</td><td><span class="badge known">既有，本轮不改</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>组件示意</h2>
+      <p class="sec-note">四端共用组件在新 token 下的观感：主次按钮、输入框、状态 pill、空态与 tabbar。</p>
+    </div>
+    <div class="components">
+      <div class="card panel">
+        <h3>按钮</h3>
+        <div class="stack">
+          <div class="inline">
+            <button class="btn btn-primary">确认出库</button>
+            <button class="btn btn-secondary">查看详情</button>
+          </div>
+          <div class="inline">
+            <button class="btn btn-danger">取消订单</button>
+            <button class="btn btn-ghost">分配司机</button>
+          </div>
+          <div class="inline">
+            <button class="btn btn-loading">提交中…</button>
+            <button class="btn btn-disabled" disabled>不可用</button>
+          </div>
+        </div>
+      </div>
+      <div class="card panel">
+        <h3>输入与状态</h3>
+        <div class="stack">
+          <label class="field"><input value="宁乡花猪腊肠 400g"></label>
+          <label class="field"><input placeholder="搜索订单号 / 门店"></label>
+          <div class="statuses">
+            <span class="st st-run">进行中</span>
+            <span class="st st-ok">已完成</span>
+            <span class="st st-warn">缺货</span>
+            <span class="st st-err">已取消</span>
+            <span class="st st-info">运输中</span>
+            <span class="st st-plain">草稿</span>
+          </div>
+        </div>
+      </div>
+      <div class="card panel">
+        <h3>导航与空态</h3>
+        <div class="stack">
+          <div class="tabbar">
+            <div class="tabitem active"><i></i><span>首页</span></div>
+            <div class="tabitem"><i></i><span>订单</span></div>
+            <div class="tabitem"><i></i><span>商品</span></div>
+            <div class="tabitem"><i></i><span>我的</span></div>
+          </div>
+          <div class="empty">
+            <div class="ico">&#128230;</div>
+            <div class="t">暂无待配送任务</div>
+            <div class="s">新订单分配后会出现在这里</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>四端关键区块</h2>
+      <p class="sec-note">只换 token 后的落点示意：后台浅侧栏选中转浅红，小程序端底部导航与主按钮转深红，门店端促销标签走促销橙。</p>
+    </div>
+    <div class="ends">
+
+      <div class="card end">
+        <h3>运营后台 Admin <em>H5 · 1280 / 1440</em></h3>
+        <div class="admin-shell">
+          <div class="aside">
+            <div class="brandline"><b></b>中台运营</div>
+            <div class="navi on">数据看板</div>
+            <div class="navi">订单履约</div>
+            <div class="navi">商品管理</div>
+            <div class="navi">售后结算</div>
+            <div class="navi">操作日志</div>
+          </div>
+          <div class="main">
+            <div class="kpi-row">
+              <div class="kpi"><div class="k">今日交易额</div><div class="v">&#165;86,420</div></div>
+              <div class="kpi"><div class="k">今日订单</div><div class="v">312</div></div>
+              <div class="kpi"><div class="k">待发货</div><div class="v">41</div></div>
+            </div>
+            <div class="table-mock">
+              <div class="tr head"><span>订单号</span><span>门店</span><span class="num">金额</span></div>
+              <div class="tr"><span>NJ202610210905</span><span>衡山南岳农家乐</span><span class="num">&#165;582.00</span></div>
+              <div class="tr"><span>NJ202610210912</span><span>橘子洲畔农家院</span><span class="num">&#165;691.20</span></div>
+            </div>
+            <div class="chartline">
+              <div class="segs">
+                <i style="background:#C8322B"></i>
+                <i style="background:#2F7A4D"></i>
+                <i style="background:#3D7CB0"></i>
+                <i style="background:#C99A4E"></i>
+                <i style="background:#9C8C86"></i>
+              </div>
+              <span style="font-size:11.5px;color:var(--c-ink-2)">品类饼图固定序列：品牌红 &#8594; 成功绿 &#8594; 信息蓝 &#8594; 金 &#8594; 灰</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card end">
+        <h3>供应商 / 司机端 <em>小程序</em></h3>
+        <div class="phone">
+          <div class="bar"></div>
+          <div class="mock-card" style="background:var(--c-card);border:1px solid var(--c-line)">
+            <div class="thumb" style="background:var(--c-brand-soft)">&#127830;</div>
+            <div style="flex:1;min-width:0">
+              <div class="mock-title">农家土猪肉 2kg</div>
+              <div class="mock-meta">门店直配 · 3.2km</div>
+              <div class="mock-price">&#165;108</div>
+            </div>
+            <span class="pill" style="background:var(--c-brand-soft);color:var(--c-brand-dark)">待发货</span>
+          </div>
+          <div class="mock-row">
+            <span class="pill" style="background:var(--c-success-soft);color:var(--c-success-dark)">冷链已备</span>
+            <span class="pill" style="background:var(--c-warning-soft);color:var(--c-warning-dark)">缺货 1 项</span>
+            <button class="mock-btn">确认出库</button>
+          </div>
+          <div class="tabbar">
+            <div class="tabitem active"><i></i><span>订单</span></div>
+            <div class="tabitem"><i></i><span>线路</span></div>
+            <div class="tabitem"><i></i><span>库存</span></div>
+            <div class="tabitem"><i></i><span>我的</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card end">
+        <h3>门店订货端 <em>小程序</em></h3>
+        <div class="phone">
+          <div class="bar" style="background:linear-gradient(140deg,var(--c-brand-light),var(--c-brand) 55%,var(--c-brand-deep))"></div>
+          <div class="mock-card" style="background:var(--c-card);border:1px solid var(--c-line)">
+            <div class="thumb" style="background:var(--c-brand-soft)">&#129363;</div>
+            <div style="flex:1;min-width:0">
+              <div class="mock-title">宁乡花猪腊肠 400g</div>
+              <div class="mock-meta">中台甄选 · 门店分销价</div>
+              <div class="mock-row" style="margin-top:4px">
+                <span class="mock-price">&#165;38.80</span>
+                <span class="pill" style="background:var(--c-promo-deep);color:#fff">直降 4 元</span>
+              </div>
+            </div>
+          </div>
+          <div class="tabbar" style="padding:11px 12px;justify-content:space-between;background:linear-gradient(140deg,var(--c-brand),var(--c-brand-deep))">
+            <span style="color:#fff;font-size:12px;font-weight:700">已选 3 件 · 合计 &#165;186.40</span>
+            <span style="background:#fff;color:var(--c-brand-dark);font-size:12px;font-weight:800;padding:5px 12px;border-radius:999px">去结算</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card end">
+        <h3>用户商城端 <em>小程序</em></h3>
+        <div class="phone">
+          <div class="bar" style="height:68px;background:linear-gradient(168deg,var(--c-brand-light) 0%,var(--c-brand) 46%,var(--c-brand-dark) 74%,var(--c-brand-deep) 100%);display:flex;align-items:center;padding:0 12px;color:#fff;font-weight:800;font-size:13px">池塘边的猪肉铺</div>
+          <div class="mock-card" style="background:var(--c-card);border:1px solid var(--c-line);position:relative">
+            <div class="thumb" style="background:var(--c-brand-soft)">&#127830;</div>
+            <div style="flex:1;min-width:0">
+              <div class="mock-title">土猪五花肉 1kg</div>
+              <div class="mock-meta">冷鲜直配 · 团长价</div>
+              <div class="mock-price">&#165;68.00</div>
+            </div>
+            <span style="position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:8px;background:var(--c-promo-deep);color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center">热</span>
+          </div>
+          <button class="mock-btn" style="border-radius:24px;background:linear-gradient(140deg,var(--c-brand-light),var(--c-brand) 55%,var(--c-brand-deep));box-shadow:0 10px 20px -8px rgba(200,50,43,.5)">加入购物车</button>
+          <div class="tabbar">
+            <div class="tabitem active"><i></i><span>商城</span></div>
+            <div class="tabitem"><i></i><span>分类</span></div>
+            <div class="tabitem"><i></i><span>团长中心</span></div>
+            <div class="tabitem"><i></i><span>我的</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>落地清单</h2>
+      <p class="sec-note">以下步骤已于 2026-10-21 落地；PNG 图标墨色按决策不重跑，warning / info 既有对比度只登记不修。</p>
+    </div>
+    <div class="card panel">
+      <div class="stack" style="gap:9px">
+        <div><b>✅ 1.</b> token 源：<code>packages/ui/src/design-tokens.css</code> + <code>design-tokens.ts</code></div>
+        <div><b>✅ 2.</b> 四端别名层零改动：配色全部经 <code>--mobile-*</code> / <code>--admin-*</code> / <code>--store-*</code> 指向 token</div>
+        <div><b>✅ 3.</b> 四端 <code>uni.scss</code> + 四端 <code>pages.json</code> 底色统一 <code>#FBF7F4</code></div>
+        <div><b>✅ 4.</b> Admin 品类饼图序列色（红 / 绿 / 蓝 / 金 / 灰）</div>
+        <div><b>— 5.</b> PNG 兜底图标墨色维持 <code>#1f2a22</code>（按决策不重跑）</div>
+        <div><b>✅ 6.</b> 契约测试与门禁：<code>typecheck / test / audit:tokens / audit:mp-styles / audit:typography / build / check:mp-size</code></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>色值以 <code>docs/design/zhulv-design-tokens.md</code> 为唯一口径；本页仅作留档，不参与构建。</span>
+    <span>鲜肉红主题 · 2026-10-21</span>
+  </footer>
+
+</div>
+</body>
+</html>

@@ -29,7 +29,7 @@ TENCENT_MAP_TIMEOUT_MS=5000
 - `POST /api/tencent-map/translate`：请求 `{ "source": "WGS84", "locations": [...] }`，固定返回 `coordinateSystem: "GCJ-02"`。
 - `POST /api/tencent-map/direction`：请求 `{ "origin": { "longitude", "latitude" }, "stops": [{ "storeId", "longitude", "latitude" }] }`，返回驾车距离、预计时长、折线和分段。站点顺序由业务侧先排好，网关只负责路算。
 
-供应商端只产出微信小程序，司机底图使用小程序原生 `map` 组件（`apps/supplier/src/components/DeliveryRouteMap.vue` 的 `#ifdef MP-WEIXIN` 分支），不加载腾讯 JS SDK，也不读取 Secret。
+供应商端只产出微信小程序，司机底图使用小程序原生 `map` 组件（`apps/supplier/src/components/DeliveryRouteMap/index.*`），站点导航走 `wx.openLocation`；浏览器版腾讯地图 JS SDK 已随原生迁移删除，不读取 Secret。
 
 坐标来源支持 `GCJ-02`、`WGS84`、`SOGOU`、`BAIDU`、`MAPBAR` 和 `SOGOU_MERCATOR`。GCJ-02 只校验后原样返回，不调用腾讯配额。
 

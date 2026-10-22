@@ -34,8 +34,8 @@ if (!globalThis.localStorage) {
 }
 
 const qualification = {
-  businessLicense: { source: 'builtin' as const, path: '/static/images/business-license.webp' },
-  permit: { source: 'builtin' as const, path: '/static/images/permit.webp' },
+  businessLicense: { source: 'builtin' as const, path: '/static/images/business-license.jpg' },
+  permit: { source: 'builtin' as const, path: '/static/images/permit.jpg' },
   validUntil: '2027-12-31',
   reviewNote: ''
 }

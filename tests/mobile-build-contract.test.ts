@@ -1,33 +1,27 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const root = resolve(import.meta.dirname, '..')
+const apps = ['user', 'store', 'supplier'] as const
 
-describe('mobile portal build contract', () => {
-  it('ships every mobile portal as a WeChat mini program only', () => {
-    for (const app of ['user', 'store', 'supplier']) {
-      const manifest = JSON.parse(readFileSync(resolve(root, `apps/${app}/package.json`), 'utf8')) as {
-        scripts?: Record<string, string>
-        dependencies?: Record<string, string>
-      }
-      expect(manifest.scripts?.['build:mp-weixin'] || '', `${app} MP`).toContain('uni build -p mp-weixin')
-      expect(manifest.scripts?.['dev:mp-weixin'] || '', `${app} MP dev`).toContain('uni -p mp-weixin')
-      expect(manifest.scripts?.['build:h5'], `${app} has no H5 build`).toBeUndefined()
-      expect(manifest.scripts?.['dev:h5'], `${app} has no H5 dev server`).toBeUndefined()
-      expect(manifest.dependencies?.['@dcloudio/uni-mp-weixin'], `${app} MP dependency`).toBeTruthy()
+describe('native mobile portal build contract', () => {
+  it.each(apps)('%s ships a native WeChat mini program only', (app) => {
+    const pkg = JSON.parse(readFileSync(resolve(root, `apps/${app}/package.json`), 'utf8')) as {
+      scripts?: Record<string, string>
+      dependencies?: Record<string, string>
+      devDependencies?: Record<string, string>
     }
+    expect(pkg.scripts?.['build:mp-weixin']).toContain('build-native-mp.mjs')
+    expect(pkg.scripts?.['dev:mp-weixin']).toContain('build-native-mp.mjs')
+    expect(pkg.scripts?.['build:h5']).toBeUndefined()
+    expect(pkg.scripts?.['dev:h5']).toBeUndefined()
+    expect({ ...pkg.dependencies, ...pkg.devDependencies }['@dcloudio/uni-mp-weixin']).toBeUndefined()
+    expect(existsSync(resolve(root, `apps/${app}/src/app.json`)), `${app} app.json`).toBe(true)
+    expect(existsSync(resolve(root, `apps/${app}/src/app.ts`)), `${app} app.ts`).toBe(true)
   })
 
-  it('declares only the mp-weixin platform in every mobile manifest', () => {
-    for (const app of ['user', 'store', 'supplier']) {
-      const manifest = JSON.parse(readFileSync(resolve(root, `apps/${app}/src/manifest.json`), 'utf8')) as Record<string, unknown>
-      expect(manifest['mp-weixin'], `${app} mp-weixin`).toBeTruthy()
-      expect(manifest.h5, `${app} has no H5 platform`).toBeUndefined()
-    }
-  })
-
-  it('keeps the operations console on H5', () => {
+  it('keeps the operations console on uni-app H5', () => {
     const adminManifest = JSON.parse(readFileSync(resolve(root, 'apps/admin/src/manifest.json'), 'utf8')) as Record<string, unknown>
     const adminPackage = JSON.parse(readFileSync(resolve(root, 'apps/admin/package.json'), 'utf8')) as { scripts?: Record<string, string> }
     expect(adminManifest.h5).toBeTruthy()
@@ -35,21 +29,13 @@ describe('mobile portal build contract', () => {
     expect(adminPackage.scripts?.['build:h5']).toContain('uni build -p h5')
   })
 
-  it('no longer ships the single-origin H5 build chain or Playwright end-to-end suite', () => {
+  it('keeps removed single-origin suites and points root mobile builds at the native builder', () => {
     const rootPackage = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as { scripts?: Record<string, string>; devDependencies?: Record<string, string> }
     for (const script of ['build:single-origin', 'serve:single-origin', 'dev:single-origin', 'check:single-origin', 'test:e2e', 'test:e2e:user', 'test:e2e:supplier', 'test:e2e:integration', 'test:e2e:operational-report']) {
       expect(rootPackage.scripts?.[script], `${script} removed`).toBeUndefined()
     }
     expect(rootPackage.scripts?.build).toContain('build:admin')
-    expect(rootPackage.scripts?.['build:store']).toContain('build:mp-weixin')
+    for (const app of apps) expect(rootPackage.scripts?.[`build:${app}`]).toContain('build-native-mp.mjs')
     expect(rootPackage.devDependencies?.['@playwright/test'], 'playwright removed').toBeUndefined()
-  })
-
-  it('resolves shared UI through workspace packages for WeChat builds', () => {
-    for (const app of ['user', 'store', 'supplier']) {
-      const viteConfig = readFileSync(resolve(root, `apps/${app}/vite.config.ts`), 'utf8')
-      expect(viteConfig, `${app} preserves workspace package paths`).toContain('preserveSymlinks: true')
-      expect(viteConfig, `${app} avoids cross-root UI chunks`).not.toContain("{ find: '@agritainment/ui'")
-    }
   })
 })

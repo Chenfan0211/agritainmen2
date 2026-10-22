@@ -58,8 +58,8 @@ describe('admin leader and user operations', () => {
     const bound = rows.find((row) => row.id === 'U-DEMO-NORMAL')
     expect(bound).toMatchObject({ levelLabel: '普通用户', level1Leader: '张同学', bindingStatusLabel: '已绑定' })
     // 用户资料含头像（清单「用户信息 / 用户资料」）：演示目录用户带头像，未登记用户走首字兜底
-    expect(leader).toMatchObject({ avatar: '/static/images/field.webp' })
-    expect(bound).toMatchObject({ avatar: '/static/images/peach.webp' })
+    expect(leader).toMatchObject({ avatar: '/static/images/field.jpg' })
+    expect(bound).toMatchObject({ avatar: '/static/images/peach.jpg' })
     expect(rows.find((row) => row.id === 'U-NO-AVATAR')).toMatchObject({ name: '用户 U-NO-AVATAR', avatar: undefined })
   })
 

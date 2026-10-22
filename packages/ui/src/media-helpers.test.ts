@@ -22,8 +22,8 @@ describe('shared media helpers', () => {
 
   it('媒体运行时接管前可直接显示内置图和旧 URL', async () => {
     const { initialResolvedMediaUrl } = await loadHelpers()
-    expect(initialResolvedMediaUrl('/static/images/tea.webp')).toBe('/static/images/tea.webp')
-    expect(initialResolvedMediaUrl({ source: 'legacy', url: 'https://example.com/tea.webp' })).toBe('https://example.com/tea.webp')
+    expect(initialResolvedMediaUrl('/static/images/tea.jpg')).toBe('/static/images/tea.jpg')
+    expect(initialResolvedMediaUrl({ source: 'legacy', url: 'https://example.com/tea.jpg' })).toBe('https://example.com/tea.jpg')
     expect(initialResolvedMediaUrl({ source: 'asset', assetId: 'A1' })).toBe('')
   })
 
@@ -41,7 +41,7 @@ describe('shared media helpers', () => {
 
   it('读取兼容 legacy string，但新增值只接收 MediaReference 并限制数量', async () => {
     const { mergeUploadedMedia, normalizeUploaderValue, uploaderCanChoose } = await loadHelpers()
-    expect(normalizeUploaderValue('/static/images/tea.webp')).toEqual([{ source: 'builtin', path: '/static/images/tea.webp' }])
+    expect(normalizeUploaderValue('/static/images/tea.jpg')).toEqual([{ source: 'builtin', path: '/static/images/tea.jpg' }])
     const current: MediaReference[] = [{ source: 'asset', assetId: 'A1' }]
     const incoming: MediaReference[] = [{ source: 'asset', assetId: 'A2' }, { source: 'asset', assetId: 'A3' }]
     expect(mergeUploadedMedia(current, incoming, true, 2)).toEqual(current.concat(incoming[0]))
@@ -68,7 +68,7 @@ describe('shared media helpers', () => {
     const release = vi.fn()
     const resolved: string[] = []
     const controller = createResolvedMediaController({
-      fallbackUrl: '/static/images/fallback.webp',
+      fallbackUrl: '/static/images/fallback.jpg',
       resolve: (reference: MediaReference) => new Promise<string>((done) => {
         pending.set(reference.source === 'asset' ? reference.assetId : reference.source, done)
       }),
@@ -76,7 +76,7 @@ describe('shared media helpers', () => {
       onChange: (url: string) => resolved.push(url)
     })
     const first = controller.set({ source: 'asset', assetId: 'A1' })
-    expect(resolved.at(-1)).toBe('/static/images/fallback.webp')
+    expect(resolved.at(-1)).toBe('/static/images/fallback.jpg')
     const second = controller.set({ source: 'asset', assetId: 'A2' })
     pending.get('A2')?.('blob:new')
     await second
@@ -89,13 +89,13 @@ describe('shared media helpers', () => {
   })
 
   it.each([
-    { label: 'builtin', reference: { source: 'builtin', path: '/static/images/tea.webp' } as const, expected: '/static/images/tea.webp' },
-    { label: 'legacy URL', reference: { source: 'legacy', url: 'https://legacy.example/tea.webp' } as const, expected: 'https://legacy.example/tea.webp' }
+    { label: 'builtin', reference: { source: 'builtin', path: '/static/images/tea.jpg' } as const, expected: '/static/images/tea.jpg' },
+    { label: 'legacy URL', reference: { source: 'legacy', url: 'https://legacy.example/tea.jpg' } as const, expected: 'https://legacy.example/tea.jpg' }
   ])('解析并显示 $label 引用', async ({ reference, expected }) => {
     const { createResolvedMediaController } = await loadHelpers()
     const onChange = vi.fn()
     const controller = createResolvedMediaController({
-      fallbackUrl: '/static/images/fallback.webp',
+      fallbackUrl: '/static/images/fallback.jpg',
       resolve: async (value: MediaReference) => value.source === 'builtin' ? value.path : value.source === 'legacy' ? value.url : `blob:${value.assetId}`,
       release: () => undefined,
       onChange
@@ -111,14 +111,14 @@ describe('shared media helpers', () => {
     const onChange = vi.fn()
     const onError = vi.fn()
     const controller = createResolvedMediaController({
-      fallbackUrl: '/static/images/fallback.webp',
+      fallbackUrl: '/static/images/fallback.jpg',
       resolve: async () => { throw new Error('missing') },
       release: () => undefined,
       onChange,
       onError
     })
     await controller.set({ source: 'asset', assetId: 'missing' })
-    expect(onChange).toHaveBeenLastCalledWith('/static/images/fallback.webp')
+    expect(onChange).toHaveBeenLastCalledWith('/static/images/fallback.jpg')
     expect(onError).toHaveBeenLastCalledWith(true)
   })
 
@@ -126,17 +126,17 @@ describe('shared media helpers', () => {
     const { createResolvedMediaController } = await loadHelpers()
     const onChange = vi.fn()
     const controller = createResolvedMediaController({
-      fallbackUrl: '/static/images/categories/agricultural-products.webp',
-      errorFallbackUrl: '/static/images/categories/fallback.webp',
+      fallbackUrl: '/static/images/categories/agricultural-products.jpg',
+      errorFallbackUrl: '/static/images/categories/fallback.jpg',
       resolve: async (reference: MediaReference) => reference.source === 'builtin' ? reference.path : reference.source === 'legacy' ? reference.url : `blob:${reference.assetId}`,
       release: () => undefined,
       onChange
     })
 
-    await controller.set({ source: 'builtin', path: '/static/images/categories/agricultural-products.webp' })
-    controller.fail('/static/images/categories/agricultural-products.webp')
+    await controller.set({ source: 'builtin', path: '/static/images/categories/agricultural-products.jpg' })
+    controller.fail('/static/images/categories/agricultural-products.jpg')
 
-    expect(onChange).toHaveBeenLastCalledWith('/static/images/categories/fallback.webp')
+    expect(onChange).toHaveBeenLastCalledWith('/static/images/categories/fallback.jpg')
   })
 
   it('图片加载失败时释放当前 object URL，并忽略旧 URL 的迟到错误', async () => {
@@ -145,7 +145,7 @@ describe('shared media helpers', () => {
     const onChange = vi.fn()
     const onError = vi.fn()
     const controller = createResolvedMediaController({
-      fallbackUrl: '/static/images/fallback.webp',
+      fallbackUrl: '/static/images/fallback.jpg',
       resolve: async (reference: MediaReference) => reference.source === 'asset' ? `blob:${reference.assetId}` : '',
       release,
       onChange,
@@ -159,7 +159,7 @@ describe('shared media helpers', () => {
     controller.fail('blob:A2')
 
     expect(release).toHaveBeenCalledWith('blob:A2')
-    expect(onChange).toHaveBeenLastCalledWith('/static/images/fallback.webp')
+    expect(onChange).toHaveBeenLastCalledWith('/static/images/fallback.jpg')
     expect(onError).toHaveBeenLastCalledWith(true)
   })
 })
