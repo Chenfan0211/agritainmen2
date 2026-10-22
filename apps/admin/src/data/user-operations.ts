@@ -62,9 +62,9 @@ export interface AdminUserConsumptionRow {
 
 // 演示环境没有服务端用户目录，这里给出可演示的昵称 / 手机号 / 注册信息，未登记的用户按 ID 兜底展示。
 const demoUserDirectory: Record<string, { name: string; phone: string; registeredAt: string; sourceChannel: string; avatar?: string }> = {
-  'U-DEMO-L1': { name: '李湘云', phone: '13873001122', registeredAt: '2026-06-12 10:20', sourceChannel: '团长推广', avatar: '/static/images/field.webp' },
-  'U-DEMO-L2': { name: '周巧云', phone: '13873003344', registeredAt: '2026-06-18 15:40', sourceChannel: '上级团长推荐', avatar: '/static/images/tea.webp' },
-  'U-DEMO-NORMAL': { name: '王小满', phone: '13873005566', registeredAt: '2026-07-02 09:05', sourceChannel: '自然流量', avatar: '/static/images/peach.webp' }
+  'U-DEMO-L1': { name: '李湘云', phone: '13873001122', registeredAt: '2026-06-12 10:20', sourceChannel: '团长推广', avatar: '/static/images/field.jpg' },
+  'U-DEMO-L2': { name: '周巧云', phone: '13873003344', registeredAt: '2026-06-18 15:40', sourceChannel: '上级团长推荐', avatar: '/static/images/tea.jpg' },
+  'U-DEMO-NORMAL': { name: '王小满', phone: '13873005566', registeredAt: '2026-07-02 09:05', sourceChannel: '自然流量', avatar: '/static/images/peach.jpg' }
 }
 
 const orderStatusLabels: Record<string, string> = {

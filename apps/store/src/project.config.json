@@ -1,0 +1,15 @@
+{
+  "appid": "wx4942e19ae41bc1b4",
+  "compileType": "miniprogram",
+  "libVersion": "trial",
+  "projectname": "agritainment-store",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "uglifyFileName": true
+  },
+  "condition": {}
+}

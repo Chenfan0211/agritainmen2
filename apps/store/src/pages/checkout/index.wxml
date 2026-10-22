@@ -1,0 +1,50 @@
+<view class="store-subpage checkout-page">
+  <view class="subpage-hero">
+    <button class="hero-back" aria-label="返回" bindtap="goBack"><ui-icon name="arrow-left" size="{{20}}"></ui-icon></button>
+    <view class="hero-copy"><text class="hero-title">确认订单</text><text class="hero-sub">供应链 · 中台直配到店</text></view>
+  </view>
+
+  <view class="page-body">
+    <view class="detail-card store-card">
+      <view class="store-icon"><ui-icon name="store" size="{{20}}"></ui-icon></view>
+      <view class="store-main">
+        <view class="card-title-row"><text class="card-title">{{store.info.name}}</text><text class="store-tag">农庄店</text></view>
+        <text class="card-line">{{store.info.region}} · {{store.info.address}}</text>
+        <text class="card-line">{{store.info.phone}} · 营业 {{store.info.hours}}</text>
+      </view>
+    </view>
+
+    <view class="detail-card">
+      <view class="section-head"><text class="card-title">商品明细</text><text class="section-meta">{{store.checkoutLines.length}} 款 · {{store.checkoutCount}} 件</text></view>
+      <view class="checkout-lines">
+        <view wx:for="{{store.checkoutLines}}" wx:key="key" class="checkout-line">
+          <business-image class="line-image" src="{{item.image}}" mode="aspectFill"></business-image>
+          <view class="line-main"><text class="line-name">{{item.name}}</text><text class="line-spec">{{item.skuName}} × {{item.quantity}}</text><text class="line-unit">{{item.priceText}} / 件</text></view>
+          <strong class="line-amount val">{{item.subtotalText}}</strong>
+        </view>
+      </view>
+    </view>
+
+    <view class="detail-card">
+      <view class="section-head"><text class="card-title">订单备注</text><text class="section-meta">选填</text></view>
+      <textarea value="{{remark}}" bindinput="onRemarkInput" class="remark-input" maxlength="120" placeholder="例如：请周三前送达，到货后电话联系"></textarea>
+    </view>
+
+    <view class="detail-card">
+      <view class="section-head"><text class="card-title">支付方式</text><text class="section-meta">仅支持微信支付</text></view>
+      <view class="payment-row"><view class="payment-icon"><ui-icon name="credit-card" size="{{19}}"></ui-icon></view><view class="payment-main"><text>微信支付（演示）</text><small class="meta">提交后 15 分钟内完成支付，支付后进入待接单</small></view><text class="payment-selected">已选</text></view>
+    </view>
+
+    <view class="detail-card amount-card">
+      <view class="amount-row"><text>商品金额</text><strong class="val">{{totalText}}</strong></view>
+      <view class="amount-row"><text>较零售节省</text><strong class="saving val">-{{savedText}}</strong></view>
+      <view class="amount-row"><text>配送费</text><strong class="val">¥0</strong></view>
+      <view class="amount-row total"><text>应付金额</text><strong class="val">{{totalText}}</strong></view>
+    </view>
+  </view>
+
+  <view class="submit-bar">
+    <view class="submit-total"><small class="meta">应付金额</small><strong class="val">{{totalText}}</strong></view>
+    <button class="submit-button" disabled="{{submitDisabled}}" bindtap="submit">{{submitText}}</button>
+  </view>
+</view>

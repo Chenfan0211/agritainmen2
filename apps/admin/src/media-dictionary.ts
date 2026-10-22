@@ -146,7 +146,7 @@ interface SupplierQualificationInput {
   reviewNote?: string
 }
 
-const emptyQualificationImage: MediaReference = { source: 'builtin', path: '/static/images/farmhouse.webp' }
+const emptyQualificationImage: MediaReference = { source: 'builtin', path: '/static/images/farmhouse.jpg' }
 
 function qualificationImage(value: MediaValue): MediaReference | null {
   if (value && typeof value === 'object') return normalizeMediaReference(value)

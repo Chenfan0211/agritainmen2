@@ -1,24 +1,18 @@
 import type { CAddress, CAfterSaleRequest, COrder, COrderItem, CSubOrder, VoucherOrder } from '@agritainment/shared'
-import { readCOrders, writeCOrders, writePlatformVoucherOrder } from '@agritainment/shared'
+import { readCOrders, readPlatformJson, writeCOrders, writePlatformJson, writePlatformVoucherOrder } from '@agritainment/shared'
 
 export const DEMO_ORDER_SEED_DISABLED_KEY = 'agritainment-user-demo-orders-disabled'
 export const demoOrderSeedMarker = (userId: string) => `agritainment-user-demo-orders-seeded-${userId}`
 export const isDemoOrderId = (id: string) => id.startsWith('DEMO-ORD-') || id.startsWith('DEMO-VOUCHER-')
 
-function readStorageFlag(key: string): string {
-  try {
-    const scope = globalThis as { localStorage?: Storage; uni?: { getStorageSync?: (key: string) => unknown } }
-    if (scope.localStorage?.getItem) return scope.localStorage.getItem(key) || ''
-    return String(scope.uni?.getStorageSync?.(key) || '')
-  } catch { return '' }
+// 平台同步存储适配器：原生端落到 wx.getStorageSync / wx.setStorageSync，浏览器/测试环境落到 Web Storage。
+// 三端源码不允许再出现 Web Storage 或 uni-app 存储分支。
+function readStorageFlag(key: string): boolean {
+  try { return Boolean(readPlatformJson<string>(key)) } catch { return false }
 }
 
 function writeStorageFlag(key: string): void {
-  try {
-    const scope = globalThis as { localStorage?: Storage; uni?: { setStorageSync?: (key: string, value: unknown) => void } }
-    if (scope.localStorage?.setItem) scope.localStorage.setItem(key, '1')
-    else scope.uni?.setStorageSync?.(key, '1')
-  } catch { /* Storage failure must not break login. */ }
+  try { writePlatformJson(key, '1') } catch { /* Storage failure must not break login. */ }
 }
 
 export function seedDemoUserOrders(userId: string): boolean {
@@ -56,17 +50,17 @@ export function seedDemoUserOrders(userId: string): boolean {
   const completedAt = at(96)
   const orders: Record<string, COrder> = {
     [`DEMO-ORD-${idScope}-001`]: order(`DEMO-ORD-${idScope}-001`, 'pending_payment', pendingAt, [
-      sub(`DEMO-CSO-${idScope}-001`, 'S002', '湘西腊味合作社', [item('P001', 'P001-500', '湘西烟熏柴火腊肉 500g', '500g', '/static/images/bacon.webp', 'S002', 1, 59.9)], 'pending_payment', pendingAt)
+      sub(`DEMO-CSO-${idScope}-001`, 'S002', '湘西腊味合作社', [item('P001', 'P001-500', '湘西烟熏柴火腊肉 500g', '500g', '/static/images/bacon.jpg', 'S002', 1, 59.9)], 'pending_payment', pendingAt)
     ]),
     [`DEMO-ORD-${idScope}-002`]: order(`DEMO-ORD-${idScope}-002`, 'paid', paidAt, [
-      sub(`DEMO-CSO-${idScope}-002`, 'S002', '湘西腊味合作社', [item('P001', 'P001-1000', '湘西烟熏柴火腊肉 500g', '1kg家庭装', '/static/images/bacon.webp', 'S002', 1, 109)], 'paid', paidAt)
+      sub(`DEMO-CSO-${idScope}-002`, 'S002', '湘西腊味合作社', [item('P001', 'P001-1000', '湘西烟熏柴火腊肉 500g', '1kg家庭装', '/static/images/bacon.jpg', 'S002', 1, 109)], 'paid', paidAt)
     ], paidAt),
     [`DEMO-ORD-${idScope}-003`]: order(`DEMO-ORD-${idScope}-003`, 'shipped', shippedAt, [
-      sub(`DEMO-CSO-${idScope}-003`, 'S004', '炎陵果业有限公司', [item('P002', 'P002-5J', '炎陵黄桃鲜果礼盒', '5斤礼盒', '/static/images/peach.webp', 'S004', 2, 68)], 'shipped', shippedAt, `SF-DEMO-${idScope}-001`)
+      sub(`DEMO-CSO-${idScope}-003`, 'S004', '炎陵果业有限公司', [item('P002', 'P002-5J', '炎陵黄桃鲜果礼盒', '5斤礼盒', '/static/images/peach.jpg', 'S004', 2, 68)], 'shipped', shippedAt, `SF-DEMO-${idScope}-001`)
     ], shippedAt),
     [`DEMO-ORD-${idScope}-004`]: order(`DEMO-ORD-${idScope}-004`, 'partially_after_sale', completedAt, [
-      sub(`DEMO-CSO-${idScope}-004`, 'S002', '湘西腊味合作社', [item('P001', 'P001-500', '湘西烟熏柴火腊肉 500g', '500g', '/static/images/bacon.webp', 'S002', 1, 59.9)], 'received', completedAt, `SF-DEMO-${idScope}-002`),
-      sub(`DEMO-CSO-${idScope}-005`, 'S004', '炎陵果业有限公司', [item('P002', 'P002-5J', '炎陵黄桃鲜果礼盒', '5斤礼盒', '/static/images/peach.webp', 'S004', 1, 68)], 'after_sale', completedAt, `SF-DEMO-${idScope}-003`, { id: `DEMO-CAS-${idScope}-001`, reason: '演示售后', status: 'processing', createdAt: at(12) })
+      sub(`DEMO-CSO-${idScope}-004`, 'S002', '湘西腊味合作社', [item('P001', 'P001-500', '湘西烟熏柴火腊肉 500g', '500g', '/static/images/bacon.jpg', 'S002', 1, 59.9)], 'received', completedAt, `SF-DEMO-${idScope}-002`),
+      sub(`DEMO-CSO-${idScope}-005`, 'S004', '炎陵果业有限公司', [item('P002', 'P002-5J', '炎陵黄桃鲜果礼盒', '5斤礼盒', '/static/images/peach.jpg', 'S004', 1, 68)], 'after_sale', completedAt, `SF-DEMO-${idScope}-003`, { id: `DEMO-CAS-${idScope}-001`, reason: '演示售后', status: 'processing', createdAt: at(12) })
     ], completedAt)
   }
   if (!writeCOrders({ ...existing, ...orders })) return false

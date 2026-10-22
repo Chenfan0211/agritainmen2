@@ -1,7 +1,7 @@
 import type { MediaAssetRepository, MediaMimeType, MediaReference, MediaSaveOptions } from '@agritainment/shared'
 import type { MediaCompressionKind } from './media-helpers'
 
-export const DEFAULT_BUSINESS_IMAGE_FALLBACK: MediaReference = { source: 'builtin', path: '/static/images/farmhouse.webp' }
+export const DEFAULT_BUSINESS_IMAGE_FALLBACK: MediaReference = { source: 'builtin', path: '/static/images/farmhouse.jpg' }
 
 interface PreparedMediaDimensions {
   width: number

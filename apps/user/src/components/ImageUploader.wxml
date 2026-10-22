@@ -1,0 +1,7 @@
+<view class="business-uploader">
+  <view wx:for="{{items}}" wx:key="key" class="business-uploader__item">
+    <business-image class="business-uploader__preview" src="{{item.reference}}" mode="aspectFit" bind:click="preview" />
+    <button class="business-uploader__remove" disabled="{{disabled}}" aria-label="删除图片" data-index="{{index}}" bindtap="remove">×</button>
+  </view>
+  <button wx:if="{{canChoose}}" class="business-uploader__choose" disabled="{{disabled || uploading}}" bindtap="choose">{{uploading ? '处理中...' : '上传图片'}}</button>
+</view>

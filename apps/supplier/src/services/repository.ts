@@ -113,14 +113,14 @@ interface SeedItem {
   price: number
 }
 
-const bacon = (quantity: number): SeedItem => ({ productId: 'P001', skuId: 'P001-500', name: '湘西烟熏柴火腊肉', skuName: '500g', image: '/static/images/bacon.webp', quantity, price: 38 })
-const chili = (quantity: number): SeedItem => ({ productId: 'SP14', skuId: 'SP14-3', name: '手工辣椒酱', skuName: '3 瓶装', image: '/static/images/chili.webp', quantity, price: 18 })
-const egg = (quantity: number): SeedItem => ({ productId: 'SP09', skuId: 'SP09-30', name: '高山土鸡蛋', skuName: '30 枚装', image: '/static/images/field.webp', quantity, price: 32 })
-const tea = (quantity: number): SeedItem => ({ productId: 'SP19', skuId: 'SP19-1', name: '安化黑茶砖', skuName: '1kg 砖', image: '/static/images/tea.webp', quantity, price: 96 })
-const oil = (quantity: number): SeedItem => ({ productId: 'SP20', skuId: 'SP20-1', name: '土榨菜籽油', skuName: '5L 装', image: '/static/images/field.webp', quantity, price: 70 })
-const fruit = (quantity: number): SeedItem => ({ productId: 'SP10', skuId: 'SP10-5J', name: '时令鲜果礼盒', skuName: '5 斤礼盒', image: '/static/images/peach.webp', quantity, price: 45 })
-const honey = (quantity: number): SeedItem => ({ productId: 'P005', skuId: 'P005-500', name: '武陵山野生土蜂蜜', skuName: '500g', image: '/static/images/honey.webp', quantity, price: 88 })
-const rice = (quantity: number): SeedItem => ({ productId: 'PP05', skuId: 'PP05-1', name: '生态富硒米', skuName: '25kg', image: '/static/images/rice.webp', quantity, price: 168 })
+const bacon = (quantity: number): SeedItem => ({ productId: 'P001', skuId: 'P001-500', name: '湘西烟熏柴火腊肉', skuName: '500g', image: '/static/images/bacon.jpg', quantity, price: 38 })
+const chili = (quantity: number): SeedItem => ({ productId: 'SP14', skuId: 'SP14-3', name: '手工辣椒酱', skuName: '3 瓶装', image: '/static/images/chili.jpg', quantity, price: 18 })
+const egg = (quantity: number): SeedItem => ({ productId: 'SP09', skuId: 'SP09-30', name: '高山土鸡蛋', skuName: '30 枚装', image: '/static/images/field.jpg', quantity, price: 32 })
+const tea = (quantity: number): SeedItem => ({ productId: 'SP19', skuId: 'SP19-1', name: '安化黑茶砖', skuName: '1kg 砖', image: '/static/images/tea.jpg', quantity, price: 96 })
+const oil = (quantity: number): SeedItem => ({ productId: 'SP20', skuId: 'SP20-1', name: '土榨菜籽油', skuName: '5L 装', image: '/static/images/field.jpg', quantity, price: 70 })
+const fruit = (quantity: number): SeedItem => ({ productId: 'SP10', skuId: 'SP10-5J', name: '时令鲜果礼盒', skuName: '5 斤礼盒', image: '/static/images/peach.jpg', quantity, price: 45 })
+const honey = (quantity: number): SeedItem => ({ productId: 'P005', skuId: 'P005-500', name: '武陵山野生土蜂蜜', skuName: '500g', image: '/static/images/honey.jpg', quantity, price: 88 })
+const rice = (quantity: number): SeedItem => ({ productId: 'PP05', skuId: 'PP05-1', name: '生态富硒米', skuName: '25kg', image: '/static/images/rice.jpg', quantity, price: 168 })
 
 function orderAmount(items: SeedItem[]): number {
   return Math.round(items.reduce((sum, item) => sum + item.price * item.quantity, 0) * 100) / 100

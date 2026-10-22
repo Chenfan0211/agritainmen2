@@ -1,11 +1,12 @@
-/* 竹青绿 Design Tokens — 全站唯一色源。规格见 docs/design/zhulv-design-tokens.md */
+/* 鲜肉红 Design Tokens — 全站唯一色源。规格见 docs/design/zhulv-design-tokens.md */
 :root,
 page {
   /* brand */
-  --color-brand-primary: #2F7A4D;
-  --color-brand-primary-dark: #245E3B;
-  --color-brand-primary-soft: #E9F3ED;
-  --gradient-brand: linear-gradient(140deg, #3E9B62, #2F7A4D);
+  --color-brand-primary: #C8322B;
+  --color-brand-primary-dark: #A8261F;
+  --color-brand-primary-deep: #8C1E17;
+  --color-brand-primary-soft: #FCECEA;
+  --gradient-brand: linear-gradient(140deg, #E1503F, #C8322B 55%, #A8261F);
   --color-on-brand: #FFFFFF;
   --color-on-brand-rgb: 255, 255, 255;
 
@@ -19,32 +20,39 @@ page {
   --color-info: #3D7CB0;
   --color-info-dark: #2C6188;
   --color-info-soft: #E8F1F8;
-  --color-danger: #C9553F;
-  --color-danger-dark: #A03F2C;
-  --color-danger-soft: #FBECEA;
+  --color-danger: #B3203B;
+  --color-danger-dark: #8E1830;
+  --color-danger-soft: #FBEBEE;
   --color-purple: #7A6BB5;
   --color-purple-dark: #5E4E9E;
   --color-purple-soft: #F0EDFA;
   --color-gold: #C99A4E;
   --color-gold-dark: #8C6A2E;
   --color-gold-soft: #FBF3E6;
-  --color-price: #D2543C;
 
-  /* neutral */
-  --color-bg: #F4F7F2;
+  /* 价格与促销（原门店橙收编） */
+  --color-price: #E8501E;
+  --color-promo: #F0810F;
+  --color-promo-deep: #B85C00;
+  --color-promo-ink: #8A4800;
+  --color-promo-soft: #FDEBD7;
+  --color-promo-rgb: 240, 129, 15;
+
+  /* neutral（暖白） */
+  --color-bg: #FBF7F4;
   --color-card: #FFFFFF;
-  --color-card-alt: #FCFDFC;
-  --color-ink: #1D2A22;
-  --color-ink-2: #5E6F64;
-  --color-ink-3: #9AA8A0;
-  --color-text-nav: #41504A;
-  --color-line: #E7ECE6;
-  --color-line-light: #F1F5F0;
-  --color-hover-bg: #FAFCFA;
-  --color-tabbar-default: #9AA8A0;
-  --color-tabbar-active: #245E3B;
-  --color-overlay: rgba(15, 23, 18, 0.45);
-  --color-toast: rgba(15, 35, 24, 0.92);
+  --color-card-alt: #FDFAF8;
+  --color-ink: #2A1F1C;
+  --color-ink-2: #6B5A54;
+  --color-ink-3: #9C8C86;
+  --color-text-nav: #584A46;
+  --color-line: #EFE4E0;
+  --color-line-light: #F6EFEC;
+  --color-hover-bg: #FEFCFB;
+  --color-tabbar-default: #9C8C86;
+  --color-tabbar-active: #A8261F;
+  --color-overlay: rgba(34, 20, 17, 0.45);
+  --color-toast: rgba(42, 24, 20, 0.92);
 
   /* radius / shadow / space / control */
   --radius-card: 14px;
@@ -52,8 +60,8 @@ page {
   --radius-button: 12px;
   --radius-pill: 20px;
   --radius-nav: 10px;
-  --shadow-card: 0 1px 2px rgba(29, 42, 34, 0.04), 0 10px 28px -16px rgba(29, 42, 34, 0.18);
-  --shadow-button-primary: 0 8px 18px -8px rgba(47, 122, 77, 0.35);
+  --shadow-card: 0 1px 2px rgba(42, 31, 28, 0.04), 0 10px 28px -16px rgba(42, 31, 28, 0.18);
+  --shadow-button-primary: 0 8px 18px -8px rgba(200, 50, 43, 0.35);
   --space-page: 16px;
   --space-section: 16px;
   --space-card: 14px;
@@ -67,73 +75,73 @@ page {
   --text-body-weight: 400;
 
   /* reserved — 写入但不在供应商端使用 */
-  --color-bg-cream: #FBF8F2;
-  --color-sidebar-grad-start: #22303F;
-  --color-sidebar-grad-end: #1A2530;
-  --color-sidebar-text: #AEBFCE;
+  --color-bg-cream: #FDFAF8;
+  --color-sidebar-grad-start: #3A2B28;
+  --color-sidebar-grad-end: #2A1E1B;
+  --color-sidebar-text: #CBB9B3;
   --space-card-pc: 18px;
 
   /* admin 浅色工作台（不用 reserved 深色侧栏） */
   --color-sidebar-bg: var(--color-card);
   --color-sidebar-active-bg: var(--color-brand-primary-soft);
-  --color-focus-ring: rgba(47, 122, 77, 0.22);
-  --color-chart-fill: rgba(47, 122, 77, 0.08);
+  --color-focus-ring: rgba(200, 50, 43, 0.22);
+  --color-chart-fill: rgba(200, 50, 43, 0.08);
 
-  /* user mall — 仅用户端消费，不改全站主色 */
-  --color-user-brand: #17633F;
-  --color-user-brand-deep: #0F4A31;
-  --color-user-brand-deep-rgb: 15, 74, 49;
-  --color-user-brand-soft: #E7F2EB;
-  --gradient-user: linear-gradient(140deg, #3E9B62, #2F7A4D 55%, #17633F);
-  --gradient-user-login: linear-gradient(168deg, #3E9B62 0%, #2F7A4D 46%, #1E6B45 74%, #14532F 100%);
-  --color-user-bg: #F4F6F1;
-  --color-user-ink: #1B2620;
-  --color-user-muted: #67756C;
-  --color-user-line: #E2E8E0;
-  --color-user-line-light: #ECF1EA;
-  --color-user-subtle: #EEF3EC;
+  /* user mall — 仅用户端消费 */
+  --color-user-brand: #C8322B;
+  --color-user-brand-deep: #8C1E17;
+  --color-user-brand-deep-rgb: 140, 30, 23;
+  --color-user-brand-soft: #FCECEA;
+  --gradient-user: linear-gradient(140deg, #E1503F, #C8322B 55%, #8C1E17);
+  --gradient-user-login: linear-gradient(168deg, #E1503F 0%, #C8322B 46%, #A8261F 74%, #8C1E17 100%);
+  --color-user-bg: #FBF7F4;
+  --color-user-ink: #2A1F1C;
+  --color-user-muted: #6B5A54;
+  --color-user-line: #EFE4E0;
+  --color-user-line-light: #F6EFEC;
+  --color-user-subtle: #FDF5F3;
   --color-user-price: #E8501E;
   --color-user-price-rgb: 232, 80, 30;
-  --color-user-hero-muted: #D3DFD8;
+  --color-user-hero-muted: #EBD3CF;
   --color-user-warning: #C77A1E;
-  --color-user-danger: #B83532;
-  --color-user-badge: #D92C20;
+  --color-user-danger: #B3203B;
+  --color-user-badge: #B85C00;
   --color-user-wx: #1B9D55;
   --color-user-wx-soft: #E8F5EE;
   --radius-user-pill: 24px;
   --radius-user-sheet: 20px;
   --radius-user-login: 26px;
-  --shadow-user-button: 0 10px 20px -8px rgba(23, 99, 63, 0.5);
-  --shadow-user-cart: 0 14px 30px -10px rgba(15, 74, 49, 0.55);
+  --shadow-user-button: 0 10px 20px -8px rgba(200, 50, 43, 0.5);
+  --shadow-user-cart: 0 14px 30px -10px rgba(140, 30, 23, 0.55);
 
-  /* store 订货商城 —— 仅 apps/store 消费；门店保留橙色品牌，不改全站主色 */
-  --color-store-brand: #F0810F;
-  --color-store-brand-deep: #D66A00;
-  --color-store-brand-soft: #FDEBD7;
-  --color-store-brand-rgb: 240, 129, 15;
+  /* store 订货商城 —— 仅 apps/store 消费；主色并入鲜肉红，橙色改做价格/促销 */
+  --color-store-brand: #C8322B;
+  --color-store-brand-deep: #8C1E17;
+  --color-store-brand-soft: #FCECEA;
+  --color-store-brand-rgb: 200, 50, 43;
   --color-store-price: #E8501E;
   --color-store-warning: #C77A1E;
-  --color-store-bg: #F7F3EE;
-  --color-store-surface-subtle: #F3E9DF;
-  --color-store-line: #E9DED1;
-  --color-store-line-light: #F1E8DC;
+  --color-store-bg: #FBF7F4;
+  --color-store-surface-subtle: #F7EFEB;
+  --color-store-line: #EFE4E0;
+  --color-store-line-light: #F6EFEC;
   --color-store-on-brand: #FFFFFF;
   --color-store-ok: #2F7A4D;
   --color-store-ok-soft: #E9F3ED;
   --color-store-info: #2F6EA7;
   --color-store-info-soft: #E8F1F8;
-  --color-store-disabled: #C9CFC9;
+  --color-store-disabled: #CFC5C0;
   --color-store-backdrop: rgba(255, 255, 255, 0.92);
-  --color-store-mask: rgba(43, 30, 14, 0.45);
-  --color-store-overlay: rgba(24, 25, 23, 0.55);
+  --color-store-mask: rgba(46, 26, 22, 0.45);
+  --color-store-overlay: rgba(42, 24, 20, 0.55);
   --color-store-glass: rgba(255, 255, 255, 0.14);
   --color-store-glass-line: rgba(255, 255, 255, 0.25);
   --color-store-glow-top: rgba(240, 129, 15, 0.1);
-  --color-store-glow-bottom: rgba(214, 106, 0, 0.08);
-  --gradient-store: linear-gradient(140deg, #F59B2C, #F0810F 55%, #D66A00);
-  --gradient-store-login: linear-gradient(168deg, #F59B2C 0%, #F0810F 46%, #E0740A 74%, #C96200 100%);
-  --shadow-store-hero: 0 16px 36px -18px rgba(90, 50, 10, 0.3);
-  --shadow-store-cart: 0 14px 30px -10px rgba(214, 106, 0, 0.55);
-  --shadow-store-float: 0 14px 34px -14px rgba(90, 50, 10, 0.35);
-  --shadow-store-bar: 0 -10px 24px -18px rgba(90, 50, 10, 0.45);
+  --color-store-glow-bottom: rgba(200, 50, 43, 0.08);
+  --gradient-store: linear-gradient(140deg, #E1503F, #C8322B 55%, #8C1E17);
+  --gradient-store-login: linear-gradient(168deg, #E1503F 0%, #C8322B 46%, #A8261F 74%, #8C1E17 100%);
+  --shadow-store-hero: 0 16px 36px -18px rgba(74, 36, 30, 0.3);
+  --shadow-store-cart: 0 14px 30px -10px rgba(140, 30, 23, 0.55);
+  --shadow-store-float: 0 14px 34px -14px rgba(74, 36, 30, 0.35);
+  --shadow-store-bar: 0 -10px 24px -18px rgba(74, 36, 30, 0.45);
 }

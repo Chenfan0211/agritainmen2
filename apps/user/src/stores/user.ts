@@ -1,4 +1,5 @@
-import { defineStore } from 'pinia'
+import { createNativeStore } from './create-native-store'
+import type { NativeStoreOptions } from './create-native-store'
 import type { AfterSale, BusinessMediaValue, CatalogState, CAddress, CCartItem, CCommissionAllocation, CCommissionChain, CDistributorProfile, COrder, CProduct, CProductSku, CUserLevel, CommissionLedgerEntry, FarmStore, MockScenario, Order, PaymentAttempt, PlatformJournalEntry, Product, UserBinding, UserCommercePurchaseIntent, VoucherOrder, WithdrawalRequest } from '@agritainment/shared'
 import {
   initialCatalogOrderQuantity,
@@ -9,6 +10,28 @@ import { seedDemoUserCart, seedDemoUserDistributor } from '../data/demo-distribu
 import { seedDemoUserOrders } from '../data/demo-orders'
 import { readStorePackageProjection, userRepository } from '../services/repository'
 
+/** 微信同步存储（原生端唯一存储通道）；非小程序环境（单测）退化为无操作。 */
+function hasWxStorage(): boolean {
+  return typeof wx !== 'undefined' && !!wx && typeof wx.getStorageSync === 'function'
+}
+
+function readUserStorage(key: string): unknown {
+  if (!hasWxStorage()) return ''
+  try {
+    return wx.getStorageSync(key)
+  } catch {
+    return ''
+  }
+}
+
+function writeUserStorage(key: string, value: unknown): void {
+  if (!hasWxStorage() || typeof wx.setStorageSync !== 'function') return
+  try {
+    wx.setStorageSync(key, value)
+  } catch {
+    // 存储写入失败不能阻断入口处理。
+  }
+}
 interface CartLine extends CCartItem { stock: number; unavailable?: boolean }
 
 const USER_COMMERCE_BOOTSTRAP_COLLECTIONS = [
@@ -774,7 +797,10 @@ function syncPersistedFulfillment(orders: Record<string, COrder>): Record<string
   return next
 }
 
-export const useUserStore = defineStore('user', {
+const USER_STORE_ID = 'user'
+const USER_STORE_PERSISTENCE = { storageKey: `agritainment-user-${USER_STORE_ID}`, keys: ['farms', 'products', 'cProducts', 'auth'] }
+
+const userStoreOptions: NativeStoreOptions<UserState> = {
   state: (): UserState => ({
     initialized: false, loading: false, withdrawalsTick: 0, distributorTick: 0, error: '', mockScenario: 'normal', farms: [], products: [], cProducts: [], inventoryRevision: 0, launchProductId: '', promoterId: '', promoterName: '', referralPromoterId: '', userId: '',
     cart: [], orders: [], addresses: [], commissionRecords: [], auth: { isLoggedIn: false, openid: '' }, checkoutError: '', entryChecked: false, entryRestricted: false
@@ -964,8 +990,8 @@ export const useUserStore = defineStore('user', {
       } catch (error) { this.error = error instanceof Error ? error.message : '数据加载失败' } finally { this.loading = false }
     },
     applyLaunch(query: Record<string, string | undefined>) {
-      const savedName = typeof uni !== 'undefined' && uni.getStorageSync ? uni.getStorageSync('agritainment-user-promoter-name') : ''
-      const savedPromoter = typeof uni !== 'undefined' && uni.getStorageSync ? uni.getStorageSync('agritainment-user-promoter-id') : ''
+      const savedName = readUserStorage('agritainment-user-promoter-name')
+      const savedPromoter = readUserStorage('agritainment-user-promoter-id')
       this.launchProductId = query.product?.trim() || ''
       this.promoterName = query.promoterName || (typeof savedName === 'string' ? savedName : '') || ''
       if (!this.userId && this.auth.isLoggedIn && this.auth.openid) this.userId = resolveUserIdentity(this.auth.openid)
@@ -979,12 +1005,12 @@ export const useUserStore = defineStore('user', {
       this.referralPromoterId = this.promoterId
       this.entryChecked = true
       this.entryRestricted = !this.promoterId
-      if (this.promoterId && typeof uni !== 'undefined' && uni.setStorageSync) uni.setStorageSync('agritainment-user-promoter-id', this.promoterId)
-      if (this.promoterName && typeof uni !== 'undefined' && uni.setStorageSync) uni.setStorageSync('agritainment-user-promoter-name', this.promoterName)
+      if (this.promoterId) writeUserStorage('agritainment-user-promoter-id', this.promoterId)
+      if (this.promoterName) writeUserStorage('agritainment-user-promoter-name', this.promoterName)
     },
     refreshFulfillment() {
       const synced = syncPersistedFulfillment(normalizeCOrders(readCOrders() || {}))
-      const currentOrders = new Map(this.orders.map((item) => [item.id, item]))
+      const currentOrders = new Map<string, COrder>(this.orders.map((item: COrder): [string, COrder] => [item.id, item]))
       this.orders = this.userId ? Object.values(synced).filter((item) => item.userId === this.userId).map((snapshot) => {
         const current = currentOrders.get(snapshot.id)
         if (!current) return snapshot
@@ -1741,4 +1767,16 @@ export const useUserStore = defineStore('user', {
       this.initialized = false
     }
   }
-})
+} as NativeStoreOptions<UserState>
+
+export function createUserStore() {
+  return createNativeStore<UserState>(USER_STORE_ID, { ...userStoreOptions, persistence: USER_STORE_PERSISTENCE })
+}
+
+let userStoreSingleton: ReturnType<typeof createUserStore> | null = null
+
+/** 原生小程序单例 store：页面与 app.ts 共用同一实例。 */
+export function useUserStore(): ReturnType<typeof createUserStore> {
+  if (!userStoreSingleton) userStoreSingleton = createUserStore()
+  return userStoreSingleton
+}

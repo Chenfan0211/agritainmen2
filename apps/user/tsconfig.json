@@ -1,8 +1,13 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "types": ["@dcloudio/types", "vite/client"],
-    "baseUrl": "."
+    "types": [],
+    "baseUrl": ".",
+    "noEmit": true,
+    "allowJs": false,
+    "noImplicitAny": false,
+    "noImplicitThis": false
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.vue", "../../packages/shared/src/**/*.ts", "../../packages/ui/src/**/*.ts", "../../packages/ui/src/**/*.vue", "vite.config.ts"]
+  "include": ["src/**/*.ts", "types/**/*.d.ts", "../../packages/shared/src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts", "dist", "node_modules"]
 }

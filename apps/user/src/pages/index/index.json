@@ -1,0 +1,10 @@
+{
+  "navigationStyle": "custom",
+  "enableShareAppMessage": true,
+  "enableShareTimeline": true,
+  "usingComponents": {
+    "business-image": "../../components/BusinessImage",
+    "image-uploader": "../../components/ImageUploader",
+    "ui-icon": "../../components/UiIcon"
+  }
+}

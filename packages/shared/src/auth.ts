@@ -29,6 +29,8 @@ interface WechatUni {
   }) => void
 }
 
+declare const wx: unknown
+
 export const MOCK_OPENID_STORAGE_KEY = 'agritainment-mock-openid'
 
 function readMockOpenid(): string {
@@ -41,6 +43,9 @@ function readMockOpenid(): string {
     const uniRef = (globalThis as unknown as { uni?: { getStorageSync?: (key: string) => unknown } }).uni
     const stored = uniRef?.getStorageSync?.(MOCK_OPENID_STORAGE_KEY)
     if (typeof stored === 'string' && stored) return stored
+    const wxRef = typeof wx !== 'undefined' ? wx as { getStorageSync?: (key: string) => unknown } : undefined
+    const wxStored = wxRef?.getStorageSync?.(MOCK_OPENID_STORAGE_KEY)
+    if (typeof wxStored === 'string' && wxStored) return wxStored
   } catch {
     // 忽略
   }
@@ -55,7 +60,12 @@ function writeMockOpenid(openid: string): void {
       return
     }
     const uniRef = (globalThis as unknown as { uni?: { setStorageSync?: (key: string, value: unknown) => void } }).uni
-    uniRef?.setStorageSync?.(MOCK_OPENID_STORAGE_KEY, openid)
+    if (uniRef?.setStorageSync) {
+      uniRef.setStorageSync(MOCK_OPENID_STORAGE_KEY, openid)
+      return
+    }
+    const wxRef = typeof wx !== 'undefined' ? wx as { setStorageSync?: (key: string, value: unknown) => void } : undefined
+    wxRef?.setStorageSync?.(MOCK_OPENID_STORAGE_KEY, openid)
   } catch {
     // 忽略
   }
@@ -81,10 +91,16 @@ export function simulateWechatLogin(): Promise<{ openid: string }> {
       resolve({ openid })
     }
     const uniRef = (globalThis as unknown as { uni?: WechatUni }).uni
+    const wxRef = typeof wx !== 'undefined' ? wx as WechatUni : undefined
     const isMpWeixin = uniRef?.getSystemInfoSync?.().uniPlatform === 'mp-weixin'
     if (isMpWeixin && typeof uniRef?.login === 'function') {
       uniRef.login({
         provider: 'weixin',
+        success: (result) => finish(result.code),
+        fail: () => finish()
+      })
+    } else if (typeof wxRef?.login === 'function') {
+      wxRef.login({
         success: (result) => finish(result.code),
         fail: () => finish()
       })

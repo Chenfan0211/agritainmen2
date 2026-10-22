@@ -3,40 +3,6 @@ export interface DeliveryMapPoint {
   latitude: number
 }
 
-const sdkPromises = new Map<string, Promise<unknown>>()
-
-export function loadTencentMapSdk(options: { key: string; document?: Document; globalObject?: { TMap?: unknown } }): Promise<unknown> {
-  const globalObject = options.globalObject || (globalThis as { TMap?: unknown })
-  if (globalObject.TMap) return Promise.resolve(globalObject.TMap)
-  const key = options.key.trim()
-  if (!key) return Promise.reject(new Error('腾讯地图 JS Key 未配置'))
-  const existing = sdkPromises.get(key)
-  if (existing) return existing
-  const documentObject = options.document || (globalThis as { document?: Document }).document
-  if (!documentObject) return Promise.reject(new Error('腾讯地图 SDK 仅支持浏览器环境'))
-  const scriptId = `tencent-delivery-map-sdk-${encodeURIComponent(key)}`
-  const promise = new Promise<unknown>((resolve, reject) => {
-    const script = (documentObject.getElementById(scriptId) || documentObject.createElement('script')) as HTMLScriptElement
-    script.id = scriptId
-    script.src = `https://map.qq.com/api/gljs?v=1.exp&key=${encodeURIComponent(key)}`
-    script.async = true
-    script.onload = () => {
-      if (globalObject.TMap) resolve(globalObject.TMap)
-      else {
-        sdkPromises.delete(key)
-        reject(new Error('腾讯地图 SDK 初始化失败'))
-      }
-    }
-    script.onerror = () => {
-      sdkPromises.delete(key)
-      reject(new Error('腾讯地图 SDK 加载失败'))
-    }
-    if (!script.parentNode) documentObject.head.appendChild(script)
-  })
-  sdkPromises.set(key, promise)
-  return promise
-}
-
 export function deliveryMapSummary(input: { stopCount: number; totalDistanceKm: number; estimatedDurationMinutes: number }): string {
   return `${input.stopCount} 家门店 · ${input.totalDistanceKm.toFixed(1)} km · 约 ${input.estimatedDurationMinutes} 分钟`
 }

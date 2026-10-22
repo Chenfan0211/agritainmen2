@@ -1,0 +1,285 @@
+<view class="{{appShellClass}}">
+  <view wx:if="{{loading}}" class="loading-state pc-loading">正在准备商城...</view>
+
+  <view wx:elif="{{entryRestricted}}" class="auth-page">
+    <view class="auth-deco auth-deco1"></view>
+    <view class="auth-deco auth-deco2"></view>
+    <view class="auth-brand">
+      <view class="auth-mark"><ui-icon name="shield-check" size="{{30}}" /></view>
+      <text class="auth-brand-name">该入口暂不可访问</text>
+      <text class="auth-brand-sub">请通过有效团长分享链接进入商城</text>
+    </view>
+    <view class="auth-card">
+      <view class="auth-wxbadge"><ui-icon name="message-circle" size="{{26}}" /></view>
+      <button wx:if="{{!isLoggedIn}}" class="auth-btn" disabled="{{authorizing}}" bindtap="onAuthorize"><ui-icon name="door-open" size="{{18}}" />{{authorizing ? '身份识别中...' : '已绑定用户登录'}}</button>
+    </view>
+  </view>
+
+  <view wx:elif="{{!isLoggedIn}}" class="auth-page">
+    <view class="auth-deco auth-deco1"></view>
+    <view class="auth-deco auth-deco2"></view>
+    <view class="auth-brand">
+      <view class="auth-mark"><ui-icon name="shopping-bag" size="{{30}}" /></view>
+      <text class="auth-brand-name">商城</text>
+      <text class="auth-brand-sub">产地好物，快递直发到家</text>
+    </view>
+    <view class="auth-card">
+      <view class="auth-wxbadge"><ui-icon name="message-circle" size="{{26}}" /></view>
+      <view class="auth-roles" role="radiogroup" aria-label="登录身份">
+        <button class="{{loginLevel === 'normal' ? 'active' : ''}}" role="radio" aria-checked="{{loginLevel === 'normal'}}" data-level="normal" bindtap="onSelectLoginLevel">普通用户</button>
+        <button class="{{loginLevel === 'level1' ? 'active' : ''}}" role="radio" aria-checked="{{loginLevel === 'level1'}}" data-level="level1" bindtap="onSelectLoginLevel">一级团长</button>
+        <button class="{{loginLevel === 'level2' ? 'active' : ''}}" role="radio" aria-checked="{{loginLevel === 'level2'}}" data-level="level2" bindtap="onSelectLoginLevel">二级团长</button>
+      </view>
+      <button class="auth-btn" disabled="{{authorizing}}" bindtap="onAuthorize"><ui-icon name="door-open" size="{{18}}" />{{authorizing ? '授权中...' : '微信一键授权'}}</button>
+      <text class="auth-tip">当前身份：{{loginLevelLabel}} · 演示环境，授权后可查看商品与订单</text>
+    </view>
+  </view>
+
+  <block wx:else>
+    <view wx:if="{{productView && selectedProduct}}" class="product-view" data-visual-view="product">
+      <view class="page-heading heading-with-back theme-head"><button class="page-back" aria-label="返回" bindtap="onCloseProductView"><ui-icon name="arrow-left" size="{{20}}" /></button><view><text class="page-title">商品详情</text><text class="page-sub">产地直发 · 快递到家</text></view></view>
+      <view class="page-content product-detail" data-visual-state="user-detail">
+        <view class="gallery"><business-image class="gallery-image" src="{{selectedProduct.image}}" mode="aspectFill" /><text class="gallery-dots">1 / 1</text></view>
+        <text class="pv-name">{{selectedProduct.name}}</text>
+        <view class="pv-meta"><text class="sup">{{selectedProduct.supplierName}}</text><view class="val">¥{{selectedProduct.priceText}}</view></view>
+        <view class="pv-tags"><text wx:for="{{selectedProduct.tags}}" wx:key="*this" class="tag">{{item}}</text></view>
+        <view class="shipnote"><ui-icon name="truck" size="{{15}}" />快递配送 · 运费 ¥0 · 产地直发</view>
+        <view class="product-detail-actions"><button class="outline-btn" data-id="{{selectedProduct.id}}" bindtap="onShareProduct"><ui-icon name="link" size="{{16}}" />分享商品</button><button class="primary-btn" disabled="{{!selectedProduct.canOrder}}" data-id="{{selectedProduct.id}}" bindtap="onAddProduct">加入购物车</button></view>
+      </view>
+    </view>
+
+    <block wx:else>
+      <view wx:if="{{activeTab === 'home'}}" class="c-mall" data-visual-view="user-home">
+        <view class="mall-header theme-head">
+          <view>
+            <text class="eyebrow">ORIGIN GOODS</text>
+            <text class="mall-title">优选商城</text>
+          </view>
+          <view class="role-chip" data-tab="me" bindtap="onSwitchTab"><ui-icon name="user-round" size="{{15}}" />{{roleLabel}}</view>
+        </view>
+
+        <view class="search-box"><ui-icon name="search" size="{{16}}" /><input class="search-input" value="{{searchText}}" placeholder="搜索商品、供应商或标签" bindinput="onSearchInput" /></view>
+        <view class="package-banner" bindtap="onOpenPackages">
+          <view class="package-banner-mark"><ui-icon name="store" size="{{26}}" /></view>
+          <view>
+            <text class="banner-kicker">门店套餐</text>
+            <text wx:if="{{packageCount}}" class="banner-title">{{packageCount}} 款到店套餐</text>
+            <text wx:else class="banner-title">暂无到店套餐</text>
+            <text class="banner-sub">门店自提 · 到店核销 · 支持团长分佣</text>
+          </view>
+          <view class="banner-play"><ui-icon name="chevron-right" size="{{17}}" /></view>
+        </view>
+
+        <view class="section-line"><text>推荐好物</text><view class="meta-text meta">{{visibleCount}} 件</view></view>
+        <view class="waterfall-grid">
+          <view wx:for="{{visibleProducts}}" wx:key="id" class="product-card" data-id="{{item.id}}" bindtap="onOpenProduct">
+            <view class="product-image-wrap">
+              <business-image class="product-image" src="{{item.image}}" mode="aspectFill" />
+            </view>
+            <view class="product-body"><text class="product-name">{{item.name}}</text><text class="product-meta">{{item.stockText}}</text><view class="product-foot"><view class="product-price-box"><text class="product-price">¥{{item.priceText}}</text><view wx:if="{{item.showOriginal}}" class="product-original">¥{{item.originalPriceText}}</view></view><button class="product-action" aria-label="加入{{item.name}}到购物车" disabled="{{item.disabled}}" data-id="{{item.id}}" catchtap="onAddProduct"><ui-icon name="plus" size="{{15}}" /></button></view></view>
+          </view>
+        </view>
+        <view wx:if="{{!hasVisibleProducts}}" class="empty-block pc-empty"><view class="pc-state-icon"><ui-icon name="search" size="{{24}}" /></view><text>没有找到匹配的商品</text></view>
+      </view>
+
+      <view wx:elif="{{activeTab === 'category'}}" class="page-content category-page" data-visual-view="user-category">
+        <view class="page-heading theme-head"><text class="page-title">商品分类</text><text class="page-sub">产地好物 · 按品类挑选</text></view>
+        <view class="search-box"><ui-icon name="search" size="{{16}}" /><input class="search-input" value="{{searchText}}" placeholder="搜索商品、供应商或标签" bindinput="onSearchInput" /></view>
+        <view class="category-grid"><button wx:for="{{categories}}" wx:key="name" class="category-grid-item {{item.active ? 'active' : ''}}" aria-label="{{item.name}}" title="{{item.name}}" data-category="{{item.name}}" bindtap="onSelectCategory"><business-image class="category-grid-img" src="{{item.image}}" fallback="{{item.fallback}}" error-fallback="{{item.errorFallback}}" show-error="{{false}}" mode="aspectFill" /><text class="category-grid-label">{{item.name}}</text></button></view>
+        <view class="section-line"><text>全部商品</text><view class="meta-text meta">{{visibleCount}} 件</view></view>
+        <view class="waterfall-grid compact-feed">
+          <view wx:for="{{visibleProducts}}" wx:key="id" class="product-card" data-id="{{item.id}}" bindtap="onOpenProduct">
+            <view class="product-image-wrap"><business-image class="product-image" src="{{item.image}}" mode="aspectFill" /></view>
+            <view class="product-body"><text class="product-name">{{item.name}}</text><text class="product-meta">{{item.stockText}}</text><view class="product-foot"><view class="product-price-box"><text class="product-price">¥{{item.priceText}}</text><view wx:if="{{item.showOriginal}}" class="product-original">¥{{item.originalPriceText}}</view></view><button class="product-action" aria-label="加入{{item.name}}到购物车" disabled="{{item.disabled}}" data-id="{{item.id}}" catchtap="onAddProduct"><ui-icon name="plus" size="{{15}}" /></button></view></view>
+          </view>
+        </view>
+        <view wx:if="{{!hasVisibleProducts}}" class="empty-block pc-empty"><view class="pc-state-icon"><ui-icon name="shopping-bag" size="{{24}}" /></view><text>该分类暂无商品</text></view>
+      </view>
+      <view wx:elif="{{activeTab === 'cart'}}" class="{{cartPageClass}}" data-visual-view="user-cart">
+        <view class="page-heading cart-heading theme-head"><view><text class="page-title">购物车</text><text class="page-sub">共 {{cartCount}} 件 · 产地好物</text></view></view>
+        <view class="cart-content cart-page-content">
+          <view wx:if="{{!hasCart}}" class="empty-block large pc-empty"><view class="pc-state-icon"><ui-icon name="shopping-cart" size="{{26}}" /></view><text>购物车还是空的</text><button class="outline-btn" data-tab="home" bindtap="onSwitchTab">去逛逛</button></view>
+          <block wx:else>
+            <view class="cart-category-tabs cart-page-tabs"><button class="{{cartDeliveryMode === 'pickup' ? 'active' : ''}}" data-mode="pickup" bindtap="onSwitchCartDeliveryMode">到店自提 · {{cartCategoryCountPickup}} 件</button><button class="{{cartDeliveryMode === 'courier' ? 'active' : ''}}" data-mode="courier" bindtap="onSwitchCartDeliveryMode">快递直发 · {{cartCategoryCountCourier}} 件</button></view>
+            <view class="cart-page-card">
+              <button class="cart-select-all" bindtap="onToggleAllCartLines"><label class="cart-check {{cartCategoryAllSelected ? 'checked' : ''}}"><ui-icon wx:if="{{cartCategoryAllSelected}}" name="check" size="{{12}}" /></label><text>{{cartDeliveryMode === 'courier' ? '快递商品' : '普通商品'}} · {{cartCategoryItems.length}} 款</text><view class="meta">{{cartCategoryAllSelected ? '取消全选' : '全选'}}</view></button>
+              <view wx:if="{{!hasCartCategoryItems}}" class="empty cart-category-empty"><view class="pc-state-icon"><ui-icon name="{{cartCategoryEmptyIcon}}" size="{{25}}" /></view><text>{{cartCategoryEmptyText}}</text></view>
+              <view wx:for="{{cartCategoryItems}}" wx:key="key" class="cart-line cart-page-line {{item.unavailable ? 'unavailable' : ''}}">
+                <button class="cart-line-check" aria-label="{{item.selected ? '取消选择' : '选择'}}{{item.name}}" data-key="{{item.key}}" bindtap="onToggleCartLine"><label class="cart-check {{item.selected ? 'checked' : ''}}"><ui-icon wx:if="{{item.selected}}" name="check" size="{{12}}" /></label></button>
+                <business-image src="{{item.image}}" mode="aspectFill" />
+                <view class="cart-line-main">
+                  <view class="cart-line-head"><text>{{item.name}}</text><text class="cart-stock">{{item.stockText}}</text></view>
+                  <view class="meta-text meta">{{item.skuName}}</view>
+                  <view wx:if="{{item.unavailable}}" class="stock-warning meta">库存不足或购买数量未达要求</view>
+                  <view class="cart-line-foot"><view class="strong-text val">¥{{item.priceText}}</view><view class="stepper"><button data-product-id="{{item.productId}}" data-sku-id="{{item.skuId}}" data-delta="{{-1}}" bindtap="onChangeLine">−</button><text>{{item.quantity}}</text><button data-product-id="{{item.productId}}" data-sku-id="{{item.skuId}}" data-delta="{{1}}" bindtap="onChangeLine">+</button></view></view>
+                </view>
+              </view>
+            </view>
+          </block>
+        </view>
+        <view wx:if="{{hasCart}}" class="cart-checkout cart-page-checkout">
+          <button class="cart-select-all" bindtap="onToggleAllCartLines"><label class="cart-check {{cartCategoryAllSelected ? 'checked' : ''}}"><ui-icon wx:if="{{cartCategoryAllSelected}}" name="check" size="{{12}}" /></label><text>全选</text></button>
+          <view class="cart-checkout-total"><text>合计：</text><view class="val">¥{{selectedCartTotalText}}</view></view>
+          <button class="cart-delete-btn" disabled="{{!hasSelectedCartItems}}" bindtap="onRemoveSelectedLines">删除</button>
+          <button class="primary-btn" disabled="{{!hasSelectedCartItems || cartCategoryHasUnavailable}}" bindtap="onOpenCheckout">结算({{selectedCartCount}})</button>
+        </view>
+      </view>
+
+      <view wx:elif="{{activeTab === 'me' && meSection === 'orders'}}" class="page-content orders-page" data-visual-view="user-orders">
+        <view class="page-heading heading-with-back theme-head"><button class="page-back" aria-label="返回我的" bindtap="onBackToMe"><ui-icon name="arrow-left" size="{{20}}" /></button><view><text class="page-title">我的订单</text><text class="page-sub">每个供应商独立发货</text></view></view>
+        <view wx:if="{{!hasOrders}}" class="empty-block large pc-empty"><view class="pc-state-icon"><ui-icon name="package" size="{{26}}" /></view><text>还没有订单</text><button class="outline-btn" data-tab="home" bindtap="onSwitchTab">去逛逛</button></view>
+        <view wx:for="{{orders}}" wx:for-item="order" wx:key="id" class="order-card">
+          <view class="order-head"><view><view class="order-id-line"><text class="order-id">{{order.id}}</text><text wx:if="{{order.isDemo}}" class="demo-badge">演示订单</text></view><text class="order-time">{{order.createdAtText}}</text></view><text class="order-status {{order.isDone ? 'is-done' : ''}}">{{order.statusLabel}}</text></view>
+          <view wx:for="{{order.subOrders}}" wx:for-item="sub" wx:key="id" class="sub-order"><view class="sub-head"><text>{{sub.supplierName}}</text><text>{{sub.statusLabel}}</text></view><view wx:for="{{sub.items}}" wx:for-item="goods" wx:key="key" class="order-item"><business-image src="{{goods.image}}" mode="aspectFill" /><view><text>{{goods.name}}</text><view class="meta-text meta">{{goods.skuName}} × {{goods.quantity}}</view></view><view class="strong-text val">¥{{goods.amountText}}</view></view><view wx:if="{{sub.hasTracking}}" class="tracking-row"><ui-icon name="truck" size="{{13}}" />{{sub.courier}} <text class="tracking-code">{{sub.trackingNo}}</text></view><view class="sub-actions"><text wx:if="{{sub.showWaitingCopy}}" class="waiting-copy">{{sub.waitingCopy}}</text><button wx:if="{{sub.canReceive}}" class="primary-small" data-order-id="{{order.id}}" data-sub-order-id="{{sub.id}}" bindtap="onReceive">确认收货</button><button wx:if="{{sub.showAfterSaleProcessing}}" class="outline-small" disabled>售后处理中</button><button wx:if="{{sub.canRequestAfterSale}}" class="outline-small" data-order-id="{{order.id}}" data-sub-order-id="{{sub.id}}" bindtap="onAfterSale">申请售后</button><button wx:if="{{sub.canViewLogistics}}" class="outline-small" data-order-id="{{order.id}}" data-sub-order-id="{{sub.id}}" bindtap="onOpenLogistics">查看物流</button></view></view>
+          <view class="order-bottom"><text>共 {{order.totalQuantity}} 件</text><view class="strong-text val">实付 ¥{{order.amountText}}</view></view>
+          <view wx:if="{{order.confirmationPending}}" class="payment-confirmation">支付结果确认中</view>
+          <view wx:if="{{order.showActions}}" class="order-actions"><button wx:if="{{order.canPay}}" class="primary-small" data-order-id="{{order.id}}" bindtap="onPayOrder">模拟支付</button><button wx:if="{{order.canQueryPayment}}" class="primary-small" data-order-id="{{order.id}}" bindtap="onPayOrder">查询支付结果</button><button wx:if="{{order.canCancel}}" class="outline-small" data-order-id="{{order.id}}" bindtap="onCancelOrder">取消订单</button></view>
+        </view>
+        <view wx:if="{{hasVouchers}}" class="order-card voucher-card"><view class="order-head"><view><text class="order-id">券订单</text><text class="order-time">门店套餐</text></view><text class="order-status muted">共 {{vouchers.length}} 张</text></view><view wx:for="{{vouchers}}" wx:for-item="voucher" wx:key="id" class="vrow"><view class="voucher-thumb"><ui-icon name="badge-percent" size="{{19}}" /></view><view class="vrow-main"><text>{{voucher.id}}</text><view class="meta-text meta">数量 {{voucher.quantity}} · ¥{{voucher.amountText}} · {{voucher.statusLabel}}</view></view><view class="strong-text val">¥{{voucher.amountText}}</view></view></view>
+      </view>
+
+      <view wx:else class="page-content me-page" data-visual-view="user-me">
+        <view class="page-heading theme-head"><text class="page-title">我的</text><text class="page-sub">团长与订单都在这里管理</text></view>
+        <view class="profile-panel"><view class="avatar">{{userInitial}}</view><view class="profile-main"><text class="profile-role">{{roleLabel}}</text><text class="profile-id">用户 {{userIdText}}</text></view><text class="profile-state">已登录</text></view>
+        <view class="role-switch">
+          <button class="{{isNormalLevel ? 'active' : ''}}" data-level="normal" bindtap="onSelectRole">普通用户</button>
+          <button class="{{isLevel1 ? 'active' : ''}}" data-level="level1" bindtap="onSelectRole">一级团长</button>
+          <button class="{{isLevel2 ? 'active' : ''}}" data-level="level2" bindtap="onSelectRole">二级团长</button>
+        </view>
+        <view wx:if="{{hasDistributor}}" class="operations-hero commission-summary"><text>销售统计</text><view><view><view class="val">¥{{pendingCommissionText}}</view><view class="meta">待结算收入</view></view><view><view class="val">¥{{availableCommissionText}}</view><view class="meta">可提现收入</view></view><view><view class="val">¥{{personalPerformanceText}}</view><view class="meta">个人业绩</view></view><view><view class="val">¥{{teamPerformanceText}}</view><view class="meta">团队业绩</view></view></view></view>
+        <view wx:if="{{hasDistributor}}" class="operations-grid pc-tile-grid"><button class="pc-tile pc-tile--coral" data-type="income" bindtap="onOpenOperations"><view class="pc-tile-icon"><ui-icon name="badge-dollar-sign" size="{{26}}" /></view><text class="pc-tile-label">我的收入</text></button><button class="pc-tile pc-tile--blue" data-type="fans" bindtap="onOpenOperations"><view class="pc-tile-icon"><ui-icon name="user-round-check" size="{{26}}" /><text wx:if="{{directFanCount}}" class="pc-tile-badge">{{directFanCount}}</text></view><text class="pc-tile-label">下级用户</text></button><button class="pc-tile pc-tile--green" data-type="orders" bindtap="onOpenOperations"><view class="pc-tile-icon"><ui-icon name="package-check" size="{{26}}" /><text wx:if="{{teamOrderCount}}" class="pc-tile-badge">{{teamOrderCount}}</text></view><text class="pc-tile-label">团队订单</text></button><button class="pc-tile pc-tile--amber" data-type="performance" bindtap="onOpenOperations"><view class="pc-tile-icon"><ui-icon name="chart-no-axes-combined" size="{{26}}" /></view><text class="pc-tile-label">团队业绩</text></button></view>
+        <view wx:else class="normal-summary"><ui-icon name="shield-check" size="{{19}}" /><view><text>安心购物</text><view class="meta">订单、地址与售后服务都在这里</view></view></view>
+        <view class="order-entry" bindtap="onOpenMyOrders"><view><text>我的订单</text><view class="meta">查看全部订单</view></view><ui-icon name="chevron-right" size="{{17}}" /></view>
+        <block wx:if="{{hasDistributor}}">
+          <view class="referral-panel"><view><text>{{referralTitle}}</text><view class="meta-text meta">{{referralText}}</view></view><ui-icon name="chevron-right" size="{{16}}" /></view>
+          <view class="section-line"><text>佣金明细</text><view class="meta-text meta">{{commissionRecords.length}} 笔</view></view>
+          <view wx:if="{{!hasCommissionRecords}}" class="empty-block compact pc-empty"><view class="pc-state-icon"><ui-icon name="badge-dollar-sign" size="{{24}}" /></view><text>确认收货后，团长分佣会在这里显示</text></view>
+          <view wx:for="{{commissionRecords}}" wx:for-item="record" wx:key="id" class="commission-row"><view><text>{{record.levelLabel}}</text><view class="meta-text meta">{{record.metaText}}</view></view><view class="strong-text val {{record.reversed ? 'reversed' : ''}}">{{record.amountText}}</view></view>
+          <view wx:if="{{hasWithdrawalRequests}}" class="withdrawal-history"><view class="section-line"><text>提现申请</text><view class="meta-text meta">{{withdrawalRequests.length}} 笔</view></view><view wx:for="{{withdrawalRequests}}" wx:for-item="request" wx:key="id" class="commission-row"><view><text>{{request.title}}</text><view class="meta-text meta">{{request.createdAtText}}<text wx:if="{{request.hasReviewedNote}}"> · {{request.reviewedNote}}</text></view></view><view class="strong-text val">¥{{request.amountText}}</view></view></view>
+        </block>
+        <view class="settings-list"><view data-return="false" bindtap="onOpenAddressManager"><ui-icon name="map-pin" size="{{17}}" /><text>收货地址</text><view class="meta-text meta">{{defaultAddress ? defaultAddress.regionText : '未设置'}}</view><ui-icon name="chevron-right" size="{{15}}" /></view><view class="package-entry" bindtap="onOpenPackages"><ui-icon name="store" size="{{17}}" /><text>到店套餐</text><view class="meta-text meta">门店自提 · 到店核销</view><ui-icon name="chevron-right" size="{{15}}" /></view></view>
+        <button class="logout-button logout-danger" bindtap="onLogout">退出登录</button>
+      </view>
+
+      <view wx:if="{{hasCartBar}}" class="cart-bar" data-tab="cart" bindtap="onSwitchTab"><view class="cart-bar-icon"><ui-icon name="shopping-cart" size="{{19}}" /><view class="meta">{{cartCount}}</view></view><view class="cart-bar-total"><text>购物车合计</text><view class="val">¥{{cartTotalText}}</view></view><button data-tab="cart" catchtap="onSwitchTab">去购物车</button></view>
+    </block>
+
+    <view wx:if="{{!productView}}" class="bottom-tabs">
+      <view class="tab-item {{activeTab === 'home' ? 'active' : ''}}" data-tab="home" bindtap="onSwitchTab"><view class="tab-icon"><ui-icon name="house" size="{{20}}" /></view><text>首页</text></view>
+      <view class="tab-item {{activeTab === 'category' ? 'active' : ''}}" data-tab="category" bindtap="onSwitchTab"><view class="tab-icon"><ui-icon name="layout-dashboard" size="{{20}}" /></view><text>分类</text></view>
+      <view class="tab-item {{activeTab === 'cart' ? 'active' : ''}}" data-tab="cart" bindtap="onSwitchTab"><view class="tab-icon tab-icon-wrap"><ui-icon name="shopping-cart" size="{{20}}" /><text wx:if="{{cartCount}}" class="meta">{{cartCount}}</text></view><text>购物车</text></view>
+      <view class="tab-item {{activeTab === 'me' ? 'active' : ''}}" data-tab="me" bindtap="onSwitchTab"><view class="tab-icon"><ui-icon name="user-round" size="{{20}}" /></view><text>我的</text></view>
+    </view>
+  </block>
+  <view wx:if="{{sheet}}" class="sheet-mask" catchtap="onCloseSheet"><view class="sheet" catchtap="onSheetBodyTap">
+    <view class="sheet-head"><text>{{sheetTitle}}</text><button aria-label="关闭" bindtap="onCloseSheet"><ui-icon name="x" size="{{16}}" /></button></view>
+    <scroll-view class="sheet-scroll" scroll-y>
+      <view wx:if="{{showDetailSheet}}" class="detail-content product-detail" data-visual-state="user-detail">
+        <view class="sku-sum">
+          <business-image src="{{selectedProduct.image}}" mode="aspectFill" />
+          <view>
+            <text class="sku-sum-name">{{selectedProduct.name}}</text>
+            <text class="sku-sum-price">¥{{selectedSku.priceText}}</text>
+            <text class="sku-sum-meta">库存 {{selectedSku.stock}} · 已选：{{selectedSku.name}}</text>
+          </view>
+        </view>
+        <text class="sku-label">选择规格</text>
+        <view class="sku-list">
+          <view wx:for="{{skuOptions}}" wx:key="id" class="sku-option {{item.active ? 'active' : ''}}" data-id="{{item.id}}" bindtap="onSelectSku">
+            <text>{{item.name}}</text>
+            <view class="meta">¥{{item.priceText}} · 库存 {{item.stock}}</view>
+          </view>
+        </view>
+        <view class="qty-row">
+          <view class="qty-copy"><text>购买数量</text><view class="meta">起订 {{minOrderText}} 件 · 当前库存 {{selectedSku.stock}}</view></view>
+          <view class="stepper"><button data-delta="{{-1}}" bindtap="onChangeSelectedQty">−</button><text>{{selectedQty}}</text><button data-delta="{{1}}" bindtap="onChangeSelectedQty">+</button></view>
+        </view>
+        <view class="pv-sum">当前小计<view class="val">¥{{selectedSubtotalText}}</view></view>
+      </view>
+
+      <view wx:elif="{{showCartSheet}}" class="cart-content cart-sheet-list" data-visual-state="user-cart">
+        <view wx:if="{{!hasCart}}" class="empty-block compact pc-empty"><view class="pc-state-icon"><ui-icon name="shopping-cart" size="{{24}}" /></view><text>购物车为空</text></view>
+        <block wx:else>
+          <view class="cart-category-tabs cart-channel-segment"><button class="{{cartDeliveryMode === 'pickup' ? 'active' : ''}}" data-mode="pickup" bindtap="onSwitchCartDeliveryMode">到店自提 · {{cartCategoryCountPickup}} 件</button><button class="{{cartDeliveryMode === 'courier' ? 'active' : ''}}" data-mode="courier" bindtap="onSwitchCartDeliveryMode">快递直发 · {{cartCategoryCountCourier}} 件</button></view>
+          <view class="cart-group-card">
+            <button class="cart-select-all" bindtap="onToggleAllCartLines"><label class="cart-check {{cartCategoryAllSelected ? 'checked' : ''}}"><ui-icon wx:if="{{cartCategoryAllSelected}}" name="check" size="{{12}}" /></label><text>{{cartDeliveryMode === 'courier' ? '快递商品' : '普通商品'}} · {{cartCategoryItems.length}} 款</text><view class="meta">{{cartCategoryAllSelected ? '取消全选' : '全选'}}</view></button>
+            <view wx:if="{{!hasCartCategoryItems}}" class="empty cart-category-empty"><view class="pc-state-icon"><ui-icon name="{{cartCategoryEmptyIcon}}" size="{{25}}" /></view><text>{{cartCategoryEmptyText}}</text><view class="meta">{{cartCategoryEmptyHint}}</view></view>
+            <view wx:for="{{cartCategoryItems}}" wx:key="key" class="cart-line {{item.unavailable ? 'unavailable' : ''}}">
+              <button class="cart-line-check" aria-label="{{item.selected ? '取消选择' : '选择'}}{{item.name}}" data-key="{{item.key}}" bindtap="onToggleCartLine"><label class="cart-check {{item.selected ? 'checked' : ''}}"><ui-icon wx:if="{{item.selected}}" name="check" size="{{12}}" /></label></button>
+              <business-image src="{{item.image}}" mode="aspectFill" />
+              <view class="cart-line-main">
+                <text>{{item.name}}</text>
+                <view class="meta-text meta">{{item.skuName}} · <label class="cart-fulfillment-tag {{item.deliveryMode}}">{{item.deliveryLabel}}</label></view>
+                <view wx:if="{{item.unavailable}}" class="stock-warning meta">库存不足或购买数量未达要求</view>
+                <view class="cart-line-foot"><view class="strong-text val">¥{{item.priceText}}</view><view class="stepper"><button data-product-id="{{item.productId}}" data-sku-id="{{item.skuId}}" data-delta="{{-1}}" bindtap="onChangeLine">−</button><text>{{item.quantity}}</text><button data-product-id="{{item.productId}}" data-sku-id="{{item.skuId}}" data-delta="{{1}}" bindtap="onChangeLine">+</button></view></view>
+              </view>
+              <button class="cart-remove" data-product-id="{{item.productId}}" data-sku-id="{{item.skuId}}" bindtap="onRemoveLine">删除</button>
+            </view>
+          </view>
+          <text class="cart-hint">到店自提满 ¥99 免配送费 · 快递直发按重量计费</text>
+          <text wx:if="{{checkoutError}}" class="cart-error">{{checkoutError}}</text>
+        </block>
+      </view>
+
+      <view wx:elif="{{showCheckoutSheet}}" class="checkout-content" data-visual-state="user-checkout">
+        <view wx:if="{{!hasDefaultAddress}}" class="warnrow" data-return="true" bindtap="onOpenAddressManager">
+          <ui-icon name="map-pin" size="{{20}}" />
+          <view><text>请选择收货地址</text><view class="meta">至少设置一条地址才能提交订单</view></view>
+          <text class="warnrow-act">去新增</text>
+        </view>
+        <view wx:else class="address-select" data-return="true" bindtap="onOpenAddressManager"><view><text>{{defaultAddress.receiver}} {{defaultAddress.phone}}</text><view class="meta-text meta">{{defaultAddress.regionText}}</view></view><ui-icon name="chevron-right" size="{{17}}" /></view>
+        <view class="payrow"><ui-icon name="credit-card" size="{{20}}" /><view><text>微信支付</text><view class="meta">当前端仅支持微信支付</view></view><text class="payrow-sel">已选择</text></view>
+        <text class="sku-label">已选商品</text>
+        <view class="checkout-items"><view wx:for="{{checkoutItems}}" wx:key="key" class="order-item"><business-image src="{{item.image}}" mode="aspectFill" /><view><text>{{item.name}}</text><view class="meta-text meta">{{item.skuName}} × {{item.quantity}}</view></view><view class="strong-text val">¥{{item.amountText}}</view></view></view>
+        <view class="kv">
+          <view class="kvrow"><text>商品金额</text><text>¥{{checkoutTotalText}}</text></view>
+          <view class="kvrow"><text>快递配送</text><text>¥0.00</text></view>
+          <view class="kvrow kvrow-total"><text>应付金额</text><view class="val">¥{{checkoutTotalText}}</view></view>
+        </view>
+      </view>
+
+      <view wx:elif="{{showAddressSheet}}" class="address-content" data-visual-state="user-address"><view wx:if="{{!addressEditing}}" class="address-list"><view wx:if="{{!hasAddresses}}" class="empty-sheet"><view class="pc-state-icon"><ui-icon name="map-pin" size="{{28}}" /></view><text>还没有收货地址</text><view class="meta">新增地址后即可提交订单<view></view>产地好物将快递直发到家</view></view><view wx:for="{{addresses}}" wx:key="id" class="address-row" data-id="{{item.id}}" bindtap="onChooseAddress"><view><text>{{item.receiver}} {{item.phone}}</text><view class="meta-text meta">{{item.regionText}}</view></view><view class="address-actions"><text wx:if="{{item.isDefault}}" class="default-label" data-typography-compact>默认</text><button class="outline-small" data-id="{{item.id}}" catchtap="onEditAddress">编辑</button><button class="outline-small" data-id="{{item.id}}" catchtap="onRemoveAddress">删除</button></view></view></view><view wx:else class="address-form"><input value="{{addressDraft.receiver}}" placeholder="收货人姓名" data-field="receiver" bindinput="onAddressInput" /><input value="{{addressDraft.phone}}" type="number" placeholder="手机号码" data-field="phone" bindinput="onAddressInput" /><input value="{{addressDraft.region}}" placeholder="所在地区" data-field="region" bindinput="onAddressInput" /><input value="{{addressDraft.detail}}" placeholder="详细地址" data-field="detail" bindinput="onAddressInput" /><view class="default-line" bindtap="onToggleDefault"><text>设为默认地址</text><view class="toggle {{addressDraft.isDefault ? 'on' : ''}}"><view></view></view></view></view></view>
+
+      <view wx:elif="{{showLogisticsSheet}}" class="logistics-content" data-visual-state="user-logistics">
+        <view class="ship-head">
+          <business-image src="{{selectedSubOrder.image}}" mode="aspectFill" />
+          <view><text>{{selectedSubOrder.title}} × {{selectedSubOrder.quantity}}</text><view class="meta-text meta">{{selectedSubOrder.courierText}} · {{selectedSubOrder.statusLabel}}</view></view>
+          <view class="ship-sup"><text>{{selectedSubOrder.supplierName}}</text><view class="meta">快递配送</view></view>
+        </view>
+        <view class="kv">
+          <view class="kvrow"><text>承运快递</text><text>{{selectedSubOrder.courierText}}</text></view>
+          <view class="kvrow"><text>运单号</text><text>{{selectedSubOrder.trackingNoText}}</text></view>
+        </view>
+        <view wx:if="{{!selectedSubOrder.hasLogistics}}" class="empty-block compact pc-empty"><view class="pc-state-icon"><ui-icon name="truck" size="{{24}}" /></view><text>暂无物流信息</text></view>
+        <view wx:else class="steps2">
+          <view wx:for="{{selectedSubOrder.logistics}}" wx:for-item="event" wx:key="key" class="step {{event.on ? 'on' : ''}}"><text>{{event.title}}</text><view class="meta">{{event.metaText}}</view></view>
+        </view>
+        <view class="notecard"><ui-icon name="headset" size="{{14}}" />每个供应商独立发货，物流信息以子订单为单位更新</view>
+      </view>
+
+      <view wx:elif="{{showAfterSaleSheet}}" class="after-sale-content" data-visual-state="user-after-sale">
+        <view class="after-sale-order"><text>{{afterSaleTarget.supplierName}}</text><view class="meta-text meta">申请售后：{{afterSaleTarget.itemName}}</view></view>
+        <view class="after-sale-reason"><text>售后原因</text><view class="after-sale-chips"><button wx:for="{{afterSaleReasons}}" wx:for-item="reason" wx:key="reason" class="{{reason.active ? 'active' : ''}}" data-reason="{{reason.reason}}" bindtap="onSelectAfterSaleReason">{{reason.reason}}</button></view></view>
+        <view class="after-sale-evidence"><text>上传凭证（1-6 张，可选）</text><image-uploader value="{{afterSaleEvidence}}" multiple max-count="{{6}}" purpose="after-sale" profile="license" bind:change="onAfterSaleEvidenceChange" /></view>
+        <text class="after-sale-tip">提交后客服将结合凭证审核</text>
+      </view>
+
+      <view wx:elif="{{showPackageSheet}}" class="package-sheet" data-visual-state="user-package">
+        <view wx:if="{{!hasPackages}}" class="empty-sheet"><view class="pc-state-icon"><ui-icon name="store" size="{{28}}" /></view><text>当前暂无到店套餐</text><view class="meta">门店在订货端上架套餐后<view></view>可在此下单到店自提核销</view><button class="outline-btn" bindtap="onCloseSheet"><ui-icon name="house" size="{{15}}" />返回商城逛逛</button></view>
+        <view wx:for="{{packageGroups}}" wx:for-item="group" wx:key="farmId" class="package-group">
+          <text class="sku-label">{{group.farmName}}</text>
+          <view wx:for="{{group.packages}}" wx:for-item="item" wx:key="id" class="package-row">
+            <view><text>{{item.name}}</text><view class="meta-text meta">{{item.sellableText}}</view><view wx:if="{{item.disabled}}" class="stock-warning meta">库存不足或购买数量未达要求</view></view>
+            <view class="package-actions"><view class="strong-text val">¥{{item.priceText}}</view><button class="outline-btn package-buy-btn" disabled="{{item.disabled}}" data-id="{{item.id}}" bindtap="onBuyPackage">立即购买</button></view>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+    <view wx:if="{{showDetailSheet}}" class="product-detail-actions sheet-foot"><button class="primary-btn" disabled="{{!selectedSkuCanOrder}}" bindtap="onAddSelectedToCart"><ui-icon name="shopping-cart" size="{{16}}" />加入购物车</button></view>
+    <view wx:elif="{{showCartSheet && hasCart}}" class="sheet-foot cart-sheet-foot"><view class="sheet-total"><text>{{cartDeliveryMode === 'courier' ? '快递直发' : '到店自提'}} · 已选 {{selectedCartCount}} 件</text><view class="strong-text val">¥{{selectedCartTotalText}}</view></view><button class="primary-btn" disabled="{{!hasSelectedCartItems || cartCategoryHasUnavailable}}" bindtap="onOpenCheckout">去结算</button></view>
+    <view wx:elif="{{showCheckoutSheet}}" class="sheet-foot"><button class="primary-btn" disabled="{{cartHasUnavailable}}" bindtap="onSubmitOrder">提交订单</button></view>
+    <view wx:elif="{{showAddressSheet}}" class="sheet-foot"><button wx:if="{{!addressEditing}}" class="primary-btn" bindtap="onEditAddress"><ui-icon name="plus" size="{{16}}" />新增地址</button><button wx:else class="primary-btn" bindtap="onSaveAddress">保存地址</button></view>
+    <view wx:elif="{{showLogisticsSheet}}" class="sheet-foot"><button class="outline-btn" bindtap="onCopyTrackingNo">复制运单号</button></view>
+    <view wx:elif="{{showAfterSaleSheet}}" class="sheet-foot"><button class="primary-btn" bindtap="onConfirmAfterSale">提交售后申请</button></view>
+  </view></view>
+</view>

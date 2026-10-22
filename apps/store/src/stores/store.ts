@@ -1,4 +1,4 @@
-import { defineStore } from 'pinia'
+import { defineStore } from './native-store'
 import type { AfterSale, BusinessMediaValue, CatalogState, MockScenario, Order, OrderItem, OrderStatus, PlatformJournalEntry, PlatformRecoveryHandlerKey, PlatformPrincipal, Product, PurchaseStatus, StoreAccount, StoreRole } from '@agritainment/shared'
 import { abortCatalogTransaction, applyCatalogStockOperation, applyPlatformMedia, buildSupplierAccountSeeds, buildSupplierPlatformOrders, calcCartTotal, catalogProductToProduct, catalogProductsForAudience, cProducts, cloneSeed, commitCatalogTransaction, createId, createStrictSnapshotRecoveryHandlerRegistration, enqueuePlatformRecovery, ensureCatalogState, initializePlatformRecoveryHandlers, initialCatalogOrderQuantity, markCatalogTransactionStockApplied, mediaValueToImage, mergeEntitySeeds, mergePersistedDefaults, mergePlatformEntities, mergePlatformStoreAccounts, mergePlatformSupplierAccounts, nextPurchaseStatus, normalizeMinimumOrderQuantity, PLATFORM_AFTERSALES_STORAGE_KEY, PLATFORM_CATALOG_STORAGE_KEY, PLATFORM_ENTITIES_STORAGE_KEY, PLATFORM_ORDERS_STORAGE_KEY, PLATFORM_RECOVERY_QUEUE_STORAGE_KEY, PLATFORM_TRANSACTION_JOURNAL_STORAGE_KEY, prepareCatalogTransaction, pricePolicies, purchaseSteps, readCatalogState, readCatalogTransactionJournal, readPendingCatalogTransactions, readPlatformAfterSales, readPlatformCollectionRevision, readPlatformEntities, readPlatformMedia, readPlatformOrders, readPlatformRecoveryQueue, readPlatformStoreAccounts, readPlatformSupplierAccounts, reconcilePendingPlatformTransactions, resolvePlatformJournal, round2, runLockedPlatformTransaction, storeAccounts, supplierCanReceiveNewOrders, suppliers as supplierSeeds, tieredUnitPrice, validateCatalogSkuOrderQuantity, validateSmsCode, writeCatalogState, writePlatformAfterSale, writePlatformAfterSales, writePlatformOrder, writePlatformOrders } from '@agritainment/shared'
 import { storeInfo, storeInfoForFarm, storeRepository } from '../services/repository'
@@ -292,8 +292,8 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
   {
     id: 'SO2026081001', amount: 386, saved: 222, itemCount: 15,
     items: [
-      { productId: 'P001', skuId: 'P001-500', name: '湘西烟熏柴火腊肉', skuName: '500g', image: '/static/images/bacon.webp', quantity: 10, price: 38 },
-      { productId: 'PP03', skuId: 'PP03-1', name: '环保打包餐盒', skuName: '300只/箱', image: '/static/images/field.webp', quantity: 5, price: 1.2 }
+      { productId: 'P001', skuId: 'P001-500', name: '湘西烟熏柴火腊肉', skuName: '500g', image: '/static/images/bacon.jpg', quantity: 10, price: 38 },
+      { productId: 'PP03', skuId: 'PP03-1', name: '环保打包餐盒', skuName: '300只/箱', image: '/static/images/field.jpg', quantity: 5, price: 1.2 }
     ],
     status: 'delivering', createdAt: '2026-08-10 09:24', trackingNo: 'SF7788990012',
     logistics: [
@@ -305,7 +305,7 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
   },
   {
     id: 'SO2026080201', amount: 840, saved: 520, itemCount: 20,
-    items: [{ productId: 'P002', skuId: 'P002-5J', name: '炎陵黄桃', skuName: '5斤礼盒', image: '/static/images/peach.webp', quantity: 20, price: 42 }],
+    items: [{ productId: 'P002', skuId: 'P002-5J', name: '炎陵黄桃', skuName: '5斤礼盒', image: '/static/images/peach.jpg', quantity: 20, price: 42 }],
     status: 'received', createdAt: '2026-08-02 15:08', trackingNo: 'SF7788900123',
     logistics: [
       { time: '2026-08-02 15:08', title: '订单已提交', detail: '已提交至供应链中台，等待接单' },
@@ -317,14 +317,14 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
   },
   {
     id: 'SO2026081401', amount: 430, saved: 210, itemCount: 5,
-    items: [{ productId: 'P003', skuId: 'P003-GIFT', name: '安化黑茶礼盒装', skuName: '雅藏礼盒', image: '/static/images/tea.webp', quantity: 5, price: 86 }],
+    items: [{ productId: 'P003', skuId: 'P003-GIFT', name: '安化黑茶礼盒装', skuName: '雅藏礼盒', image: '/static/images/tea.jpg', quantity: 5, price: 86 }],
     status: 'submitted', createdAt: '2026-08-14 16:42',
     logistics: [{ time: '2026-08-14 16:42', title: '订单已提交', detail: '已提交至供应链中台，等待接单' }],
     remark: '周末到货后电话联系'
   },
   {
     id: 'SO2026081301', amount: 198, saved: 126, itemCount: 3,
-    items: [{ productId: 'SP02', skuId: 'SP02-2', name: '山泉土鸡汤礼盒', skuName: '2 只装', image: '/static/images/field.webp', quantity: 3, price: 66 }],
+    items: [{ productId: 'SP02', skuId: 'SP02-2', name: '山泉土鸡汤礼盒', skuName: '2 只装', image: '/static/images/field.jpg', quantity: 3, price: 66 }],
     status: 'accepted', createdAt: '2026-08-13 10:05',
     logistics: [
       { time: '2026-08-13 10:05', title: '订单已提交', detail: '已提交至供应链中台，等待接单' },
@@ -334,8 +334,8 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
   {
     id: 'SO2026081101', amount: 426, saved: 220, itemCount: 22,
     items: [
-      { productId: 'SP01', skuId: 'SP01-4P', name: '中台联名·农家欢聚套餐券', skuName: '四人欢聚', image: '/static/images/farmhouse.webp', quantity: 2, price: 198 },
-      { productId: 'PP02', skuId: 'PP02-1', name: '民宿一次性洗漱套装', skuName: '100 套/箱', image: '/static/images/field.webp', quantity: 20, price: 1.5 }
+      { productId: 'SP01', skuId: 'SP01-4P', name: '中台联名·农家欢聚套餐券', skuName: '四人欢聚', image: '/static/images/farmhouse.jpg', quantity: 2, price: 198 },
+      { productId: 'PP02', skuId: 'PP02-1', name: '民宿一次性洗漱套装', skuName: '100 套/箱', image: '/static/images/field.jpg', quantity: 20, price: 1.5 }
     ],
     status: 'shipped', createdAt: '2026-08-11 09:18', trackingNo: 'SF7788994501',
     logistics: [
@@ -346,7 +346,7 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
   },
   {
     id: 'SO2026072801', amount: 1680, saved: 620, itemCount: 10,
-    items: [{ productId: 'PP05', skuId: 'PP05-1', name: '生态富硒米', skuName: '25kg', image: '/static/images/rice.webp', quantity: 10, price: 168 }],
+    items: [{ productId: 'PP05', skuId: 'PP05-1', name: '生态富硒米', skuName: '25kg', image: '/static/images/rice.jpg', quantity: 10, price: 168 }],
     status: 'completed', createdAt: '2026-07-28 14:30', trackingNo: 'SF7788100221',
     logistics: [
       { time: '2026-07-28 14:30', title: '订单已提交', detail: '已提交至供应链中台，等待接单' },
@@ -359,15 +359,15 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
   },
   {
     id: 'SO2026081501', amount: 640, saved: 400, itemCount: 20,
-    items: [{ productId: 'SP09', skuId: 'SP09-30', name: '高山土鸡蛋', skuName: '30 枚装', image: '/static/images/field.webp', quantity: 20, price: 32 }],
+    items: [{ productId: 'SP09', skuId: 'SP09-30', name: '高山土鸡蛋', skuName: '30 枚装', image: '/static/images/field.jpg', quantity: 20, price: 32 }],
     status: 'submitted', createdAt: '2026-08-15 09:12',
     logistics: [{ time: '2026-08-15 09:12', title: '订单已提交', detail: '已提交至供应链中台，等待接单' }]
   },
   {
     id: 'SO2026081502', amount: 417, saved: 303, itemCount: 5,
     items: [
-      { productId: 'SP19', skuId: 'SP19-1', name: '安化黑茶砖', skuName: '1kg 砖', image: '/static/images/tea.webp', quantity: 2, price: 96 },
-      { productId: 'SP17', skuId: 'SP17-1', name: '古丈毛尖绿茶', skuName: '250g 罐装', image: '/static/images/tea.webp', quantity: 3, price: 75 }
+      { productId: 'SP19', skuId: 'SP19-1', name: '安化黑茶砖', skuName: '1kg 砖', image: '/static/images/tea.jpg', quantity: 2, price: 96 },
+      { productId: 'SP17', skuId: 'SP17-1', name: '古丈毛尖绿茶', skuName: '250g 罐装', image: '/static/images/tea.jpg', quantity: 3, price: 75 }
     ],
     status: 'submitted', createdAt: '2026-08-15 10:35',
     logistics: [{ time: '2026-08-15 10:35', title: '订单已提交', detail: '已提交至供应链中台，等待接单' }],
@@ -376,8 +376,8 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
   {
     id: 'SO2026081402', amount: 570, saved: 335, itemCount: 15,
     items: [
-      { productId: 'P001', skuId: 'P001-1000', name: '湘西烟熏柴火腊肉', skuName: '1kg家庭装', image: '/static/images/bacon.webp', quantity: 5, price: 78 },
-      { productId: 'SP14', skuId: 'SP14-3', name: '手工辣椒酱', skuName: '3 瓶装', image: '/static/images/chili.webp', quantity: 10, price: 18 }
+      { productId: 'P001', skuId: 'P001-1000', name: '湘西烟熏柴火腊肉', skuName: '1kg家庭装', image: '/static/images/bacon.jpg', quantity: 5, price: 78 },
+      { productId: 'SP14', skuId: 'SP14-3', name: '手工辣椒酱', skuName: '3 瓶装', image: '/static/images/chili.jpg', quantity: 10, price: 18 }
     ],
     status: 'accepted', createdAt: '2026-08-14 11:20',
     logistics: [
@@ -387,7 +387,7 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
   },
   {
     id: 'SO2026081403', amount: 280, saved: 192, itemCount: 4,
-    items: [{ productId: 'SP20', skuId: 'SP20-1', name: '土榨菜籽油', skuName: '5L 装', image: '/static/images/field.webp', quantity: 4, price: 70 }],
+    items: [{ productId: 'SP20', skuId: 'SP20-1', name: '土榨菜籽油', skuName: '5L 装', image: '/static/images/field.jpg', quantity: 4, price: 70 }],
     status: 'accepted', createdAt: '2026-08-14 15:48',
     logistics: [
       { time: '2026-08-14 15:48', title: '订单已提交', detail: '已提交至供应链中台，等待接单' },
@@ -396,7 +396,7 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
   },
   {
     id: 'SO2026081201', amount: 450, saved: 330, itemCount: 10,
-    items: [{ productId: 'SP10', skuId: 'SP10-5J', name: '时令鲜果礼盒', skuName: '5 斤礼盒', image: '/static/images/peach.webp', quantity: 10, price: 45 }],
+    items: [{ productId: 'SP10', skuId: 'SP10-5J', name: '时令鲜果礼盒', skuName: '5 斤礼盒', image: '/static/images/peach.jpg', quantity: 10, price: 45 }],
     status: 'shipped', createdAt: '2026-08-12 10:05', trackingNo: 'SF7788995502',
     logistics: [
       { time: '2026-08-12 10:05', title: '订单已提交', detail: '已提交至供应链中台，等待接单' },
@@ -406,7 +406,7 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
   },
   {
     id: 'SO2026081202', amount: 544, saved: 320, itemCount: 8,
-    items: [{ productId: 'SP11', skuId: 'SP11-2K', name: '农家土猪肉', skuName: '2kg 装', image: '/static/images/bacon.webp', quantity: 8, price: 68 }],
+    items: [{ productId: 'SP11', skuId: 'SP11-2K', name: '农家土猪肉', skuName: '2kg 装', image: '/static/images/bacon.jpg', quantity: 8, price: 68 }],
     status: 'delivering', createdAt: '2026-08-12 16:30', trackingNo: 'SF7788996623',
     logistics: [
       { time: '2026-08-12 16:30', title: '订单已提交', detail: '已提交至供应链中台，等待接单' },
@@ -417,7 +417,7 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
   },
   {
     id: 'SO2026080501', amount: 252, saved: 204, itemCount: 6,
-    items: [{ productId: 'SP22', skuId: 'SP22-1', name: '杨梅果酒', skuName: '750ml 单瓶', image: '/static/images/field.webp', quantity: 6, price: 42 }],
+    items: [{ productId: 'SP22', skuId: 'SP22-1', name: '杨梅果酒', skuName: '750ml 单瓶', image: '/static/images/field.jpg', quantity: 6, price: 42 }],
     status: 'received', createdAt: '2026-08-05 14:22', trackingNo: 'SF7788003310',
     logistics: [
       { time: '2026-08-05 14:22', title: '订单已提交', detail: '已提交至供应链中台，等待接单' },
@@ -430,8 +430,8 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
   {
     id: 'SO2026072001', amount: 680, saved: 540, itemCount: 30,
     items: [
-      { productId: 'SP23', skuId: 'SP23-1', name: '湘西苞谷酒', skuName: '2.5L 桶', image: '/static/images/field.webp', quantity: 10, price: 38 },
-      { productId: 'SP26', skuId: 'SP26-1', name: '食品级保鲜袋', skuName: '500 只/箱', image: '/static/images/field.webp', quantity: 20, price: 15 }
+      { productId: 'SP23', skuId: 'SP23-1', name: '湘西苞谷酒', skuName: '2.5L 桶', image: '/static/images/field.jpg', quantity: 10, price: 38 },
+      { productId: 'SP26', skuId: 'SP26-1', name: '食品级保鲜袋', skuName: '500 只/箱', image: '/static/images/field.jpg', quantity: 20, price: 15 }
     ],
     status: 'completed', createdAt: '2026-07-20 09:50', trackingNo: 'SF7786112201',
     logistics: [
@@ -446,8 +446,8 @@ const seedOrders = (farmId = 'F001'): StoreOrder[] => farmId === 'F001' ? [
   {
     id: 'SO2026071501', amount: 660, saved: 396, itemCount: 13,
     items: [
-      { productId: 'SP24', skuId: 'SP24-1', name: '加厚浴巾三件套', skuName: '三件套', image: '/static/images/field.webp', quantity: 8, price: 45 },
-      { productId: 'SP25', skuId: 'SP25-1', name: '软底防滑拖鞋', skuName: '20 双/箱', image: '/static/images/field.webp', quantity: 5, price: 60 }
+      { productId: 'SP24', skuId: 'SP24-1', name: '加厚浴巾三件套', skuName: '三件套', image: '/static/images/field.jpg', quantity: 8, price: 45 },
+      { productId: 'SP25', skuId: 'SP25-1', name: '软底防滑拖鞋', skuName: '20 双/箱', image: '/static/images/field.jpg', quantity: 5, price: 60 }
     ],
     status: 'completed', createdAt: '2026-07-15 11:05', trackingNo: 'SF7785113302',
     logistics: [
@@ -538,7 +538,7 @@ export const useStoreStore = defineStore('store', {
           if (!reconciliation.ok) throw new Error(reconciliation.message)
         }
         const farmId = this.auth.farmId || 'F001'
-        const account = this.currentStoreAccounts().find((item) => item.id === this.auth.accountId)
+        const account = this.currentStoreAccounts().find((item: StoreAccount) => item.id === this.auth.accountId)
         // 运营后台可能调整了业务员档位，登录期间刷新时同步到当前会话
         if (this.auth.isLoggedIn) this.auth.priceLevel = resolveBusinessPriceLevel(account)
         const data = await storeRepository.loadStore(this.mockScenario, farmId, account)
@@ -1081,23 +1081,23 @@ export const useStoreStore = defineStore('store', {
     /** 门店/业务员两类角色登录：传入 role 时只接受对应角色的账号 */
     loginWithPassword(phone: string, password: string, role?: StoreRole) {
       const normalized = phone.trim()
-      const account = this.currentStoreAccounts().find((item) => item.account === normalized && item.password === password && item.enabled && (!role || item.role === role))
+      const account = this.currentStoreAccounts().find((item: StoreAccount) => item.account === normalized && item.password === password && item.enabled && (!role || item.role === role))
       return account ? this.activateStoreAccount(account) : false
     },
     loginWithCode(phone: string, code: string, role?: StoreRole) {
       if (!validateSmsCode(code)) return false
       const normalized = phone.trim()
-      const account = this.currentStoreAccounts().find((item) => item.account === normalized && item.enabled && (!role || item.role === role))
+      const account = this.currentStoreAccounts().find((item: StoreAccount) => item.account === normalized && item.enabled && (!role || item.role === role))
       return account ? this.activateStoreAccount(account) : false
     },
     /** 登录页身份校验：手机号已存在但角色不符时给出明确提示 */
     storeAccountRole(phone: string): StoreRole | null {
       const normalized = phone.trim()
-      return this.currentStoreAccounts().find((item) => item.account === normalized && item.enabled)?.role || null
+      return this.currentStoreAccounts().find((item: StoreAccount) => item.account === normalized && item.enabled)?.role || null
     },
     async refreshSharedState() {
       if (!this.auth.accountId) return
-      const account = this.currentStoreAccounts().find((item) => item.id === this.auth.accountId)
+      const account = this.currentStoreAccounts().find((item: StoreAccount) => item.id === this.auth.accountId)
       if (!account?.enabled) {
         this.logout()
         return
@@ -1111,3 +1111,5 @@ export const useStoreStore = defineStore('store', {
     }
   }
 })
+
+export const resetStoreStore = useStoreStore.reset

@@ -1,0 +1,8 @@
+<view class="delivery-route-map" aria-label="{{summary}}">
+  <view class="delivery-route-map-overlay">{{summary}}</view>
+  <map class="delivery-route-map-native" latitude="{{center.latitude}}" longitude="{{center.longitude}}" scale="12" markers="{{nativeMarkers}}" polyline="{{nativePolyline}}" show-scale bindmarkertap="handleNativeMarkerTap"></map>
+  <view class="delivery-route-map-stops">
+    <button wx:for="{{nativeMarkers}}" wx:key="id" class="delivery-route-map-pin {{item.id === selectedStopId ? 'is-selected' : item.id === 'origin' ? 'origin' : 'stop'}}" bindtap="selectMarker" data-stop-id="{{item.id}}">{{item.callout.content}}</button>
+  </view>
+  <text wx:if="{{status === 'error'}}" class="delivery-route-map-fallback">地图暂不可用，可使用站点导航</text>
+</view>

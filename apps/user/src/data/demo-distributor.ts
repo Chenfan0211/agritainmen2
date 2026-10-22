@@ -8,7 +8,7 @@ const demoCommissions: CCommissionAllocation[] = [
 ]
 
 const demoCartItems: CCartItem[] = [
-  { productId: 'P001', skuId: 'P001-500', name: '湘西烟熏柴火腊肉 500g', skuName: '500g', image: '/static/images/bacon.webp', quantity: 1, unitPrice: 59.9, basePrice: 34.9, level1Commission: 10, level2Commission: 15, supplierId: 'S002', lockedLevel: 'level1', minimumOrderQuantity: 1 }
+  { productId: 'P001', skuId: 'P001-500', name: '湘西烟熏柴火腊肉 500g', skuName: '500g', image: '/static/images/bacon.jpg', quantity: 1, unitPrice: 59.9, basePrice: 34.9, level1Commission: 10, level2Commission: 15, supplierId: 'S002', lockedLevel: 'level1', minimumOrderQuantity: 1 }
 ]
 
 export function seedDemoUserDistributor(userId: string): boolean {

@@ -1,0 +1,5 @@
+<view class="business-image">
+  <image wx:if="{{resolved}}" class="business-image__img" src="{{resolved}}" mode="{{mode}}" bindtap="onTap" binderror="onImageError"></image>
+  <view wx:else class="business-image__placeholder"></view>
+  <text wx:if="{{failed && showError}}" class="business-image__error">数据异常</text>
+</view>

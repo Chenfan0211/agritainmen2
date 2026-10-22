@@ -12,6 +12,7 @@
   --mobile-warning: #a96f18;
   --mobile-info: #2f6ea7;
   --mobile-danger: #b83532;
+  --mobile-badge: var(--color-promo-deep);
   --mobile-radius-control: 8px;
   --mobile-radius-card: 8px;
   --mobile-radius-pill: 999px;
@@ -454,7 +455,7 @@ button:not(:disabled):active {
   display: grid;
   place-items: center;
   border-radius: 8px;
-  background: #d92c20;
+  background: var(--mobile-badge);
   color: #fff;
   font-size: 12px;
   font-weight: 800;

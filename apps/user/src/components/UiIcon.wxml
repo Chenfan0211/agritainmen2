@@ -1,0 +1,1 @@
+<image class="ui-icon" src="{{name ? '/static/icons/' + name + '.png' : '/static/icons/package.png'}}" mode="aspectFit" style="width:{{size}}px;height:{{size}}px" />

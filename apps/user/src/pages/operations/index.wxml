@@ -1,0 +1,35 @@
+<view class="operation-page" data-visual-view="user-operations-{{type}}">
+  <view class="operation-header theme-head"><button class="page-back" aria-label="返回" bindtap="back"><ui-icon name="arrow-left" size="{{21}}" /></button><text>{{title}}</text><view></view></view>
+
+  <view wx:if="{{!hasDistributor}}" class="empty no-distributor pc-empty" data-visual-state="user-operations-no-distributor"><view class="pc-state-icon"><ui-icon name="shield-check" size="{{28}}" /></view><text>当前身份暂无推广数据</text><view class="meta">成为一级/二级团长后可查看收入、下级用户和团队业绩</view><button class="primary-btn" bindtap="back">返回个人中心</button></view>
+
+  <block wx:else>
+    <block wx:if="{{type === 'income'}}">
+      <view class="income-hero" data-operation-view="income"><view class="meta">可提现金额（元）</view><view class="val">{{availableCommissionText}}</view><button disabled="{{!canWithdraw}}" bindtap="withdraw">提现</button></view>
+      <view class="metric-grid"><view><view class="meta">累计收入</view><view class="val">¥{{totalIncomeText}}</view></view><view><view class="meta">已结算</view><view class="val">¥{{settledIncomeText}}</view></view><view><view class="meta">待结算</view><view class="val">¥{{pendingCommissionText}}</view></view><view><view class="meta">已提现</view><view class="val">¥{{withdrawnIncomeText}}</view></view></view>
+      <view class="section-title">收入明细</view>
+      <view wx:if="{{!hasCommissionRecords}}" class="empty pc-empty"><view class="pc-state-icon"><ui-icon name="badge-dollar-sign" size="{{26}}" /></view><text>暂无收入记录</text></view>
+      <view wx:for="{{commissionRecords}}" wx:for-item="record" wx:key="id" class="list-row"><view><text>{{record.levelLabel}}</text><view class="meta">{{record.metaText}}</view></view><view class="val">¥{{record.amountText}}</view></view>
+    </block>
+
+    <block wx:elif="{{type === 'fans'}}">
+      <view class="summary-line" data-operation-view="fans"><view><view class="val">{{directFanCount}}</view><view class="meta">直属用户</view></view><view><view class="val">{{teamPromoterCount}}</view><view class="meta">下级团长</view></view></view>
+      <view wx:if="{{!hasDirectFans}}" class="empty pc-empty"><view class="pc-state-icon"><ui-icon name="user-round-check" size="{{26}}" /></view><text>暂无已绑定下级用户</text></view>
+      <view wx:for="{{fans}}" wx:for-item="fan" wx:key="userId" class="fan-row"><view class="fan-avatar">{{fan.initial}}</view><view><text>用户 {{fan.userId}}</text><view class="meta">{{fan.boundAtText}}</view></view><text class="bound-tag">已绑定</text></view>
+    </block>
+
+    <block wx:elif="{{type === 'orders'}}">
+      <view class="summary-line" data-operation-view="orders"><view><view class="val">{{personalOrderCount}}</view><view class="meta">个人订单</view></view><view><view class="val">{{teamOrderCount}}</view><view class="meta">团队订单</view></view></view>
+      <view wx:if="{{!hasTeamOrders}}" class="empty pc-empty"><view class="pc-state-icon"><ui-icon name="package-check" size="{{26}}" /></view><text>暂无有效团队订单</text></view>
+      <view wx:for="{{teamOrders}}" wx:for-item="order" wx:key="id" class="order-row"><view class="row-head"><text>{{order.id}}</text><text>{{order.statusLabel}}</text></view><view class="meta">{{order.metaText}}</view><view class="row-foot"><text>有效业绩</text><view class="val">¥{{order.effectiveAmountText}}</view></view></view>
+    </block>
+
+    <block wx:else>
+      <view class="performance-hero" data-operation-view="performance"><view class="meta">累计团队业绩（元）</view><view class="val">{{teamPerformanceText}}</view><view><text>{{teamOrderCount}} 笔有效订单</text><text>{{teamPromoterCount}} 名下级团长</text></view></view>
+      <view class="metric-grid performance-grid"><view><view class="meta">个人业绩</view><view class="val">¥{{personalPerformanceText}}</view></view><view><view class="meta">团队业绩</view><view class="val">¥{{teamPerformanceText}}</view></view></view>
+      <view class="section-title">业绩订单</view>
+      <view wx:if="{{!hasTeamOrders}}" class="empty pc-empty"><view class="pc-state-icon"><ui-icon name="chart-no-axes-combined" size="{{26}}" /></view><text>暂无团队业绩</text></view>
+      <view wx:for="{{teamOrders}}" wx:for-item="order" wx:key="id" class="list-row"><view><text>{{order.id}}</text><view class="meta">{{order.createdAtText}}</view></view><view class="val">¥{{order.effectiveAmountText}}</view></view>
+    </block>
+  </block>
+</view>

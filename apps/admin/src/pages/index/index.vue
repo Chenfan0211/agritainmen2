@@ -1832,14 +1832,14 @@ function productSkuNo(item: Product) {
 
 function orderProductFallback(name = '') {
   const map: Array<[string, string]> = [
-    ['腊肉', '/static/images/bacon.webp'],
-    ['黄桃', '/static/images/peach.webp'],
-    ['黑茶', '/static/images/tea.webp'],
-    ['蜂蜜', '/static/images/honey.webp'],
-    ['剁辣椒', '/static/images/chili.webp'],
-    ['富硒米', '/static/images/rice.webp']
+    ['腊肉', '/static/images/bacon.jpg'],
+    ['黄桃', '/static/images/peach.jpg'],
+    ['黑茶', '/static/images/tea.jpg'],
+    ['蜂蜜', '/static/images/honey.jpg'],
+    ['剁辣椒', '/static/images/chili.jpg'],
+    ['富硒米', '/static/images/rice.jpg']
   ]
-  return map.find(([keyword]) => name.includes(keyword))?.[1] || '/static/images/field.webp'
+  return map.find(([keyword]) => name.includes(keyword))?.[1] || '/static/images/field.jpg'
 }
 
 function statusText(status: string) {
@@ -1968,7 +1968,7 @@ function renderCharts() {
     tooltip: { trigger: 'item', formatter: '{b}: {d}%', textStyle: { fontSize: UI_TYPOGRAPHY.chartTooltip } },
     title: { text: `${metrics.value.categoryShares.length} 类`, left: categoryCenter[0], top: categoryCenter[1], textAlign: 'center', textVerticalAlign: 'middle', textStyle: { fontSize: UI_TYPOGRAPHY.subtitle, fontWeight: 700, color: designTokens.colorInk }, subtext: '商品品类', subtextStyle: { fontSize: UI_TYPOGRAPHY.chartLabel, color: designTokens.colorInk2 } },
     legend: categoryLegend,
-    series: [{ type: 'pie', radius: narrowCategoryChart ? ['32%', '48%'] : ['38%', '58%'], center: categoryCenter, label: { show: false }, data: metrics.value.categoryShares.map((item, index) => ({ value: item.value, name: item.name, itemStyle: { color: [designTokens.colorBrandPrimary, designTokens.colorGold, designTokens.colorWarningDark, designTokens.colorInfoDark, designTokens.colorInk3][index % 5] } })) }]
+    series: [{ type: 'pie', radius: narrowCategoryChart ? ['32%', '48%'] : ['38%', '58%'], center: categoryCenter, label: { show: false }, data: metrics.value.categoryShares.map((item, index) => ({ value: item.value, name: item.name, itemStyle: { color: [designTokens.colorBrandPrimary, designTokens.colorSuccess, designTokens.colorInfo, designTokens.colorGold, designTokens.colorInk3][index % 5] } })) }]
   })
 }
 

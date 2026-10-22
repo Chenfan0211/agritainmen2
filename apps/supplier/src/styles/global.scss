@@ -60,21 +60,14 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--color-brand
 .app-shell { min-height: 100vh; }
 .page-pad { padding: var(--space-page) var(--space-page) calc(var(--mobile-tab-height) + var(--space-page) + env(safe-area-inset-bottom)); }
 .page-state { padding: 0 20px 80px; text-align: center; color: var(--color-ink-2); }
-/* #ifdef MP-WEIXIN */
+
 .page-state { padding-top: calc(80px + var(--status-bar-height)); padding-right: 96px; }
-/* #endif */
-/* #ifdef H5 */
-.page-state { padding-top: calc(80px + env(safe-area-inset-top)); }
-/* #endif */
 
 // ============ 紧凑工作台头部 ============
 .hero { background: var(--color-card); color: var(--color-ink); padding: 0 var(--space-page) var(--space-gap); border-bottom: 1px solid var(--color-line); }
-/* #ifdef MP-WEIXIN */
+
 .hero { padding-top: calc(12px + var(--status-bar-height)); padding-right: 96px; }
-/* #endif */
-/* #ifdef H5 */
-.hero { padding-top: calc(12px + env(safe-area-inset-top)); }
-/* #endif */
+
 .hero-top { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .hero-top > view:not(.hero-avatar) { min-width: 0; flex: 1; }
 .hero-avatar { width: 40px; height: 40px; border-radius: var(--radius-icon); background: var(--color-brand-primary-soft); display: flex; align-items: center; justify-content: center; color: var(--color-brand-primary); flex: none; overflow: hidden; }
@@ -252,14 +245,3 @@ button.is-loading::before {
 }
 
 // ============ 宽屏手机框（仅 H5 预览，不进小程序）============
-/* #ifdef H5 */
-@media (min-width: 431px) {
-  page, body, #app { background: var(--color-bg); }
-  .app-shell, .login-page, .page-state { max-width: 430px; margin: 0 auto; box-shadow: 0 0 0 1px var(--color-line); }
-  .tabbar { left: 50%; right: auto; width: 430px; transform: translateX(-50%); }
-  .sheet-mask { justify-content: center; }
-  .sheet-panel,
-  .category-picker-sheet { max-width: 430px; margin: 0 auto; }
-  .toast { width: max-content; max-width: 90vw; }
-}
-/* #endif */

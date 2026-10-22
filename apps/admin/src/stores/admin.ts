@@ -2111,7 +2111,7 @@ export const useAdminStore = defineStore('operations', {
       const createdFarm: FarmStore = {
         id: createId('F'), name: payload.name.trim(), contact: payload.contact?.trim(), contactPhone: payload.contactPhone?.trim(), region: address?.region || '', distance: 0,
         rating: payload.rating ?? 5, monthlySales: 0, averageSpend: payload.averageSpend ?? 0,
-        status: payload.status ?? 'pending', selectedCount: 0, gmv: 0, image: normalizeMediaReference(payload.image) ?? { source: 'builtin', path: '/static/images/farmhouse.webp' },
+        status: payload.status ?? 'pending', selectedCount: 0, gmv: 0, image: normalizeMediaReference(payload.image) ?? { source: 'builtin', path: '/static/images/farmhouse.jpg' },
         tags: payload.tags?.length ? payload.tags : ['新入驻'],
         city: address?.city || '湘西州',
         availability: 'bookable',
@@ -2163,7 +2163,7 @@ export const useAdminStore = defineStore('operations', {
         if (payload.rating !== undefined) next.rating = payload.rating
         if (payload.averageSpend !== undefined) next.averageSpend = payload.averageSpend
         if (payload.status) next.status = payload.status
-        if (payload.image !== undefined) next.image = normalizeMediaReference(payload.image) ?? { source: 'builtin', path: '/static/images/farmhouse.webp' }
+        if (payload.image !== undefined) next.image = normalizeMediaReference(payload.image) ?? { source: 'builtin', path: '/static/images/farmhouse.jpg' }
         if (payload.forceGeocode || locationInputChanged) {
           const locating = updateFarmCoordinates(next, geocode)
           this.farms[itemIndex] = next

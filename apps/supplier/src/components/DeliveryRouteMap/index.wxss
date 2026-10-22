@@ -1,0 +1,8 @@
+.delivery-route-map{position:relative;width:100%;min-height:180px;overflow:hidden;border:1px solid var(--color-line);border-radius:var(--radius-card);background:var(--color-brand-primary-soft)}
+.delivery-route-map-native{width:100%;height:220px}
+.delivery-route-map-overlay{position:absolute;z-index:2;top:8px;left:8px;right:8px;min-height:28px;padding:6px 8px;border-radius:var(--radius-card);background:var(--color-card);color:var(--color-brand-primary-dark);font-size:12px;font-weight:700;line-height:18px}
+.delivery-route-map-stops{position:absolute;z-index:2;left:8px;right:8px;bottom:8px;display:flex;flex-wrap:wrap;gap:6px}
+.delivery-route-map-pin{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;min-height:22px;padding:0 6px;border-radius:var(--radius-icon);background:var(--color-brand-primary-dark);color:var(--color-on-brand);font-size:12px;font-weight:700;line-height:22px;border:0}
+.delivery-route-map-pin.origin{background:var(--color-brand-primary)}
+.delivery-route-map-pin.is-selected{background:var(--color-info);box-shadow:0 0 0 2px var(--color-card),0 0 0 4px var(--color-info-soft)}
+.delivery-route-map-fallback{display:block;padding:8px;color:var(--color-ink-2);font-size:12px}

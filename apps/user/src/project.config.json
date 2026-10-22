@@ -1,0 +1,23 @@
+{
+  "description": "用户端商城：快递直发商品、团长分销身份、订单与佣金。",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "uglifyFileName": true,
+    "newFeature": true,
+    "bigPackageSizeSupport": true
+  },
+  "compileType": "miniprogram",
+  "libVersion": "trial",
+  "appid": "wx4942e19ae41bc1b4",
+  "projectname": "agritainment-user",
+  "condition": {
+    "miniprogram": {
+      "current": -1,
+      "list": []
+    }
+  }
+}
