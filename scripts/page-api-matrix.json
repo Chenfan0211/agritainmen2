@@ -1554,12 +1554,10 @@
         {
           "action": "updateWarehouse",
           "owner": "store",
-          "status": "planned",
-          "stage": "P4",
-          "dataDomain": "supplier-workbench",
+          "status": "done",
           "api": [
             "PUT",
-            "/org/suppliers/{id}/warehouse"
+            "/org/me/supplier/warehouse"
           ]
         },
         {

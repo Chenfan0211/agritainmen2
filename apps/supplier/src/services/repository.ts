@@ -78,6 +78,7 @@ export function deliveryDistanceKm(origin: { longitude?: number; latitude?: numb
 export function supplierWarehouseOf(supplierId: string, supplierDirectory?: readonly Supplier[]): DeliveryLocation | undefined {
   const supplier = supplierDirectory?.find((item) => item.id === supplierId)
   if (supplier?.warehouse) return { ...supplier.warehouse, contact: supplier.warehouse.contactName || supplier.name, phone: supplier.warehouse.contactPhone || supplier.contactPhone || '', contactName: supplier.warehouse.contactName, contactPhone: supplier.warehouse.contactPhone }
+  if (supplierDirectory) return undefined
   return supplierId === supplierInfo.id
     ? { address: `湖南省${supplierInfo.region}仓点`, contact: supplierInfo.name, phone: supplierInfo.phone, longitude: supplierInfo.longitude, latitude: supplierInfo.latitude }
     : undefined

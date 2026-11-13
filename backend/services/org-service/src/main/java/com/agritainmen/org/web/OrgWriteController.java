@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
 import java.time.LocalDate;
@@ -53,12 +54,21 @@ public class OrgWriteController {
         String phone = request.contactPhone() == null ? (String) current.get("contactPhone") : request.contactPhone();
         requirePhone(phone);
         requireUniqueSupplierPhone(phone, id);
-        requireSupplierProfile(request.profile());
-        jdbc.update("update org_supplier set name=?, contact_phone=?, region=?, category=?, profile_json=?, updated_at=current_timestamp, version=version+1 where id=? and deleted=false",
+        Map<String, Object> profile = new LinkedHashMap<>();
+        if (request.profile() != null) profile.putAll(request.profile());
+        else ((Map<?, ?>) current.get("profile")).forEach((key, value) -> {
+            if (key instanceof String name) profile.put(name, value);
+        });
+        profile.remove("warehouse");
+        Object warehouse = ((Map<?, ?>) current.get("profile")).get("warehouse");
+        if (warehouse != null) profile.put("warehouse", warehouse);
+        requireSupplierProfile(profile);
+        int updated = jdbc.update("update org_supplier set name=?, contact_phone=?, region=?, category=?, profile_json=?, updated_at=current_timestamp, version=version+1 where id=? and tenant_id='PLATFORM' and version=? and deleted=false",
                 request.name().trim(), phone.trim(),
                 request.region() == null ? current.get("region") : request.region(),
                 request.category() == null ? current.get("category") : request.category(),
-                profiles.encode(request.profile() == null ? (Map<String, Object>) current.get("profile") : request.profile()), id);
+                profiles.encode(profile), id, current.get("version"));
+        if (updated != 1) throw new BusinessException(ErrorCode.CONFLICT, "供应商资料已更新，请刷新后重试");
         return ApiResponse.ok(supplier(id));
     }
 

@@ -1330,6 +1330,7 @@ export interface SupplierWarehouse {
 
 export interface Supplier {
   id: string
+  version?: number
   name: string
   region: string
   category: string

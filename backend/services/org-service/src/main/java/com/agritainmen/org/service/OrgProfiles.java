@@ -31,13 +31,13 @@ public class OrgProfiles {
     }
 
     public Map<String, Object> supplier(String id) {
-        List<Map<String, Object>> rows = jdbc.queryForList("select id, name, contact_phone, region, category, status, certified, pause_reason, profile_json from org_supplier where id=? and tenant_id='PLATFORM' and deleted=false", id);
+        List<Map<String, Object>> rows = jdbc.queryForList("select id, name, contact_phone, region, category, status, certified, pause_reason, profile_json, version from org_supplier where id=? and tenant_id='PLATFORM' and deleted=false", id);
         if (rows.isEmpty()) throw new BusinessException(ErrorCode.NOT_FOUND, "供应商不存在");
         return supplierRow(rows.getFirst());
     }
 
     public List<Map<String, Object>> suppliers() {
-        return jdbc.queryForList("select id, name, contact_phone, region, category, status, certified, pause_reason, profile_json from org_supplier where tenant_id='PLATFORM' and deleted=false order by name").stream().map(this::supplierRow).toList();
+        return jdbc.queryForList("select id, name, contact_phone, region, category, status, certified, pause_reason, profile_json, version from org_supplier where tenant_id='PLATFORM' and deleted=false order by name").stream().map(this::supplierRow).toList();
     }
 
     private Map<String, Object> supplierRow(Map<String, Object> row) {
@@ -52,7 +52,23 @@ public class OrgProfiles {
         result.put("certified", Boolean.TRUE.equals(row.get("certified")));
         result.put("cooperationPauseReason", row.get("pause_reason"));
         result.put("profile", decode(row.get("profile_json")));
+        result.put("version", row.get("version"));
         return result;
+    }
+
+    public Map<String, Object> updateSupplierWarehouse(String supplierId, long expectedVersion, Map<String, Object> warehouse) {
+        Map<String, Object> current = supplier(supplierId);
+        Map<String, Object> profile = new LinkedHashMap<>();
+        ((Map<?, ?>) current.get("profile")).forEach((key, value) -> {
+            if (key instanceof String name) profile.put(name, value);
+        });
+        profile.put("warehouse", warehouse);
+        String encoded = encode(profile);
+        if (encoded.length() > 3 * 1024 * 1024) throw new BusinessException(ErrorCode.BAD_REQUEST, "资料内容过大");
+        int updated = jdbc.update("update org_supplier set profile_json=?, updated_at=current_timestamp, version=version+1 where id=? and tenant_id='PLATFORM' and version=? and deleted=false",
+                encoded, supplierId, expectedVersion);
+        if (updated != 1) throw new BusinessException(ErrorCode.CONFLICT, "供应商资料已更新，请刷新后重试");
+        return supplier(supplierId);
     }
 
     public Map<String, Object> farm(String id) {

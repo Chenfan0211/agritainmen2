@@ -553,9 +553,38 @@ paths:
       summary: 查询当前供应商或司机所属的供应商资料
       responses:
         "200":
-          description: 当前登录身份对应的供应商资料
+          description: 当前登录身份对应的供应商资料，含 version 与 profile.warehouse
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /org/me/supplier/warehouse:
+    put:
+      summary: 当前供应商修改自己的仓点资料
+      description: 司机不得修改。仅替换当前供应商的 profile.warehouse，expectedVersion 不匹配返回 409；坐标系由服务端固定为 GCJ-02。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [address, expectedVersion]
+              properties:
+                address: { type: string, minLength: 1, maxLength: 500 }
+                contactName: { type: string, maxLength: 100 }
+                contactPhone: { type: string, pattern: '^1[3-9][0-9]{9}$' }
+                longitude: { type: number, minimum: -180, maximum: 180 }
+                latitude: { type: number, minimum: -90, maximum: 90 }
+                expectedVersion: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: 返回更新后的当前供应商完整资料及新 version
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "409":
+          description: 资料版本已变化，须刷新后重试
   /org/drivers:
     get:
       summary: 司机列表

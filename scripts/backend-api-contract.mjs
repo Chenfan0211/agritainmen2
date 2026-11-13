@@ -18,6 +18,7 @@ const expected = [
   ['GET', '/api/v1/org/suppliers'],
   ['GET', '/api/v1/org/suppliers/{id}'],
   ['GET', '/api/v1/org/me/supplier'],
+  ['PUT', '/api/v1/org/me/supplier/warehouse'],
   ['GET', '/api/v1/org/farms'],
   ['POST', '/api/v1/org/media'],
   ['GET', '/api/v1/org/media/{id}'],

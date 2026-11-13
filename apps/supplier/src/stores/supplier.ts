@@ -13,17 +13,17 @@ import { clearSupplierTokens, readSupplierRefreshToken, saveSupplierTokens } fro
 type ApiLoginProfile = { actorType: 'supplier' | 'driver'; actorId: string; supplierId: string; driverId?: string; displayName?: string }
 type ApiTokenResponse = { accessToken: string; refreshToken: string; profile: ApiLoginProfile }
 type ApiDriver = { id: string; supplierId: string; name: string; phone?: string; account: string; enabled: boolean }
-type ApiSupplier = { id: string; name: string; region?: string; category?: string; contactPhone?: string; status?: Supplier['status']; certified?: boolean; cooperationPauseReason?: string | null; profile?: { coop?: boolean; brands?: string[]; serviceRegions?: string[]; businessLicense?: Supplier['qualification']['businessLicense']; permit?: Supplier['qualification']['permit']; validUntil?: string; reviewNote?: string } }
+type ApiSupplier = { id: string; name: string; version?: number; region?: string; category?: string; contactPhone?: string; status?: Supplier['status']; certified?: boolean; cooperationPauseReason?: string | null; profile?: { coop?: boolean; brands?: string[]; serviceRegions?: string[]; businessLicense?: Supplier['qualification']['businessLicense']; permit?: Supplier['qualification']['permit']; validUntil?: string; reviewNote?: string; warehouse?: Supplier['warehouse'] } }
 function driverFromApi(driver: ApiDriver): DriverAccount {
   return { id: driver.id, supplierId: driver.supplierId, name: driver.name, phone: driver.phone || '', account: driver.account, password: '', status: driver.enabled ? 'active' : 'disabled', createdAt: '' }
 }
 function supplierFromApi(dto: ApiSupplier): Supplier {
   const profile = dto.profile || {}
   return {
-    id: dto.id, name: dto.name, region: dto.region || '', category: dto.category || '',
+    id: dto.id, name: dto.name, version: dto.version, region: dto.region || '', category: dto.category || '',
     contactPhone: dto.contactPhone || '', status: dto.status || 'pending', certified: dto.certified === true,
     coop: profile.coop, brands: profile.brands || [], serviceRegions: profile.serviceRegions || [], productCount: 0,
-    cooperationPauseReason: dto.cooperationPauseReason || undefined,
+    cooperationPauseReason: dto.cooperationPauseReason || undefined, warehouse: profile.warehouse,
     qualification: { businessLicense: profile.businessLicense || '', permit: profile.permit || '', validUntil: profile.validUntil || '', reviewNote: profile.reviewNote || '' }
   }
 }
@@ -1557,6 +1557,17 @@ export const useSupplierStore = defineStore('supplier', {
       const hasLongitude = input.longitude !== undefined
       const hasLatitude = input.latitude !== undefined
       if (!address || (!!contactPhone && !validatePhone(contactPhone)) || hasLongitude !== hasLatitude || (hasLongitude && (!Number.isFinite(input.longitude) || !Number.isFinite(input.latitude) || input.longitude! < -180 || input.longitude! > 180 || input.latitude! < -90 || input.latitude! > 90))) return failed('invalid_warehouse', contactPhone && !validatePhone(contactPhone) ? '请输入正确的11位联系人手机号' : '仓点地址或坐标无效')
+      if (getApiClientConfig().dataMode === 'api') {
+        const supplier = this.suppliers.find((item) => item.id === this.auth.supplierId)
+        if (supplier?.version === undefined || !Number.isInteger(supplier.version)) return failed('profile_version_missing', '供应商资料版本缺失，请刷新后重试')
+        try {
+          const response = await apiRequest<ApiSupplier>('/api/v1/org/me/supplier/warehouse', { method: 'PUT', body: { address, contactName, contactPhone, longitude: input.longitude, latitude: input.latitude, expectedVersion: supplier.version } })
+          if (response.id !== this.auth.supplierId) return failed('supplier_mismatch', '返回的供应商资料与登录身份不一致')
+          const updated = supplierFromApi(response)
+          this.suppliers = this.suppliers.map((item) => item.id === updated.id ? updated : item)
+          return { ok: true }
+        } catch (error) { return failed('api_error', error instanceof Error ? error.message : '仓点保存失败') }
+      }
       const locked = await runLockedPlatformCollectionTask<{ result: WriteResult; updated?: Supplier }>({
         collections: [
           PLATFORM_ENTITIES_STORAGE_KEY, PLATFORM_DAILY_DELIVERY_ROUTES_STORAGE_KEY, PLATFORM_AUDIT_LOG_STORAGE_KEY,
