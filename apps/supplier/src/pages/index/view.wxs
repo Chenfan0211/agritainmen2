@@ -10,6 +10,20 @@ function classNames(value) {
 }
 function styleText(value) { if (!value) return ''; if (typeof value === 'string') return value; var parts = []; var styleKeys = Object.keys(value); for (var s = 0; s < styleKeys.length; s += 1) { var styleKey = styleKeys[s]; if (value[styleKey] !== null && value[styleKey] !== undefined) parts.push(styleKey + ':' + value[styleKey]); } return parts.join(';'); }
 function orderFulfillment(order) { return order.supplierFulfillment || { status: 'submitted', shortages: [], handovers: [], updatedAt: order.createdAt }; }
+function orderActions(vm, order) {
+  var status = orderFulfillment(order).status;
+  var shipType = order.supplierFulfillment && order.supplierFulfillment.shipType;
+  if (status === 'submitted') return [{ key: 'accept', label: '接单', primary: true }];
+  if (status === 'accepted' && vm.apiMode) {
+    var actions = [{ key: 'courier', label: '快递直发' }, { key: 'assign-driver', label: order.supplierFulfillment && order.supplierFulfillment.driverId ? '更换司机' : '指派司机' }];
+    if (order.supplierFulfillment && order.supplierFulfillment.driverId) actions.push({ key: 'driver-ship', label: '司机配送发货', primary: true });
+    return actions;
+  }
+  if (status === 'accepted') return isCourierOrder(order) ? [{ key: 'courier', label: '快递直发' }] : [];
+  if (status === 'shipped' && shipType === 'courier') return [{ key: 'handover-out', label: '出库交接', primary: true }];
+  if (status === 'delivering' && shipType === 'courier') return [{ key: 'courier-delivered', label: '确认快递签收', primary: true }];
+  return [];
+}
 function orderShortage(order) { return orderFulfillment(order).shortages || []; }
 function outboundItemActual(item) { return item.supplierActual !== null && item.supplierActual !== undefined ? item.supplierActual : item.driverActual; }
 function isCourierOrder(order) { var source = order.supplierOrderLink && order.supplierOrderLink.source; return source === 'c-mall' || source === 'farmhouse-courier'; }
@@ -219,9 +233,9 @@ function e71(vm, order) { return ([object, Object]); }
 
 function e72(vm, order) { return (16); }
 
-function e73(vm, order) { return (orderActions(order).length); }
+function e73(vm, order) { return (orderActions(vm, order).length); }
 
-function e74(vm, order) { return (orderActions(order)); }
+function e74(vm, order) { return (orderActions(vm, order)); }
 
 function e75(vm, order, action) { return (classNames({ 'is-loading': vm.busyAction === action.key, 'primary-button': action.primary })); }
 
@@ -1627,9 +1641,9 @@ function e775(vm, event) { return ([object, Object]); }
 
 function e776(vm, event) { return ([object, Object]); }
 
-function e777(vm) { return (orderActions(vm.selectedOrder).length); }
+function e777(vm) { return (orderActions(vm, vm.selectedOrder).length); }
 
-function e778(vm) { return (orderActions(vm.selectedOrder)); }
+function e778(vm) { return (orderActions(vm, vm.selectedOrder)); }
 
 function e779(vm, action) { return (classNames({ 'is-loading': vm.busyAction === action.key, 'primary-button': action.primary })); }
 

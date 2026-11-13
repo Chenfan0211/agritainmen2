@@ -1203,6 +1203,7 @@ export const useSupplierStore = defineStore('supplier', {
     },
     assignableDriversForOrder(order: Order): DriverAccount[] {
       if (this.auth.role !== 'supplier' || order.supplierId !== this.auth.supplierId) return []
+      if (getApiClientConfig().dataMode === 'api') return this.drivers.filter((driver) => driver.supplierId === this.auth.supplierId && driver.status === 'active')
       const destination = resolveOrderStore(order)
       if (!destination) {
         this.error = '门店缺少稳定编号，请先维护门店资料'
@@ -1879,6 +1880,13 @@ export const useSupplierStore = defineStore('supplier', {
       const order = this.orders.find((item) => item.id === orderId)
       const driver = order ? this.assignableDriversForOrder(order).find((item) => item.id === driverId) : undefined
       if (!order || !driver) return false
+      if (getApiClientConfig().dataMode === 'api') {
+        try {
+          const updated = await apiRequest<{ driver_id: string }>(`/api/v1/fulfillment/orders/${encodeURIComponent(orderId)}/assign-driver`, { method: 'POST', body: { driverId } })
+          order.supplierFulfillment = { ...(order.supplierFulfillment || { handovers: [], shortages: [] }), status: 'accepted', driverId: updated.driver_id, driverName: driver.name, updatedAt: new Date().toISOString() }
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '指派司机失败'; return false }
+      }
       const saved = await this.commitOrder(assignSupplierDriver(order, driver, this.auth.name || supplierInfo.name), `supplier-fulfillment:${order.id}:assign-driver:${driver.id}`)
       return saved
     },
@@ -1887,8 +1895,29 @@ export const useSupplierStore = defineStore('supplier', {
       const order = this.orders.find((item) => item.id === orderId)
       const driver = order ? this.assignableDriversForOrder(order).find((item) => item.id === driverId) : undefined
       if (!order || !driver) return false
+      if (getApiClientConfig().dataMode === 'api') {
+        const expectedDriverId = order.supplierFulfillment?.driverId
+        if (!expectedDriverId || expectedDriverId === driverId) return false
+        try {
+          const updated = await apiRequest<{ driver_id: string }>(`/api/v1/fulfillment/orders/${encodeURIComponent(orderId)}/assign-driver`, { method: 'POST', body: { driverId, expectedDriverId } })
+          order.supplierFulfillment = { ...order.supplierFulfillment!, status: 'accepted', driverId: updated.driver_id, driverName: driver.name, updatedAt: new Date().toISOString() }
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '更换司机失败'; return false }
+      }
       const saved = await this.commitOrder(reassignSupplierDriver(order, driver, this.auth.name || supplierInfo.name), `supplier-fulfillment:${order.id}:reassign-driver:${driver.id}`)
       return saved
+    },
+    async shipDriverApi(orderId: string) {
+      if (getApiClientConfig().dataMode !== 'api' || this.auth.role !== 'supplier') return false
+      const order = this.orders.find((item) => item.id === orderId && item.supplierId === this.auth.supplierId)
+      const driverId = order?.supplierFulfillment?.driverId
+      if (!order || !driverId || order.supplierFulfillment?.status !== 'accepted') return false
+      try {
+        const updated = await apiRequest<{ status: string; driver_id: string }>(`/api/v1/fulfillment/orders/${encodeURIComponent(orderId)}/ship`, { method: 'POST', idempotencyKey: createIdempotencyKey('fulfillment-ship'), body: { shipType: 'driver', driverId } })
+        order.status = 'shipping'
+        order.supplierFulfillment = { ...order.supplierFulfillment, status: 'shipped', shipType: 'driver', driverId: updated.driver_id, updatedAt: new Date().toISOString() }
+        return true
+      } catch (error) { this.error = error instanceof Error ? error.message : '司机配送发货失败'; return false }
     },
     async shipCourier(orderId: string, _trackingNo = '') {
       if (getApiClientConfig().dataMode === 'api') {
@@ -1897,7 +1926,7 @@ export const useSupplierStore = defineStore('supplier', {
         try {
           const updated = await apiRequest<{ id: string; ship_type?: string; tracking_no?: string; driver_id?: string }>(`/api/v1/fulfillment/orders/${encodeURIComponent(orderId)}/ship`, { method: 'POST', idempotencyKey: createIdempotencyKey('fulfillment-ship'), body: { shipType: 'courier', trackingNo: _trackingNo || undefined } })
           order.status = 'shipping'
-          order.supplierFulfillment = { ...(order.supplierFulfillment || { handovers: [], shortages: [], updatedAt: new Date().toISOString() }), status: 'shipped', shipType: 'courier', trackingNo: updated.tracking_no, updatedAt: new Date().toISOString() }
+          order.supplierFulfillment = { ...(order.supplierFulfillment || { handovers: [], shortages: [], updatedAt: new Date().toISOString() }), status: 'shipped', shipType: 'courier', trackingNo: updated.tracking_no, driverId: undefined, driverName: undefined, updatedAt: new Date().toISOString() }
           return true
         } catch (error) {
           this.error = error instanceof Error ? error.message : '发货失败，请重试'

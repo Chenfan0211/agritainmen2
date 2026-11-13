@@ -26,6 +26,7 @@ public class FulfillmentController {
     }
     public record CreateRequest(@NotBlank String orderId, @NotBlank String supplierId) {}
     public record ShipRequest(@NotBlank String shipType, String trackingNo, String driverId) {}
+    public record AssignDriverRequest(@NotBlank String driverId, String expectedDriverId) {}
     public record PageView(List<Map<String, Object>> items, int page, int pageSize, long total) {}
 
     @PostMapping("/orders")
@@ -73,6 +74,24 @@ public class FulfillmentController {
         return ApiResponse.ok(find(id, identity));
     }
 
+    @PostMapping("/orders/{id}/assign-driver")
+    public ApiResponse<Map<String, Object>> assignDriver(@PathVariable String id, @Valid @RequestBody AssignDriverRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        FulfillmentAccessVerifier.Identity identity = supplierIdentity(authorization);
+        find(id, identity);
+        accessVerifier.requireActiveDriver(authorization, request.driverId());
+        if (request.expectedDriverId() != null && request.expectedDriverId().isBlank())
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "原司机编号不能为空");
+        String expectedClause = request.expectedDriverId() == null ? "driver_id is null" : "driver_id=?";
+        String sql = "update fulfillment_order set driver_id=?, updated_at=current_timestamp, version=version+1 "
+                + "where id=? and supplier_id=? and status='ACCEPTED' and deleted=false and " + expectedClause;
+        int updated = request.expectedDriverId() == null
+                ? jdbc.update(sql, request.driverId(), id, identity.supplierId())
+                : jdbc.update(sql, request.driverId(), id, identity.supplierId(), request.expectedDriverId());
+        if (updated != 1) throw new BusinessException(ErrorCode.CONFLICT, "订单状态或司机指派已变化，请刷新后重试");
+        return ApiResponse.ok(find(id, identity));
+    }
+
     @PostMapping("/orders/{id}/ship")
     @Transactional
     public ApiResponse<Map<String, Object>> ship(@PathVariable String id, @Valid @RequestBody ShipRequest request,
@@ -85,8 +104,11 @@ public class FulfillmentController {
         }
         if (!"courier".equals(request.shipType()) && !"driver".equals(request.shipType())) throw new BusinessException(ErrorCode.BAD_REQUEST, "shipType 只支持 courier 或 driver");
         if ("driver".equals(request.shipType())) accessVerifier.requireActiveDriver(authorization, request.driverId());
-        int updated = jdbc.update("update fulfillment_order set status='SHIPPED', ship_type=?, tracking_no=?, driver_id=?, updated_at=current_timestamp, version=version+1 where id=? and supplier_id=? and status='ACCEPTED' and deleted=false",
-                request.shipType(), trackingNo, "driver".equals(request.shipType()) ? request.driverId() : null, id, identity.supplierId());
+        int updated = "driver".equals(request.shipType())
+                ? jdbc.update("update fulfillment_order set status='SHIPPED', ship_type='driver', tracking_no=?, updated_at=current_timestamp, version=version+1 where id=? and supplier_id=? and driver_id=? and status='ACCEPTED' and deleted=false",
+                    trackingNo, id, identity.supplierId(), request.driverId())
+                : jdbc.update("update fulfillment_order set status='SHIPPED', ship_type='courier', tracking_no=?, driver_id=null, updated_at=current_timestamp, version=version+1 where id=? and supplier_id=? and status='ACCEPTED' and deleted=false",
+                    trackingNo, id, identity.supplierId());
         if (updated != 1) throw new BusinessException(ErrorCode.CONFLICT, "订单未接单或已完成，不能发货");
         return ApiResponse.ok(find(id, identity));
     }

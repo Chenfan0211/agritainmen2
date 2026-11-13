@@ -44,12 +44,13 @@ describe('supplier and driver API login', () => {
       if (request.url.endsWith('/auth/driver/login')) return { status: 200, body: { code: 'OK', data: { accessToken: 'access-d1', refreshToken: 'refresh-d1', profile: { actorType: 'driver', supplierId: 'S1', driverId: 'D1', displayName: '司机一' } } } }
       if (request.url.endsWith('/auth/me')) return { status: 200, body: { code: 'OK', data: { actorType: 'driver', supplierId: 'S1', driverId: 'D1' } } }
       if (request.url.endsWith('/org/me/supplier')) return { status: 200, body: { code: 'OK', data: { id: 'S1', name: '供应商一', status: 'cooperating', certified: true } } }
-      if (request.url.includes('/fulfillment/orders?')) return { status: 200, body: { code: 'OK', data: { items: [], page: 1, pageSize: 200, total: 0 } } }
+      if (request.url.includes('/fulfillment/orders?')) return { status: 200, body: { code: 'OK', data: { items: [{ id: 'F1', order_id: 'O1', supplier_id: 'S1', driver_id: 'D1', status: 'SHIPPED', ship_type: 'driver' }], page: 1, pageSize: 200, total: 1 } } }
       throw new Error(request.url)
     } })
     const store = useSupplierStore()
     expect(await store.loginDriverApi('driver1', 'secret')).toBe(true)
     expect(store.auth).toMatchObject({ role: 'driver', supplierId: 'S1', driverId: 'D1' })
+    expect(store.orders).toMatchObject([{ id: 'F1', supplierFulfillment: { driverId: 'D1', status: 'shipped' } }])
     expect(readSupplierRefreshToken()).toBe('refresh-d1')
   })
 

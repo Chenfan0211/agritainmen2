@@ -14,6 +14,7 @@ import { createSharedRefreshRunner } from './shared-refresh'
 import { buildProductCategoryOptions } from './product-categories'
 
 const store = useSupplierStore()
+const apiMode = ref('apiMode', getApiClientConfig().dataMode === 'api')
 let disposeKeyboardButtons: () => void = () => undefined
 let disposePlatformChanges: (() => void) | null = null
 const platformChangeKeys = [PLATFORM_ORDERS_STORAGE_KEY, PLATFORM_DRIVERS_STORAGE_KEY, PLATFORM_DRIVER_STORE_SCOPES_STORAGE_KEY, PLATFORM_NAMED_DELIVERY_ROUTES_STORAGE_KEY, PLATFORM_DAILY_DELIVERY_ROUTES_STORAGE_KEY, PLATFORM_C_ORDERS_STORAGE_KEY, PLATFORM_ENTITIES_STORAGE_KEY, PLATFORM_SUPPLIER_ACCOUNTS_STORAGE_KEY, PLATFORM_SUPPLIER_SETTLEMENTS_STORAGE_KEY, PLATFORM_CATALOG_STORAGE_KEY, PLATFORM_CATALOG_PRODUCT_SUBMISSIONS_STORAGE_KEY, PLATFORM_AUDIT_LOG_STORAGE_KEY, PLATFORM_DICTIONARIES_STORAGE_KEY]
@@ -1129,18 +1130,6 @@ function stepLabel(step: string) {
   return store.statusText(step)
 }
 
-function orderActions(order: Order): Array<{ key: string; label: string; primary?: boolean }> {
-  const status = orderFulfillment(order).status
-  const shipType = order.supplierFulfillment?.shipType
-  if (status === 'submitted') return [{ key: 'accept', label: '接单', primary: true }]
-  if (status === 'accepted') return [
-    ...(isCourierOrder(order) ? [{ key: 'courier', label: '快递直发' }] : [])
-  ]
-  if (status === 'shipped' && shipType === 'courier') return [{ key: 'handover-out', label: '出库交接', primary: true }]
-  if (status === 'delivering' && shipType === 'courier') return [{ key: 'courier-delivered', label: '确认快递签收', primary: true }]
-  return []
-}
-
 async function runAction(key: string, order: Order) {
   if (key === 'accept') {
     await runBusy('accept', async () => {
@@ -1150,6 +1139,14 @@ async function runAction(key: string, order: Order) {
     return
   }
   if (key === 'courier') { openCourier(order); return }
+  if (key === 'assign-driver') { selectDriverForOrder(order); return }
+  if (key === 'driver-ship') {
+    await runBusy('driver-ship', async () => {
+      if (await store.shipDriverApi(order.id)) toast('已交由司机配送')
+      else toast(store.error || '司机配送发货失败')
+    })
+    return
+  }
   if (key === 'handover-out') { openHandoverOut(order); return }
   if (key === 'courier-delivered') {
     await runBusy('courier-delivered', async () => {
@@ -1157,6 +1154,29 @@ async function runAction(key: string, order: Order) {
       closeSheet()
     })
   }
+}
+
+function selectDriverForOrder(order: Order, offset = 0) {
+  const drivers = store.assignableDriversForOrder(order)
+  if (!drivers.length) { toast('请先创建并启用司机账号'); return }
+  const pageSize = 4
+  const page = drivers.slice(offset, offset + pageSize)
+  const previous = offset > 0
+  const next = offset + pageSize < drivers.length
+  const choices = [...(previous ? ['上一页'] : []), ...page.map((driver) => `${driver.name}（${driver.account}）`), ...(next ? ['下一页'] : [])]
+  wx.showActionSheet({ itemList: choices, success: ({ tapIndex }: { tapIndex: number }) => {
+    if (previous && tapIndex === 0) { selectDriverForOrder(order, offset - pageSize); return }
+    const index = tapIndex - Number(previous)
+    if (next && index === page.length) { selectDriverForOrder(order, offset + pageSize); return }
+    const selected = page[index]
+    if (!selected) return
+    void runBusy('assign-driver', async () => {
+      const assigned = order.supplierFulfillment?.driverId
+        ? await store.reassignDriver(order.id, selected.id)
+        : await store.assignDriver(order.id, selected.id)
+      toast(assigned ? '司机已指派' : store.error || '指派司机失败')
+    })
+  } })
 }
 
 function toggleSelect(id: string) {
@@ -1423,7 +1443,7 @@ onBeforeUnmount(() => {
 })
 
 
-const handlerMap: Record<string, (...args: any[]) => any> = { addSupplierSku, addressLabel, askResetDemo, askToggle, batchAccept, callStore, canMoveDriverStop, cancelProductEditor, checkInAtStop, checkInWarehouse, closeDriverAux, closeDriverOutbound, closeDriverRoute, closeDriverShortage, closeDriverStore, closeDriverWarehouse, closeNamedRouteEditor, closeOutboundRoute, closeProductWorkspace, closeSecondaryWorkspace, closeSheet, confirmCourier, confirmHandoverIn, confirmHandoverOut, confirmReset, confirmResetDemo, confirmToggle, courierSourceLabel, dispatchDriverRoute, disposeKeyboardButtons, driverAllocationKey, driverItemStores, driverOrderCompletedAt, driverOrderRoute, driverOrderRouteName, driverRouteName, driverRouteProgress, driverRouteStage, driverRouteStageText, driverShortageRemaining, driverStopStage, driverStopStageText, driverToggleMessage, generateTodayRoutes, getCurrentLocation, handoverCheckInText, handoverDriverStop, handoversOf, hasUnhandledShortage, initializeDriverShortageDraft, invalidateRoutePreview, isAbnormalWarehouseCheckIn, isCourierOrder, isOutboundItemExpanded, isTabActive, logout, markDriverShortages, markHandled, moveDriverStop, moveNamedRouteStore, movePreviewStop, namedRouteDriverName, namedRouteLabelForDriver, navigateToDestination, navigateToStop, navigateToStore, openCourier, openDriverAux, openDriverEdit, openDriverForm, openDriverHandover, openDriverOutbound, openDriverRoute, openDriverRouteAction, openDriverShortage, openDriverStore, openDriverWarehouse, openHandoverOut, openNamedRouteEditor, openNewProduct, openOrder, openOutboundRoute, openProductEditor, openProductWorkspace, openReset, openSecondaryWorkspace, orderActions, orderFulfillment, orderShortage, outboundHasShortage, outboundItemActual, outboundItemStoreActualText, outboundItemStoreExpected, outboundItemStoreNote, outboundRouteOrders, outboundStatusText, previewNamedRoute, productChannelLabel, productStatusCount, publishNamedRoute, recipientLabel, refreshProductCategoryLabels, refreshWarehouseDistance, rejectSupplierOutbound, removeSupplierSku, resetActuals, resetNumberRecord, restoreDriverAuxFilters, restoreSupplierSku, reviewSupplierOutbound, routeActionLabel, routeDriverName, routeExecutionStatus, routeGoodsKinds, routeGoodsQuantity, routeProviderLabel, routePublishedStatus, routeStatusText, routeWarehouse, runAction, runBusy, saveDriver, saveDriverAuxFilters, saveNamedRouteDraft, saveSupplierProductStock, saveWarehouse, selectDriverRoute, selectProductCategory, selectRouteStop, setDriverDataDate, setProductChannel, setProductFilter, setRoutePlanDriver, statusText, stepIndex, stepLabel, stopContainsSku, stopEstimatedMinutes, stopItemCount, stopOrders, stopSegment, storeSkuQuantity, storeSkuShortage, storeSkuShortageNote, submitAbnormalWarehouseCheckIn, submitDriverOutbound, submitLogin, submitSupplierProduct, switchLoginRole, switchTab, taskDistanceText, toast, toggleNamedRouteStore, toggleOutboundItem, toggleSelect, toggleSupplierProduct, validateSupplierProduct, warehouseAddress, warehouseCheckInBadgeClass, warehouseCheckInLabel, warehouseCheckInStatusText, warehouseName, warehouseReasonLabel }
+const handlerMap: Record<string, (...args: any[]) => any> = { addSupplierSku, addressLabel, askResetDemo, askToggle, batchAccept, callStore, canMoveDriverStop, cancelProductEditor, checkInAtStop, checkInWarehouse, closeDriverAux, closeDriverOutbound, closeDriverRoute, closeDriverShortage, closeDriverStore, closeDriverWarehouse, closeNamedRouteEditor, closeOutboundRoute, closeProductWorkspace, closeSecondaryWorkspace, closeSheet, confirmCourier, confirmHandoverIn, confirmHandoverOut, confirmReset, confirmResetDemo, confirmToggle, courierSourceLabel, dispatchDriverRoute, disposeKeyboardButtons, driverAllocationKey, driverItemStores, driverOrderCompletedAt, driverOrderRoute, driverOrderRouteName, driverRouteName, driverRouteProgress, driverRouteStage, driverRouteStageText, driverShortageRemaining, driverStopStage, driverStopStageText, driverToggleMessage, generateTodayRoutes, getCurrentLocation, handoverCheckInText, handoverDriverStop, handoversOf, hasUnhandledShortage, initializeDriverShortageDraft, invalidateRoutePreview, isAbnormalWarehouseCheckIn, isCourierOrder, isOutboundItemExpanded, isTabActive, logout, markDriverShortages, markHandled, moveDriverStop, moveNamedRouteStore, movePreviewStop, namedRouteDriverName, namedRouteLabelForDriver, navigateToDestination, navigateToStop, navigateToStore, openCourier, openDriverAux, openDriverEdit, openDriverForm, openDriverHandover, openDriverOutbound, openDriverRoute, openDriverRouteAction, openDriverShortage, openDriverStore, openDriverWarehouse, openHandoverOut, openNamedRouteEditor, openNewProduct, openOrder, openOutboundRoute, openProductEditor, openProductWorkspace, openReset, openSecondaryWorkspace, orderFulfillment, orderShortage, outboundHasShortage, outboundItemActual, outboundItemStoreActualText, outboundItemStoreExpected, outboundItemStoreNote, outboundRouteOrders, outboundStatusText, previewNamedRoute, productChannelLabel, productStatusCount, publishNamedRoute, recipientLabel, refreshProductCategoryLabels, refreshWarehouseDistance, rejectSupplierOutbound, removeSupplierSku, resetActuals, resetNumberRecord, restoreDriverAuxFilters, restoreSupplierSku, reviewSupplierOutbound, routeActionLabel, routeDriverName, routeExecutionStatus, routeGoodsKinds, routeGoodsQuantity, routeProviderLabel, routePublishedStatus, routeStatusText, routeWarehouse, runAction, runBusy, saveDriver, saveDriverAuxFilters, saveNamedRouteDraft, saveSupplierProductStock, saveWarehouse, selectDriverRoute, selectProductCategory, selectRouteStop, setDriverDataDate, setProductChannel, setProductFilter, setRoutePlanDriver, statusText, stepIndex, stepLabel, stopContainsSku, stopEstimatedMinutes, stopItemCount, stopOrders, stopSegment, storeSkuQuantity, storeSkuShortage, storeSkuShortageNote, submitAbnormalWarehouseCheckIn, submitDriverOutbound, submitLogin, submitSupplierProduct, switchLoginRole, switchTab, taskDistanceText, toast, toggleNamedRouteStore, toggleOutboundItem, toggleSelect, toggleSupplierProduct, validateSupplierProduct, warehouseAddress, warehouseCheckInBadgeClass, warehouseCheckInLabel, warehouseCheckInStatusText, warehouseName, warehouseReasonLabel }
 
 function snapshotStore() {
   const snapshot: Record<string, unknown> = {}

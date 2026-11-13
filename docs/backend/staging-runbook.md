@@ -118,7 +118,7 @@ bash deploy/scripts/rollback-compose.sh
 
 1. API 模式供应商端清空本地登录态，确认未登录时没有履约单请求，也不会显示演示司机、商品或路线。A 登录后 `/auth/supplier/login` 的 `profile.supplierId` 与 `/org/me/supplier` 的 `id` 一致；刷新页面、访问令牌刷新后仍一致。B 同理。
 2. A 的令牌访问 `/fulfillment/orders?supplierId=B`，只返回 A 的记录；匿名请求返回 401；A 对 B 的履约单接单、发货和物流单查询返回 404，B 的数据不变。A 自有单按 `PENDING→ACCEPTED→SHIPPED` 成功，错误状态返回 409。创建履约单只接受平台身份。
-3. A 在供应商端创建 D1、D2，确认司机账号出现在 `/auth/supplier/drivers` 且无密码回传。D1 用 `/auth/driver/login` 登录，`profile.supplierId=A` 且 `profile.driverId` 为 D1 的账号 ID；D1 仅看到分配给 D1 的单，看不到 D2 或 B 的单，不能接单、发货或创建履约单。B 的令牌不能管理 A 的司机账号。
+3. A 在供应商端创建 D1、D2，确认司机账号出现在 `/auth/supplier/drivers` 且无密码回传。A 接单后通过 `/fulfillment/orders/{id}/assign-driver` 指派 D1，随后更换为 D2 时传入 `expectedDriverId=D1`；旧司机编号或已发货订单重试返回 409。只有已指派司机可用于司机配送发货。D1、D2 分别用 `/auth/driver/login` 登录，`profile.supplierId=A`，仅能看到当前分配给自己的单，看不到另一司机或 B 的单，不能接单、发货或创建履约单。B 的令牌不能管理 A 的司机账号或指派 A 的单。
 4. 停用 D1 后，D1 的既有 access 与 refresh 均返回 401；重启 D1、重新登录后可用。冻结 A 账号后，A 及名下司机的已有 access 与 refresh 均失效；解冻后旧令牌仍失效，必须重新登录。改密、刷新轮换、退出登录后分别核对旧令牌失效。
 5. 供应商状态按 `pending→审核通过/cooperating→暂停/paused→恢复/cooperating` 和 `pending→审核驳回/paused→恢复待审/pending` 验证；待审不能直接暂停，驳回不能恢复合作，已认证不能退回待审。冻结账号的原因可以单独修改并刷新回读；只有冻结权限的管理员可操作。
 6. 浏览器或真机复核供应商、司机登录表单无演示账号自动填充；网络失败、401、403 时显示错误，不能回退到本地演示登录。记录网关响应码、Trace ID、数据库状态和页面截图。
@@ -127,6 +127,6 @@ bash deploy/scripts/rollback-compose.sh
 
 ### 本地接口调试记录（2026-11-13）
 
-本轮按用户要求只做本地调试。Auth、Org、Gateway、Fulfillment 使用测试配置的 H2 和随机端口跑 HTTP 正反例；Org/Fulfillment 的 Auth 对端由本地 HTTP 测试替身提供。已覆盖供应商与司机登录、司机账号归属、未登录拒绝、跨供应商数据范围、非法状态流转、会话撤销，以及跨供应商/停用司机配送拒绝。前端跑供应商与后台定向 Vitest、工作区 TypeScript 类型检查，并以 `--data-mode api --api-base http://127.0.0.1:8080` 编译供应商小程序。
+本轮按用户要求只做本地调试。Auth、Org、Gateway、Fulfillment 使用测试配置的 H2 和随机端口跑 HTTP 正反例；Org/Fulfillment 的 Auth 对端由本地 HTTP 测试替身提供。已覆盖供应商与司机登录、司机账号归属、未登录拒绝、跨供应商数据范围、非法状态流转、会话撤销，以及跨供应商/停用司机配送拒绝。后续本地批次增加已接单订单指派、带预期旧司机的更换、司机配送发货一致性和司机仅查看已指派订单的用例。前端跑供应商与后台定向 Vitest、工作区 TypeScript 类型检查，并以 `--data-mode api --api-base http://127.0.0.1:8080` 编译供应商小程序。
 
-本地调试不包含实际 MySQL、完整跨服务部署、微信真机或 Staging 页面验收。司机的订单读取限于后端已指定 `driver_id` 的履约单；供应商端 API 模式当前没有司机派单页面流程。
+本地调试不包含实际 MySQL、完整跨服务部署、微信真机或 Staging 页面验收。司机的订单读取限于后端已指定 `driver_id` 的履约单；供应商端 API 模式已有接单后的司机指派、更换和发货入口，线路优化、打卡与交接仍待后续接入。

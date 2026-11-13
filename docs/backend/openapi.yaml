@@ -841,6 +841,34 @@ paths:
       responses:
         "200":
           description: OK
+  /fulfillment/orders/{id}/assign-driver:
+    post:
+      summary: 供应商指派或更换本供应商的启用司机
+      description: 仅已接单的履约单可指派。首次指派不传 expectedDriverId；更换时须传当前司机编号，状态或司机已变化返回 409。
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - driverId
+              properties:
+                driverId:
+                  type: string
+                expectedDriverId:
+                  type: string
+      responses:
+        "200":
+          description: 返回更新后的履约单
+        "409":
+          description: 订单状态或原司机已变化
   /fulfillment/orders/{id}/ship:
     post:
       summary: 快递/司机发货
@@ -874,6 +902,7 @@ paths:
                   type: string
                 driverId:
                   type: string
+                  description: 司机配送时必须为已指派的司机编号
       responses:
         "200":
           description: OK

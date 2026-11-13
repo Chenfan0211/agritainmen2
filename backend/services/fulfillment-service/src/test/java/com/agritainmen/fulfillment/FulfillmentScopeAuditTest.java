@@ -61,7 +61,7 @@ class FulfillmentScopeAuditTest {
             server.createContext("/api/v1/auth/supplier/drivers", exchange -> {
                 String token = exchange.getRequestHeaders().getFirst("Authorization");
                 String body = "Bearer s1".equals(token)
-                        ? "{\"code\":\"OK\",\"data\":[{\"id\":\"D1\",\"enabled\":true},{\"id\":\"D-DISABLED\",\"enabled\":false}]}"
+                        ? "{\"code\":\"OK\",\"data\":[{\"id\":\"D1\",\"enabled\":true},{\"id\":\"D3\",\"enabled\":true},{\"id\":\"D-DISABLED\",\"enabled\":false}]}"
                         : "{\"code\":\"OK\",\"data\":[{\"id\":\"D2\",\"enabled\":true}]}";
                 byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
@@ -135,6 +135,7 @@ class FulfillmentScopeAuditTest {
                             .retrieve().body(JsonNode.class)).getStatusCode().value());
         }
         assertEquals("ACCEPTED", jdbc.queryForObject("select status from fulfillment_order where id='F-S1'", String.class));
+        assign("Bearer s1", "D1", null);
         JsonNode shipped = client.post().uri("/api/v1/fulfillment/orders/F-S1/ship")
                 .header("Authorization", "Bearer s1")
                 .contentType(MediaType.APPLICATION_JSON).body(Map.of("shipType", "driver", "driverId", "D1"))
@@ -151,5 +152,44 @@ class FulfillmentScopeAuditTest {
                 .body(Map.of("shipType", "courier", "trackingNo", "TRACK-COURIER", "driverId", "D2"))
                 .retrieve().body(JsonNode.class).path("data");
         assertTrue(shipped.path("driver_id").isNull());
+    }
+
+    @Test void supplierAssignsOnlyOwnActiveDriverAndShipmentUsesCurrentAssignment() {
+        client.post().uri("/api/v1/fulfillment/orders/F-S1/accept")
+                .header("Authorization", "Bearer s1").retrieve().body(JsonNode.class);
+        assertEquals(404, assertThrows(RestClientResponseException.class,
+                () -> assign("Bearer s2", "D2", null)).getStatusCode().value());
+        assertEquals(403, assertThrows(RestClientResponseException.class,
+                () -> assign("Bearer d1", "D1", null)).getStatusCode().value());
+        assertEquals(403, assertThrows(RestClientResponseException.class,
+                () -> assign("Bearer s1", "D2", null)).getStatusCode().value());
+        assertEquals(403, assertThrows(RestClientResponseException.class,
+                () -> assign("Bearer s1", "D-DISABLED", null)).getStatusCode().value());
+        assertEquals("D1", assign("Bearer s1", "D1", null).path("data").path("driver_id").asText());
+        assertEquals(1, client.get().uri("/api/v1/fulfillment/orders")
+                .header("Authorization", "Bearer d1").retrieve().body(JsonNode.class).path("data").path("total").asInt());
+        assertEquals(409, assertThrows(RestClientResponseException.class,
+                () -> assign("Bearer s1", "D3", "wrong-driver")).getStatusCode().value());
+        assertEquals("D3", assign("Bearer s1", "D3", "D1").path("data").path("driver_id").asText());
+        assertEquals(409, assertThrows(RestClientResponseException.class,
+                () -> client.post().uri("/api/v1/fulfillment/orders/F-S1/ship")
+                        .header("Authorization", "Bearer s1").contentType(MediaType.APPLICATION_JSON)
+                        .body(Map.of("shipType", "driver", "driverId", "D1"))
+                        .retrieve().body(JsonNode.class)).getStatusCode().value());
+        assertEquals("SHIPPED", client.post().uri("/api/v1/fulfillment/orders/F-S1/ship")
+                .header("Authorization", "Bearer s1").contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("shipType", "driver", "driverId", "D3"))
+                .retrieve().body(JsonNode.class).path("data").path("status").asText());
+        assertEquals(409, assertThrows(RestClientResponseException.class,
+                () -> assign("Bearer s1", "D1", "D3")).getStatusCode().value());
+    }
+
+    private JsonNode assign(String token, String driverId, String expectedDriverId) {
+        Map<String, String> body = new java.util.HashMap<>();
+        body.put("driverId", driverId);
+        if (expectedDriverId != null) body.put("expectedDriverId", expectedDriverId);
+        return client.post().uri("/api/v1/fulfillment/orders/F-S1/assign-driver")
+                .header("Authorization", token).contentType(MediaType.APPLICATION_JSON)
+                .body(body).retrieve().body(JsonNode.class);
     }
 }

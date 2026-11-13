@@ -1684,15 +1684,30 @@
         },
         {
           "action": "assignDriver",
-          "owner": "internal",
-          "status": "internal",
-          "reason": "store 内部事务/派生计算辅助"
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/fulfillment/orders/{id}/assign-driver"
+          ]
         },
         {
           "action": "reassignDriver",
-          "owner": "internal",
-          "status": "internal",
-          "reason": "store 内部事务/派生计算辅助"
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/fulfillment/orders/{id}/assign-driver"
+          ]
+        },
+        {
+          "action": "shipDriverApi",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/fulfillment/orders/{id}/ship"
+          ]
         }
       ]
     },
