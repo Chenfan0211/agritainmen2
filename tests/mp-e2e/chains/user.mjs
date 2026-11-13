@@ -1,21 +1,24 @@
-// L2 用户端链路：一级团长登录 → 分类/商品详情 → 加购 → 购物车结算/新增地址/提交订单 → 模拟支付 → 我的收入。
+// L2 用户端链路：测试 OpenID 自动识别一级团长 → 分类/商品详情 → 加购 → 购物车结算/新增地址/提交订单 → 模拟支付 → 我的收入。
 // 选择器来源：
-// - apps/user/src/pages/index/index.wxml:28（.auth-roles）、:33（.auth-btn）、:75（.product-card）、:88（.category-grid-item）、:120（.cart-checkout）、:128（.orders-page）、:136（.order-actions/模拟支付）、:150（.operations-grid）、:225（.warnrow）、:241（.address-form/.address-row）、:280（.sheet-foot/提交订单）
-// - apps/user/src/pages/operations/index.wxml:1（.operation-page）、:8（.income-hero）
-import { count, cur, shot, sleep, tapSel, tapText, textOf, waitForRoute, waitForSelector, waitForText } from '../harness.mjs'
+// - apps/user/src/pages/index/index.wxml（.c-mall/.role-chip/.product-card/.category-grid-item/.cart-checkout/.orders-page/.order-actions/.operations-grid/.warnrow/.address-form/.sheet-foot）
+// - apps/user/src/pages/operations/index.wxml（.operation-page/.income-hero）
+import { count, cur, seedStorage, shot, sleep, tapSel, tapText, textOf, waitForRoute, waitForSelector, waitForText } from '../harness.mjs'
 
-async function loginAs(mp, roleText) {
-  const loginPage = await waitForSelector(mp, '.auth-page', { timeoutMs: 20000 })
-  if (!loginPage) return { ok: false, reason: '未进入用户端登录页' }
-  const page = await cur(mp)
-  const roleCount = await count(page, '.auth-roles button')
-  const roleTapped = roleCount > 0 ? await tapText(page, '.auth-roles button', roleText) : true
-  const authButton = await waitForSelector(mp, '.auth-btn', { timeoutMs: 10000 })
-  if (!authButton) return { ok: false, reason: '未找到微信授权按钮' }
-  await tapSel(await cur(mp), '.auth-btn')
+async function enterWithOpenId(mp, openid) {
+  await seedStorage(mp, { 'agritainment-mock-openid': openid })
+  await mp.reLaunch('/pages/index/index')
+  await sleep(2500)
   const home = await waitForSelector(mp, '.c-mall', { timeoutMs: 25000 })
-  const reason = !roleTapped ? '未找到一级团长登录身份按钮' : home ? '' : '微信模拟登录后未渲染商城首页'
-  return { ok: !!(roleTapped && home), home, reason }
+  return { ok: !!home, home, reason: home ? '' : 'OpenID 自动识别后未渲染商城首页' }
+}
+
+async function verifyIdentityRole(mp, openid, expectedLabel) {
+  const entered = await enterWithOpenId(mp, openid)
+  if (!entered.ok) return { ok: false, role: '', operationsVisible: false }
+  const home = await waitForSelector(mp, '.c-mall', { timeoutMs: 10000 })
+  const role = home ? await textOf(home, '.role-chip') : ''
+  const operationsVisible = home ? (await count(home, '.operations-grid')) > 0 : false
+  return { ok: !!home && role.includes(expectedLabel) && !operationsVisible, role, operationsVisible }
 }
 
 async function tapBottomTab(mp, label) {
@@ -131,11 +134,9 @@ async function findPayableOrder(mp) {
 }
 
 export async function runUserL2({ mp, run }) {
-  await mp.reLaunch('/pages/index/index')
-  await sleep(2500)
-  const login = await loginAs(mp, '一级团长')
-  if (!login.ok) {
-    run.check('L2-1', '一级团长登录进入商城首页并加载商品', false, login.reason || '用户端登录未完成')
+  const identity = await enterWithOpenId(mp, 'mock_openid_demo_level1')
+  if (!identity.ok) {
+    run.check('L2-1', '一级团长 OpenID 自动识别并进入商城首页', false, identity.reason || '用户端身份识别未完成')
     return
   }
 
@@ -143,7 +144,7 @@ export async function runUserL2({ mp, run }) {
   const productCount = home ? await count(home, '.product-card') : 0
   const roleLabel = home ? await textOf(home, '.role-chip') : null
   const cartBefore = home ? await textOf(home, '.cart-bar-total .val') : null
-  run.check('L2-1', '一级团长登录进入商城首页并加载商品', !!home && productCount > 0 && !!roleLabel && roleLabel.includes('一级团长'), `角色 ${roleLabel || '未回读'} / 商品卡 ${productCount}`)
+  run.check('L2-1', '一级团长 OpenID 自动识别并进入商城首页', !!home && productCount > 0 && !!roleLabel && roleLabel.includes('一级团长'), `角色 ${roleLabel || '未回读'} / 商品卡 ${productCount}`)
   await shot(mp, run.evidenceDir, 'L2-01-user-home')
   if (!home || productCount === 0) return
 
@@ -188,4 +189,10 @@ export async function runUserL2({ mp, run }) {
   const income = incomeHero ? await textOf(await cur(mp), '.income-hero .val') : null
   run.check('L2-8', '一级团长进入我的收入页并展示可提现金额', operationsTapped && !!operationsPage && !!income, `收入 ${income || '未回读'}`)
   await shot(mp, run.evidenceDir, 'L2-08-operations-income')
+
+  const normal = await verifyIdentityRole(mp, 'mock_openid_demo_normal', '普通用户')
+  run.check('L2-9', '普通用户 OpenID 直接进入且不展示团长中心', normal.ok, `角色 ${normal.role || '未回读'} / 团长入口 ${normal.operationsVisible}`)
+
+  const paused = await verifyIdentityRole(mp, 'mock_openid_demo_leader_paused', '普通用户')
+  run.check('L2-10', '停用团长 OpenID 降级普通用户且可进入商城', paused.ok, `角色 ${paused.role || '未回读'} / 团长入口 ${paused.operationsVisible}`)
 }

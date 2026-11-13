@@ -11,6 +11,8 @@
     "audit:typography": "node scripts/audit-typography.mjs",
     "audit:buttons": "node scripts/audit-buttons.mjs",
     "audit:interfaces": "node scripts/audit-interfaces.mjs",
+    "audit:pages": "node scripts/audit-page-api-coverage.mjs",
+    "audit:pages:strict": "node scripts/audit-page-api-coverage.mjs --strict",
     "audit:mp-styles": "node scripts/audit-mp-styles.mjs",
     "audit:tokens": "node scripts/audit-tokens.mjs",
     "audit:mp-wxs": "node scripts/audit-mp-wxs.mjs",
@@ -29,7 +31,15 @@
     "build:user": "node scripts/build-native-mp.mjs user --mode build",
     "build:store": "node scripts/build-native-mp.mjs store --mode build",
     "build:supplier": "node scripts/build-native-mp.mjs supplier --mode build",
-    "e2e:mp": "node tests/mp-e2e/run.mjs"
+    "e2e:mp": "node tests/mp-e2e/run.mjs",
+    "backend:compile": "node scripts/backend-maven.mjs -DskipTests compile",
+    "backend:test": "node scripts/backend-maven.mjs test",
+    "backend:package": "node scripts/backend-maven.mjs -DskipTests package",
+    "build:admin:staging": "pnpm --filter @agritainment/admin build:h5",
+    "build:store:staging": "node scripts/build-native-mp.mjs store --mode build --data-mode api",
+    "build:supplier:staging": "node scripts/build-native-mp.mjs supplier --mode build --data-mode api",
+    "build:user:staging": "node scripts/build-native-mp.mjs user --mode build --data-mode api",
+    "backend:api-audit": "node scripts/backend-api-audit.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
@@ -40,7 +50,8 @@
     "playwright-core": "1.55.0",
     "sass": "^1.89.0",
     "typescript": "^5.4.5",
-    "vitest": "^2.1.9"
+    "vitest": "^2.1.9",
+    "yaml": "2.8.1"
   },
   "dependencies": {
     "qrcode-generator": "^2.0.4"

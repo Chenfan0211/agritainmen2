@@ -16,9 +16,10 @@ function writeFile(path, contents) {
 describe('native mini program build plan', () => {
   it('parses app, mode and watch flags', () => {
     expect(parseNativeBuildArgs(['store', '--mode', 'build', '--watch'])).toEqual({
-      app: 'store', mode: 'build', watch: true, errors: []
+      app: 'store', mode: 'build', watch: true, apiBase: '', dataMode: '', appId: '', errors: []
     })
     expect(parseNativeBuildArgs(['supplier'])).toMatchObject({ app: 'supplier', mode: 'dev', watch: false })
+    expect(parseNativeBuildArgs(['user', '--api-base', 'https://api.example.com', '--data-mode', 'api', '--app-id', 'wx-user'])).toMatchObject({ apiBase: 'https://api.example.com', dataMode: 'api', appId: 'wx-user' })
     expect(parseNativeBuildArgs(['admin']).errors.join('|')).toContain('未知端')
     expect(parseNativeBuildArgs(['user', '--mode', 'preview']).errors.join('|')).toContain('未知模式')
   })

@@ -8,6 +8,7 @@ const indexScript = readFileSync(resolve(import.meta.dirname, '../../../src/page
 const operationsTemplate = readFileSync(resolve(import.meta.dirname, '../../../src/pages/operations/index.wxml'), 'utf8')
 const operationsStyle = readFileSync(resolve(import.meta.dirname, '../../../src/pages/operations/index.wxss'), 'utf8')
 const operationsScript = readFileSync(resolve(import.meta.dirname, '../../../src/pages/operations/index.ts'), 'utf8')
+const userChain = readFileSync(resolve(import.meta.dirname, '../../../../../tests/mp-e2e/chains/user.mjs'), 'utf8')
 // 单源：app.wxss 只 import 全局样式，token 值来自 packages/ui，端内别名收在 styles/global.scss。
 const appWxss = readFileSync(resolve(import.meta.dirname, '../../../src/app.wxss'), 'utf8')
 const globalStyle = [
@@ -139,7 +140,8 @@ describe('用户端商城设计稿视觉契约', () => {
   })
 
   it('普通用户直接打开运营页时只显示无推广身份空态', () => {
-    expect(operationsTemplate).toContain('wx:if="{{!hasDistributor}}"')
+    expect(operationsTemplate).toContain('wx:if="{{identityLoading}}"')
+    expect(operationsTemplate).toContain('wx:elif="{{!hasDistributor}}"')
     expect(operationsTemplate).toContain('data-visual-state="user-operations-no-distributor"')
     expect(operationsScript).toContain('projectDistributorOperations')
     expect(indexTemplate).toContain('<block wx:if="{{hasDistributor}}">')
@@ -183,7 +185,6 @@ describe('用户端商城设计稿视觉契约', () => {
     expect(indexTemplate).toContain('data-visual-view="product"')
     expect(indexTemplate).toMatch(/class="page-back" aria-label="返回"/)
     expect(indexScript).toContain("detail: '选择规格'")
-    expect(indexTemplate).toContain('logout-danger')
     expect(indexTemplate).toMatch(/class="page-heading theme-head">[\s\S]*我的</)
     expect(indexTemplate).not.toContain('>选购<')
     expect(indexTemplate).toContain('<ui-icon name="plus"')
@@ -198,13 +199,21 @@ describe('用户端商城设计稿视觉契约', () => {
     expect(indexStyle).toMatch(/\.auth-page\s*\{[^}]*background:\s*var\(--mobile-login-grad\)/s)
     expect(indexStyle).toMatch(/\.gallery\s*\{[^}]*aspect-ratio:\s*1\s*\/\s*0\.82/s)
   })
-  it('“我的”页提供一二三级用户分销角色演示切换入口', () => {
-    expect(indexTemplate).toContain('class="role-switch"')
-    expect(indexTemplate).toContain('data-level="normal"')
-    expect(indexTemplate).toContain('data-level="level1"')
-    expect(indexTemplate).toContain('data-level="level2"')
-    expect(indexScript).toContain('store.setDemoDistributorLevel(')
-    expect(indexStyle).toMatch(/\.role-switch\s*\{[^}]*display:\s*grid/s)
+  it('身份由 OpenID 自动识别，旧登录与切换契约不会回归', () => {
+    expect(indexTemplate).toContain('身份资料仅由 OpenID 自动识别')
+    expect(indexTemplate).toContain('userAvatarUrl')
+    expect(indexTemplate).not.toContain('class="role-switch"')
+    expect(indexTemplate).not.toContain('class="auth-roles"')
+    expect(indexTemplate).not.toContain('微信一键授权')
+    expect(indexScript).not.toContain('store.setDemoDistributorLevel(')
+    expect(indexScript).toContain('await store.authenticate()')
+    expect(indexScript).toContain('shouldRefreshUserIdentity(store.identityCheckedAt)')
+    expect(indexStyle).not.toContain('.role-switch')
+    expect(indexStyle).not.toContain('.logout-button')
+    expect(userChain).toContain("agritainment-mock-openid")
+    expect(userChain).toContain('mock_openid_demo_level1')
+    expect(userChain).not.toContain('.auth-roles')
+    expect(userChain).not.toContain('.auth-btn')
   })
 
   it('订单和我的页不覆盖底栏占位，运营页窄屏不冲掉胶囊', () => {

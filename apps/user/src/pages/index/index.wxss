@@ -723,29 +723,7 @@
   font-size: 14.5px;
   font-weight: 800;
 }
-.role-switch {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 4px;
-  margin: 10px 16px 0;
-  padding: 4px;
-  border-radius: 12px;
-  background: var(--mobile-surface-subtle);
-}
-.role-switch button {
-  height: 36px;
-  min-height: 44px;
-  border-radius: 9px;
-  color: var(--mobile-muted);
-  font-size: 13px;
-  font-weight: 700;
-}
-.role-switch button.active {
-  background: var(--mobile-surface);
-  box-shadow: 0 1px 3px rgba(var(--color-user-brand-deep-rgb), 0.1);
-  color: var(--mobile-brand);
-  font-weight: 800;
-}
+
 .profile-panel {
   display: flex;
   align-items: center;
@@ -767,6 +745,15 @@
   color: var(--color-on-brand);
   font-size: 19px;
   font-weight: 800;
+}
+.avatar-image {
+  overflow: hidden;
+  background: var(--mobile-surface-subtle);
+}
+.avatar-image-content {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
 }
 .profile-main {
   min-width: 0;
@@ -996,17 +983,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.logout-button {
-  width: calc(100% - 32px);
-  min-height: 46px;
-  margin: 14px 16px 16px;
-  border: 1.5px solid var(--color-danger-soft);
-  border-radius: 23px;
-  background: var(--color-danger-soft);
-  color: var(--color-user-danger);
-  font-size: 14px;
-  font-weight: 800;
-}
+
 .cart-page {
   display: flex;
   flex-direction: column;

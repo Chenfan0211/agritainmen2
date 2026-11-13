@@ -1,5 +1,6 @@
 import { configureMediaRuntime, initializePlatformRecoveryHandlers, migratePersistedState, persistedEnvelope, purgeRetiredAllianceData, reconcilePendingPlatformTransactions } from '@agritainment/shared'
 import { createSupplierMediaRuntime, migrateSupplierLegacyMedia } from './media/runtime'
+import { configureSupplierApiRuntime } from './services/api-runtime'
 import { createSupplierAtomicRecoveryHandlerRegistrations, useSupplierStore } from './stores/supplier'
 
 const persistedKeys = ['auth'] as const
@@ -15,6 +16,7 @@ function configureStorePersistence() {
 
 App({
   onLaunch() {
+    configureSupplierApiRuntime()
     const mediaRuntime = createSupplierMediaRuntime()
     configureMediaRuntime(mediaRuntime)
     // 一次性迁移历史自制图片映射；失败不影响启动，下一次启动会重试。

@@ -1,0 +1,586 @@
+name: agritainmen
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me-root}
+      MYSQL_USER: ${MYSQL_USER:-agritainmen}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-me}
+    volumes:
+    - mysql-data:/var/lib/mysql
+    - ./mysql-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - mysqladmin ping -h 127.0.0.1 -u root -p${MYSQL_ROOT_PASSWORD} --silent
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+  redis:
+    image: redis:7.4-alpine
+    command:
+    - redis-server
+    - --appendonly
+    - 'yes'
+    volumes:
+    - redis-data:/data
+    healthcheck:
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  rabbitmq:
+    image: rabbitmq:4-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-agritainmen}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-change-me}
+    volumes:
+    - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test:
+      - CMD
+      - rabbitmq-diagnostics
+      - -q
+      - ping
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    restart: unless-stopped
+  nacos:
+    image: nacos/nacos-server:v3.1.1
+    environment:
+      MODE: standalone
+      NACOS_AUTH_ENABLE: 'true'
+      NACOS_AUTH_TOKEN: ${NACOS_AUTH_TOKEN:-replace-with-a-secret-at-least-32-bytes}
+      NACOS_AUTH_IDENTITY_KEY: ${NACOS_AUTH_IDENTITY_KEY:-agritainmen}
+      NACOS_AUTH_IDENTITY_VALUE: ${NACOS_AUTH_IDENTITY_VALUE:-change-me}
+    volumes:
+    - nacos-data:/home/nacos/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - curl -fsS http://127.0.0.1:8848/nacos/v1/console/health/readiness || exit
+        1
+      interval: 15s
+      timeout: 10s
+      retries: 20
+    restart: unless-stopped
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-agritainmen}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-change-me-minio}
+    volumes:
+    - minio-data:/data
+    restart: unless-stopped
+  api-gateway:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.service
+      args:
+        SERVICE: api-gateway
+    image: agritainmen/api-gateway:local
+    environment:
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Shanghai
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_DISCOVERY_ENABLED: 'true'
+      NACOS_CONFIG_ENABLED: 'true'
+      DB_USERNAME: ${MYSQL_USER:-agritainmen}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-change-me}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-agritainmen}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-change-me}
+      JWT_SECRET: ${JWT_SECRET:-replace-with-at-least-32-bytes-secret}
+      SPRING_PROFILES_ACTIVE: staging
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-agritainmen-staging}
+      NACOS_GROUP: ${NACOS_GROUP:-AGRITAINMEN_STAGING}
+      AGRITAINMEN_DEMO_SEED_ENABLED: ${AGRITAINMEN_DEMO_SEED_ENABLED:-true}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - http://127.0.0.1:8080/actuator/health
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  auth-service:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.service
+      args:
+        SERVICE: auth-service
+    image: agritainmen/auth-service:local
+    environment:
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Shanghai
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_DISCOVERY_ENABLED: 'true'
+      NACOS_CONFIG_ENABLED: 'true'
+      DB_USERNAME: ${MYSQL_USER:-agritainmen}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-change-me}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-agritainmen}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-change-me}
+      JWT_SECRET: ${JWT_SECRET:-replace-with-at-least-32-bytes-secret}
+      DB_URL: jdbc:mysql://mysql:3306/agritainmen_auth?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      ORG_SERVICE_BASE_URL: http://org-service:8080
+      SPRING_PROFILES_ACTIVE: staging
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-agritainmen-staging}
+      NACOS_GROUP: ${NACOS_GROUP:-AGRITAINMEN_STAGING}
+      AGRITAINMEN_DEMO_SEED_ENABLED: ${AGRITAINMEN_DEMO_SEED_ENABLED:-true}
+      AGRITAINMEN_WECHAT_MODE: ${WECHAT_MODE:-demo}
+      WECHAT_APP_ID_STORE: ${WECHAT_APP_ID_STORE:-}
+      WECHAT_APP_SECRET_STORE: ${WECHAT_APP_SECRET_STORE:-}
+      WECHAT_APP_ID_USER: ${WECHAT_APP_ID_USER:-}
+      WECHAT_APP_SECRET_USER: ${WECHAT_APP_SECRET_USER:-}
+      WECHAT_APP_ID_SUPPLIER: ${WECHAT_APP_ID_SUPPLIER:-}
+      WECHAT_APP_SECRET_SUPPLIER: ${WECHAT_APP_SECRET_SUPPLIER:-}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - http://127.0.0.1:8080/actuator/health
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  org-service:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.service
+      args:
+        SERVICE: org-service
+    image: agritainmen/org-service:local
+    environment:
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Shanghai
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_DISCOVERY_ENABLED: 'true'
+      NACOS_CONFIG_ENABLED: 'true'
+      DB_USERNAME: ${MYSQL_USER:-agritainmen}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-change-me}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-agritainmen}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-change-me}
+      JWT_SECRET: ${JWT_SECRET:-replace-with-at-least-32-bytes-secret}
+      AUTH_SERVICE_BASE_URL: http://auth-service:8080
+      DB_URL: jdbc:mysql://mysql:3306/agritainmen_org?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      SPRING_PROFILES_ACTIVE: staging
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-agritainmen-staging}
+      NACOS_GROUP: ${NACOS_GROUP:-AGRITAINMEN_STAGING}
+      AGRITAINMEN_DEMO_SEED_ENABLED: ${AGRITAINMEN_DEMO_SEED_ENABLED:-true}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - http://127.0.0.1:8080/actuator/health
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  catalog-service:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.service
+      args:
+        SERVICE: catalog-service
+    image: agritainmen/catalog-service:local
+    environment:
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Shanghai
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_DISCOVERY_ENABLED: 'true'
+      NACOS_CONFIG_ENABLED: 'true'
+      DB_USERNAME: ${MYSQL_USER:-agritainmen}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-change-me}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-agritainmen}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-change-me}
+      JWT_SECRET: ${JWT_SECRET:-replace-with-at-least-32-bytes-secret}
+      DB_URL: jdbc:mysql://mysql:3306/agritainmen_catalog?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      SPRING_PROFILES_ACTIVE: staging
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-agritainmen-staging}
+      NACOS_GROUP: ${NACOS_GROUP:-AGRITAINMEN_STAGING}
+      AGRITAINMEN_DEMO_SEED_ENABLED: ${AGRITAINMEN_DEMO_SEED_ENABLED:-true}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - http://127.0.0.1:8080/actuator/health
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  inventory-service:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.service
+      args:
+        SERVICE: inventory-service
+    image: agritainmen/inventory-service:local
+    environment:
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Shanghai
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_DISCOVERY_ENABLED: 'true'
+      NACOS_CONFIG_ENABLED: 'true'
+      DB_USERNAME: ${MYSQL_USER:-agritainmen}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-change-me}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-agritainmen}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-change-me}
+      JWT_SECRET: ${JWT_SECRET:-replace-with-at-least-32-bytes-secret}
+      DB_URL: jdbc:mysql://mysql:3306/agritainmen_inventory?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      SPRING_PROFILES_ACTIVE: staging
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-agritainmen-staging}
+      NACOS_GROUP: ${NACOS_GROUP:-AGRITAINMEN_STAGING}
+      AGRITAINMEN_DEMO_SEED_ENABLED: ${AGRITAINMEN_DEMO_SEED_ENABLED:-true}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - http://127.0.0.1:8080/actuator/health
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  order-service:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.service
+      args:
+        SERVICE: order-service
+    image: agritainmen/order-service:local
+    environment:
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Shanghai
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_DISCOVERY_ENABLED: 'true'
+      NACOS_CONFIG_ENABLED: 'true'
+      DB_USERNAME: ${MYSQL_USER:-agritainmen}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-change-me}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-agritainmen}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-change-me}
+      JWT_SECRET: ${JWT_SECRET:-replace-with-at-least-32-bytes-secret}
+      DB_URL: jdbc:mysql://mysql:3306/agritainmen_order?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      SPRING_PROFILES_ACTIVE: staging
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-agritainmen-staging}
+      NACOS_GROUP: ${NACOS_GROUP:-AGRITAINMEN_STAGING}
+      AGRITAINMEN_DEMO_SEED_ENABLED: ${AGRITAINMEN_DEMO_SEED_ENABLED:-true}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - http://127.0.0.1:8080/actuator/health
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  payment-service:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.service
+      args:
+        SERVICE: payment-service
+    image: agritainmen/payment-service:local
+    environment:
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Shanghai
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_DISCOVERY_ENABLED: 'true'
+      NACOS_CONFIG_ENABLED: 'true'
+      DB_USERNAME: ${MYSQL_USER:-agritainmen}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-change-me}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-agritainmen}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-change-me}
+      JWT_SECRET: ${JWT_SECRET:-replace-with-at-least-32-bytes-secret}
+      DB_URL: jdbc:mysql://mysql:3306/agritainmen_payment?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      SPRING_PROFILES_ACTIVE: staging
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-agritainmen-staging}
+      NACOS_GROUP: ${NACOS_GROUP:-AGRITAINMEN_STAGING}
+      AGRITAINMEN_DEMO_SEED_ENABLED: ${AGRITAINMEN_DEMO_SEED_ENABLED:-true}
+      AGRITAINMEN_PAYMENT_PROVIDER: ${AGRITAINMEN_PAYMENT_PROVIDER:-sandbox}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - http://127.0.0.1:8080/actuator/health
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  fulfillment-service:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.service
+      args:
+        SERVICE: fulfillment-service
+    image: agritainmen/fulfillment-service:local
+    environment:
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Shanghai
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_DISCOVERY_ENABLED: 'true'
+      NACOS_CONFIG_ENABLED: 'true'
+      DB_USERNAME: ${MYSQL_USER:-agritainmen}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-change-me}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-agritainmen}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-change-me}
+      JWT_SECRET: ${JWT_SECRET:-replace-with-at-least-32-bytes-secret}
+      AUTH_SERVICE_BASE_URL: http://auth-service:8080
+      DB_URL: jdbc:mysql://mysql:3306/agritainmen_fulfillment?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      SPRING_PROFILES_ACTIVE: staging
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-agritainmen-staging}
+      NACOS_GROUP: ${NACOS_GROUP:-AGRITAINMEN_STAGING}
+      AGRITAINMEN_DEMO_SEED_ENABLED: ${AGRITAINMEN_DEMO_SEED_ENABLED:-true}
+      AGRITAINMEN_LOGISTICS_PROVIDER: ${AGRITAINMEN_LOGISTICS_PROVIDER:-sandbox}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - http://127.0.0.1:8080/actuator/health
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  settlement-service:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.service
+      args:
+        SERVICE: settlement-service
+    image: agritainmen/settlement-service:local
+    environment:
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Shanghai
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_DISCOVERY_ENABLED: 'true'
+      NACOS_CONFIG_ENABLED: 'true'
+      DB_USERNAME: ${MYSQL_USER:-agritainmen}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-change-me}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-agritainmen}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-change-me}
+      JWT_SECRET: ${JWT_SECRET:-replace-with-at-least-32-bytes-secret}
+      DB_URL: jdbc:mysql://mysql:3306/agritainmen_settlement?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      SPRING_PROFILES_ACTIVE: staging
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-agritainmen-staging}
+      NACOS_GROUP: ${NACOS_GROUP:-AGRITAINMEN_STAGING}
+      AGRITAINMEN_DEMO_SEED_ENABLED: ${AGRITAINMEN_DEMO_SEED_ENABLED:-true}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - http://127.0.0.1:8080/actuator/health
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  platform-admin-service:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.service
+      args:
+        SERVICE: platform-admin-service
+    image: agritainmen/platform-admin-service:local
+    environment:
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Shanghai
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_DISCOVERY_ENABLED: 'true'
+      NACOS_CONFIG_ENABLED: 'true'
+      DB_USERNAME: ${MYSQL_USER:-agritainmen}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-change-me}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-agritainmen}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-change-me}
+      JWT_SECRET: ${JWT_SECRET:-replace-with-at-least-32-bytes-secret}
+      DB_URL: jdbc:mysql://mysql:3306/agritainmen_admin?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      SPRING_PROFILES_ACTIVE: staging
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-agritainmen-staging}
+      NACOS_GROUP: ${NACOS_GROUP:-AGRITAINMEN_STAGING}
+      AGRITAINMEN_DEMO_SEED_ENABLED: ${AGRITAINMEN_DEMO_SEED_ENABLED:-true}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - http://127.0.0.1:8080/actuator/health
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  notification-service:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.service
+      args:
+        SERVICE: notification-service
+    image: agritainmen/notification-service:local
+    environment:
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Shanghai
+      NACOS_SERVER_ADDR: nacos:8848
+      NACOS_DISCOVERY_ENABLED: 'true'
+      NACOS_CONFIG_ENABLED: 'true'
+      DB_USERNAME: ${MYSQL_USER:-agritainmen}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-change-me}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-agritainmen}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-change-me}
+      JWT_SECRET: ${JWT_SECRET:-replace-with-at-least-32-bytes-secret}
+      DB_URL: jdbc:mysql://mysql:3306/agritainmen_notification?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+      SPRING_PROFILES_ACTIVE: staging
+      NACOS_NAMESPACE: ${NACOS_NAMESPACE:-agritainmen-staging}
+      NACOS_GROUP: ${NACOS_GROUP:-AGRITAINMEN_STAGING}
+      AGRITAINMEN_DEMO_SEED_ENABLED: ${AGRITAINMEN_DEMO_SEED_ENABLED:-true}
+      AGRITAINMEN_SMS_PROVIDER: ${AGRITAINMEN_SMS_PROVIDER:-sandbox}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - http://127.0.0.1:8080/actuator/health
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  prometheus:
+    image: prom/prometheus:v3.6.0
+    volumes:
+    - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    restart: unless-stopped
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      API_DOMAIN: ${API_DOMAIN:-api-staging.example.com}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:-admin-staging.example.com}
+      ACME_EMAIL: ${ACME_EMAIL:-ops@example.com}
+    ports:
+    - 80:80
+    - 443:443
+    volumes:
+    - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    - ../../apps/admin/dist/build/h5:/srv/admin:ro
+    - caddy-data:/data
+    - caddy-config:/config
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+volumes:
+  mysql-data: null
+  redis-data: null
+  rabbitmq-data: null
+  nacos-data: null
+  minio-data: null
+  caddy-data: null
+  caddy-config: null

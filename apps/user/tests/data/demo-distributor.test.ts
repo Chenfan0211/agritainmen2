@@ -35,7 +35,7 @@ describe('user demo distributor and cart seeds', () => {
     expect(readCUserSession('U-SEED').cart.length).toBeGreaterThanOrEqual(1)
 
     const store = createUserStore()
-    store.$patch({ userId: 'U-EMPTY', mockScenario: 'empty', auth: { isLoggedIn: true, openid: 'openid-empty' } })
+    store.$patch({ userId: 'U-EMPTY', mockScenario: 'empty' })
     expect(store.seedDemoData()).toBe(false)
     expect(readCDistributorProfiles()?.['U-EMPTY']).toBeUndefined()
     expect(readCUserSession('U-EMPTY').cart).toEqual([])

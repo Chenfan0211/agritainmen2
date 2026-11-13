@@ -1,10 +1,54 @@
 import { defineStore } from 'pinia'
 import type { AdminAccount, AdminMenuKey, AdminPermissionCode, AdminRole, AfterSale, BusinessMediaValue, CatalogStockLogEntry, CatalogProduct, CatalogProductSubmission, CatalogState, Category, CCommissionAllocation, CDistributorProfile, CommissionRule, CommissionSettlementRecord, COrder, CProduct, DictGroup, DictItem, FarmAdministrativeAddress, FarmStore, GeocodeRequest, GeocodeResult, MockScenario, Order, PlatformAuditLogEntry, PlatformDictionaryState, PlatformEntities, PlatformJournalEntry, PlatformRecoveryHandlerKey, PlatformTransactionStep, PricePolicy, PriceTier, PricingDefaults, Product, Promoter, ShareConfig, StoreAccount, Supplier, SupplierAccount, SupplierSettlementRecord, WithdrawalRequestStatus, WriteResult } from '@agritainment/shared'
+import { apiRequest, createAdminQueryClient, createCatalogApiClient, createIdempotencyKey, getApiClientConfig } from '@agritainment/shared'
 import { addDictGroup as addSharedDictGroup, addDictItem as addSharedDictItem, ADMIN_SUPER_ROLE_ID, appendCatalogStockLogs, appendPlatformAuditLog, approveCatalogProductSubmission as approveSharedCatalogProductSubmission, authenticateAdmin, buildFarmAdministrativeAddress, buildPromoterAccountSeeds, buildSupplierAccountSeeds, canPublishPlatformDictionaries, CATALOG_PRODUCT_REVIEW_RECOVERY_HANDLER_KEY, catalogChannelFlags, catalogProductStockWarnings, catalogProductToCProduct, catalogSkuNeedsRestock, catalogProductToProduct, clearPlatformJson, cloneSeed, confirmCSubOrderReceiptAtSupplier, createCatalogProductReviewRecoveryHandlerRegistration, createCatalogProductSubmission, createGeocodeProviders, createId, createPlatformAuditLogEntry, createPlatformProductionRecoveryHandlerRegistration, createStrictSnapshotRecoveryHandlerRegistration, createUserAtomicRecoveryHandlerRegistrations, DEFAULT_PRICING_DEFAULTS, deriveCOrderStatus, DICTIONARY_SCHEMA_VERSION, emptyPlatformMedia, enqueuePlatformRecovery, ensureCatalogState, formatFarmAdministrativeAddress, geocodeAddress, getPlatformProviders, hasAdminMenu, hasAdminPermission, initializePlatformRecoveryHandlers, mergeEntitySeeds, mergePlatformAfterSales, mergePlatformEntities, mergePlatformOrders, mergePlatformPromoterAccounts, mergePlatformStoreAccounts, mergePlatformSupplierAccounts, migrateFarmAdministrativeAddress, normalizeCProducts, normalizeMediaReference, pendingShareTotal, persistPlatformEntity, PLATFORM_AFTERSALES_STORAGE_KEY, PLATFORM_AUDIT_LOG_STORAGE_KEY, PLATFORM_C_COMMISSIONS_STORAGE_KEY, PLATFORM_C_ORDERS_STORAGE_KEY, PLATFORM_CATALOG_PRODUCT_SUBMISSIONS_STORAGE_KEY, PLATFORM_CATALOG_STORAGE_KEY, PLATFORM_COMMISSION_RULES_STORAGE_KEY, PLATFORM_COMMISSION_SETTLEMENT_RECORDS_STORAGE_KEY, PLATFORM_ENTITIES_STORAGE_KEY, PLATFORM_ORDERS_STORAGE_KEY, PLATFORM_SETTLEMENTS_STORAGE_KEY, PLATFORM_SHARES_STORAGE_KEY, PLATFORM_SUPPLIER_SETTLEMENTS_STORAGE_KEY, preparePlatformJournal, readCatalogProductSubmissionState, readCatalogState, readCCommissionRecords, readCDistributorProfiles, readCInventoryState, readCOrders, readPlatformAdminAccounts, readPlatformAdminRoles, readPlatformAfterSales, readPlatformAuditLogs, readPlatformCollectionRevision, readPlatformCommissionRules, readPlatformCommissionSettlementRecords, readPlatformCommissionSettlements, readPlatformDictionaries, readPlatformDrivers, readPlatformEntities, readPlatformJournal, readPlatformJson, readPlatformMedia, readPlatformOrders, readPlatformPromoterAccountState, readPlatformRecoveryQueue, readPlatformStoreAccounts, readPlatformSupplierAccounts, readPlatformSupplierSettlements, readPlatformWithdrawals, readPricingDefaults, readShareConfig, readShareRecords, reconcilePendingPlatformTransactions, rejectCatalogProductSubmission as rejectSharedCatalogProductSubmission, removeDictGroup as removeSharedDictGroup, removeDictItem as removeSharedDictItem, resolvePlatformJournal, resolvePlatformRecoveryTask, retryPlatformRecoveryTask, round2, runLockedPlatformTransaction, saveCatalogProduct as persistCatalogProduct, seedCCommerceData, seedPlatformAdminSecurity, syncCSubOrderFromSupplier, todayString, updateDictGroup as updateSharedDictGroup, updateDictItem as updateSharedDictItem, upsertPlatformFarm, validatePhone, writeCatalogState, writeCCommissionRecords, writeCDistributorProfiles, writeCOrders, writePlatformAdminAccounts, writePlatformAdminRoles, writePlatformAfterSales, writePlatformCommissionRules, writePlatformCommissionSettlementRecords, writePlatformCommissionSettlements, writePlatformEntities, writePlatformJson, writePlatformMedia, writePlatformOrders, writePlatformPromoterAccounts, writePlatformStoreAccounts, writePlatformSupplierAccounts, writePlatformSupplierSettlements, writePricingDefaults, writeShareConfig, writeShareRecords } from '@agritainment/shared'
 import { PLATFORM_ADMIN_ACCOUNTS_STORAGE_KEY, PLATFORM_ADMIN_ROLES_STORAGE_KEY, PLATFORM_C_DISTRIBUTORS_STORAGE_KEY, PLATFORM_DICTIONARIES_STORAGE_KEY, PLATFORM_MEDIA_STORAGE_KEY, PLATFORM_PRICING_DEFAULTS_STORAGE_KEY, PLATFORM_PROMOTER_ACCOUNTS_STORAGE_KEY, PLATFORM_RECOVERY_QUEUE_STORAGE_KEY, PLATFORM_SHARE_CONFIG_STORAGE_KEY, PLATFORM_STORE_ACCOUNTS_STORAGE_KEY, PLATFORM_SUPPLIER_ACCOUNTS_STORAGE_KEY, PLATFORM_TRANSACTION_JOURNAL_STORAGE_KEY, PLATFORM_WITHDRAWALS_STORAGE_KEY } from '@agritainment/shared'
 import { demoAdminExportRecords, seedAdminDemoDataOnce } from '../data/demo-admin'
 import { adminRepository } from '../services/repository'
 import { buildSupplierQualification, readSupplierQualificationFields } from '../media-dictionary'
+import { farmFromDto, portableProfileImage, supplierFromDto, type FarmDto, type SupplierDto } from '../services/org-profile-api'
+import { clearAdminAccessToken, saveAdminAccessToken } from '../services/api-runtime'
+
+interface AdminApiProfile {
+  actorType: string
+  actorId: string
+  tenantId: string
+  displayName?: string | null
+  roles: string[]
+  permissions: string[]
+}
+
+function roleFromApiProfile(profile: AdminApiProfile): AdminRole {
+  const code = profile.roles[0] || 'admin'
+  const permissions = profile.permissions || []
+  const superAdmin = permissions.includes('*')
+  const menuScopes: Partial<Record<AdminMenuKey, string[]>> = {
+    suppliers: ['supplier.'], farms: ['farm.'], products: ['product.'], categories: ['category.'],
+    prices: ['price.'], orders: ['order.'], afterSales: ['afterSale.'], promoters: ['promoter.'],
+    commissions: ['commission.', 'withdrawal.'], users: ['user.'], leaders: ['leader.'],
+    dict: ['dictionary.'], logs: ['audit.'], roles: ['admin.role.'], accounts: ['admin.account.'],
+    reports: ['report.']
+  }
+  const menuPermissions = (Object.keys(menuScopes) as AdminMenuKey[]).filter(menu =>
+    superAdmin || permissions.some(permission => menuScopes[menu]!.some(scope => permission.startsWith(scope))))
+  return { id: superAdmin ? ADMIN_SUPER_ROLE_ID : `API-${code}`, code, name: code,
+    menuPermissions: ['dashboard', ...menuPermissions], actionPermissions: permissions, enabled: true,
+    system: false, createdAt: '', updatedAt: '' }
+}
+
+interface SupplierAccountDto {
+  id: string
+  supplierId: string
+  account: string
+  displayName: string
+  enabled: boolean
+  freezeReason?: string | null
+  initialPassword?: string | null
+}
+
+function supplierAccountFromDto(dto: SupplierAccountDto, supplierName: string): SupplierAccount {
+  return { id: dto.id, supplierId: dto.supplierId, supplierName, account: dto.account, password: '', enabled: dto.enabled, freezeReason: dto.freezeReason || undefined, createdAt: '', updatedAt: '' }
+}
 
 interface AdminState {
   initialized: boolean
@@ -13,6 +57,7 @@ interface AdminState {
   mockScenario: MockScenario
   suppliers: Supplier[]
   supplierAccounts: SupplierAccount[]
+  newSupplierCredential: { account: string; password: string } | null
   products: Product[]
   cProducts: CProduct[]
   catalogProducts: CatalogProduct[]
@@ -37,8 +82,10 @@ interface AdminState {
   storeAccounts: StoreAccount[]
   exportRecords: Array<{ id: string; module: string; count: number; createdAt: string }>
   notificationsRead: boolean
+  adminUsers: Array<{ id: string; nickname?: string; phone?: string; level?: string; leaderId?: string; parentLeaderId?: string; sourceChannel?: string; status?: string }>
   adminRoles: AdminRole[]
   adminAccounts: AdminAccount[]
+  apiRole: AdminRole | null
   auth: { isLoggedIn: boolean; account: string; accountId: string; roleId: string; roleCode: string; name: string }
 }
 
@@ -743,6 +790,38 @@ async function updateFarmCoordinates(farm: FarmStore, geocode: FarmGeocoder): Pr
   }
 }
 
+async function prepareFarmApiProfile(payload: FarmSavePayload, geocode: FarmGeocoder, current?: FarmStore): Promise<FarmStore | null> {
+  const address = resolveFarmAddress(payload, current)
+  if (!payload.name.trim() || !address) return null
+  const farm = current ? { ...current } : farmFromDto({ id: '', name: payload.name.trim(), region: address.region })
+  const changed = !current || current.address !== address.address || current.regionCode !== address.regionCode
+  farm.name = payload.name.trim()
+  farm.region = address.region
+  farm.city = address.city
+  farm.address = address.address
+  farm.regionCode = address.regionCode
+  farm.structuredAddress = address.structuredAddress
+  farm.contact = payload.contact?.trim() ?? current?.contact ?? ''
+  farm.contactPhone = payload.contactPhone?.trim() ?? current?.contactPhone ?? ''
+  farm.tags = payload.tags ?? current?.tags ?? ['新入驻']
+  farm.rating = payload.rating ?? current?.rating ?? 5
+  farm.averageSpend = payload.averageSpend ?? current?.averageSpend ?? 0
+  farm.status = payload.status ?? current?.status ?? 'pending'
+  farm.image = normalizeMediaReference(payload.image) ?? current?.image ?? { source: 'builtin', path: '/static/images/farmhouse.jpg' }
+  if (changed || payload.forceGeocode) {
+    try { await updateFarmCoordinates(farm, geocode) }
+    catch { delete farm.location; farm.locationStatus = 'failed'; farm.locationError = 'REQUEST_FAILED' }
+  }
+  return farm
+}
+
+function farmApiBody(farm: FarmStore) {
+  return {
+    name: farm.name, region: farm.region, contact: farm.contact, contactPhone: farm.contactPhone, status: farm.status,
+    profile: { city: farm.city, districtCode: farm.regionCode, detail: farm.structuredAddress?.detail || '', address: farm.address, structuredAddress: farm.structuredAddress, tags: farm.tags, rating: farm.rating, averageSpend: farm.averageSpend, image: farm.image, location: farm.location, locationStatus: farm.locationStatus, locationError: farm.locationError }
+  }
+}
+
 export const useAdminStore = defineStore('operations', {
   state: (): AdminState => ({
     initialized: false,
@@ -751,6 +830,7 @@ export const useAdminStore = defineStore('operations', {
     mockScenario: 'normal',
     suppliers: [],
     supplierAccounts: [],
+    newSupplierCredential: null,
     products: [],
     cProducts: [],
     catalogProducts: [],
@@ -775,8 +855,10 @@ export const useAdminStore = defineStore('operations', {
     storeAccounts: [],
     exportRecords: [],
     notificationsRead: false,
+    adminUsers: [],
     adminRoles: [],
     adminAccounts: [],
+    apiRole: null,
     auth: { isLoggedIn: false, account: '', accountId: '', roleId: '', roleCode: '', name: '' }
   }),
   getters: {
@@ -815,6 +897,27 @@ export const useAdminStore = defineStore('operations', {
     },
     async initialize(force = false) {
       if ((!force && this.initialized) || this.loading) return
+      if (getApiClientConfig().dataMode === 'api') {
+        if (!getApiClientConfig().getAccessToken?.()) {
+          this.auth = { isLoggedIn: false, account: '', accountId: '', roleId: '', roleCode: '', name: '' }
+          this.apiRole = null
+          this.initialized = true
+          return
+        }
+        try {
+          const profile = await apiRequest<AdminApiProfile>('/api/v1/auth/me')
+          if (profile.actorType !== 'admin' || profile.tenantId !== 'PLATFORM') throw new Error('当前账号无权访问运营后台')
+          this.apiRole = roleFromApiProfile(profile)
+          this.auth = { isLoggedIn: true, account: this.auth.account || profile.actorId, accountId: profile.actorId,
+            roleId: this.apiRole.id, roleCode: this.apiRole.code, name: profile.displayName || this.auth.name || profile.actorId }
+        } catch (error) {
+          clearAdminAccessToken()
+          this.auth = { isLoggedIn: false, account: '', accountId: '', roleId: '', roleCode: '', name: '' }
+          this.apiRole = null
+          this.error = error instanceof Error ? error.message : '登录已失效，请重新登录'
+          return
+        }
+      }
       const hasPersistedData = !force && this.mockScenario === 'normal' && (this.suppliers.length > 0 || this.products.length > 0 || this.orders.length > 0)
       this.loading = true
       this.error = ''
@@ -824,17 +927,32 @@ export const useAdminStore = defineStore('operations', {
         if (!productReviewReconciliation.ok) throw new Error(productReviewReconciliation.message)
         seedCCommerceData()
         if (!seedPlatformAdminSecurity()) throw new Error('后台权限数据初始化失败')
-        const data = await adminRepository.loadDashboard(this.mockScenario)
+        const apiMode = getApiClientConfig().dataMode === 'api'
+        const data = apiMode
+          ? { ...(await adminRepository.loadDashboard('normal')),
+              suppliers: this.canMenu('suppliers') ? (await apiRequest<SupplierDto[]>('/api/v1/org/suppliers')).map(supplierFromDto) : [],
+              products: this.canMenu('products') ? (await createCatalogApiClient().listProducts({ pageSize: 200 })).items : [],
+              categories: this.canMenu('categories') ? (await createAdminQueryClient().categories()).map((item) => ({ id: item.id, name: item.name, sort: item.sortOrder, enabled: item.enabled }) as never) : [],
+              pricePolicies: this.canMenu('prices') ? (await createAdminQueryClient().prices()).map((item) => ({ id: item.id, name: item.name, scope: item.scope, discountRate: item.discountRate, enabled: item.enabled }) as never) : [],
+              afterSales: this.canMenu('afterSales') ? (await createAdminQueryClient().afterSales()).items.map((item) => ({ id: item.id, orderId: item.orderId, type: item.type, status: item.status, amount: item.amount, refundAmount: item.refunded }) as never) : [],
+              commissionSettlements: this.canMenu('commissions') ? (await createAdminQueryClient().commissions()).items.map((item) => ({ id: item.id, amount: item.amount, status: item.status }) as never) : [],
+              orders: this.canMenu('orders') ? (await apiRequest<{ items: Array<{ id: string; orderNo: string; buyerId: string; status: string; amountCents: number }> }>('/api/v1/orders?page=1&pageSize=200')).items.map((item) => ({ id: item.id, orderNo: item.orderNo, storeId: item.buyerId, amount: item.amountCents / 100, status: item.status === 'PENDING_PAYMENT' ? 'pending-payment' : 'pending', createdAt: '', items: [] }) as never) : [],
+              farms: this.canMenu('farms') ? (await apiRequest<FarmDto[]>('/api/v1/org/farms')).map(farmFromDto) : []
+            }
+          : await adminRepository.loadDashboard(this.mockScenario)
+        const serverSupplierAccounts = apiMode && this.canMenu('suppliers')
+          ? await apiRequest<SupplierAccountDto[]>('/api/v1/auth/admin/supplier-accounts') : []
         const legacyProducts = hasPersistedData ? mergeEntitySeeds(data.products, this.products) : data.products
         const cInventory = readCInventoryState()
-        const catalog = readCatalogState() ?? ensureCatalogState(legacyProducts, normalizeCProducts(cInventory?.products || []))
+        const catalog = apiMode ? null : readCatalogState() ?? ensureCatalogState(legacyProducts, normalizeCProducts(cInventory?.products || []))
         const productSubmissionState = readCatalogProductSubmissionState()
-        const storeProducts = catalog.products.filter((product) => catalogChannelFlags(product.channel).store).map(catalogProductToProduct)
-        const liveProducts = catalog.products.filter((product) => catalogChannelFlags(product.channel).live).map(catalogProductToCProduct)
+        const apiProducts = apiMode ? data.products : []
+        const storeProducts = apiMode ? apiProducts : catalog!.products.filter((product) => catalogChannelFlags(product.channel).store).map(catalogProductToProduct)
+        const liveProducts = apiMode ? [] : catalog!.products.filter((product) => catalogChannelFlags(product.channel).live).map(catalogProductToCProduct)
         const platformEntities = readPlatformEntities()
-        const legacySuppliers = hasPersistedData ? mergeEntitySeeds(data.suppliers, this.suppliers) : data.suppliers
+        const legacySuppliers = apiMode ? data.suppliers : hasPersistedData ? mergeEntitySeeds(data.suppliers, this.suppliers) : data.suppliers
         const legacySupplierIds = new Set(legacySuppliers.map((supplier) => supplier.id))
-        const mergedSuppliers = mergePlatformEntities(legacySuppliers, platformEntities?.suppliers)
+        const mergedSuppliers = apiMode ? legacySuppliers : mergePlatformEntities(legacySuppliers, platformEntities?.suppliers)
         const resolvedSuppliers = [
           ...mergedSuppliers.filter((supplier) => !legacySupplierIds.has(supplier.id)).reverse(),
           ...mergedSuppliers.filter((supplier) => legacySupplierIds.has(supplier.id))
@@ -847,18 +965,20 @@ export const useAdminStore = defineStore('operations', {
         const adminAccounts = readPlatformAdminAccounts()
         this.$patch({
           suppliers: resolvedSuppliers,
-          supplierAccounts: mergePlatformSupplierAccounts(buildSupplierAccountSeeds(resolvedSuppliers), readPlatformSupplierAccounts()),
+          supplierAccounts: apiMode
+            ? serverSupplierAccounts.map((account) => supplierAccountFromDto(account, resolvedSuppliers.find((supplier) => supplier.id === account.supplierId)?.name || account.displayName))
+            : mergePlatformSupplierAccounts(buildSupplierAccountSeeds(resolvedSuppliers), readPlatformSupplierAccounts()),
           products: storeProducts,
           cProducts: liveProducts,
-          catalogProducts: catalog.products,
-          catalogRevision: catalog.revision,
+          catalogProducts: catalog?.products ?? [],
+          catalogRevision: catalog?.revision ?? 0,
           productSubmissions: productSubmissionState?.submissions ?? [],
           productSubmissionRevision: productSubmissionState?.revision ?? 0,
           pricingDefaults: readPricingDefaults(),
           categories: mergeEntitySeeds(mergePlatformEntities(data.categories, platformEntities?.categories), hasPersistedData ? this.categories : []),
           orders: hasPersistedData ? mergeEntitySeeds(data.orders, this.orders) : data.orders,
           afterSales: hasPersistedData ? mergeEntitySeeds(data.afterSales, this.afterSales) : data.afterSales,
-          farms: mergeEntitySeeds(mergePlatformEntities(data.farms, platformEntities?.farms), hasPersistedData ? this.farms : []).map(migrateFarmAdministrativeAddress),
+          farms: apiMode ? data.farms : mergeEntitySeeds(mergePlatformEntities(data.farms, platformEntities?.farms), hasPersistedData ? this.farms : []).map(migrateFarmAdministrativeAddress),
           promoters: mergeEntitySeeds(mergePlatformEntities(data.promoters, platformEntities?.promoters), hasPersistedData ? this.promoters : []),
           policies: mergeEntitySeeds(mergePlatformEntities(data.pricePolicies, platformEntities?.policies), hasPersistedData ? this.policies : []),
           commissionRules: mergeEntitySeeds(mergeEntitySeeds(data.commissionRules, persistedCommissionRules), hasPersistedData ? this.commissionRules : []),
@@ -869,11 +989,12 @@ export const useAdminStore = defineStore('operations', {
           dictionaryRevision: dictionaries.revision,
           dictionaryUpdatedAt: dictionaries.updatedAt,
           storeAccounts: mergePlatformStoreAccounts(data.storeAccounts, readPlatformStoreAccounts()),
-          adminRoles,
-          adminAccounts,
+          adminUsers: apiMode && this.canMenu('users') ? (await createAdminQueryClient().users()).items : [],
+          adminRoles: apiMode ? (this.canMenu('roles') ? (await createAdminQueryClient().roles()).map((item) => ({ id: item.id, code: item.code, name: item.name, menuPermissions: [], actionPermissions: [], enabled: item.enabled }) as never) : []) : adminRoles,
+          adminAccounts: apiMode ? (this.canMenu('accounts') ? (await createAdminQueryClient().accounts()).map((item) => ({ id: item.id, account: item.account, name: item.displayName, roleId: item.roleCode || '', enabled: item.enabled }) as never) : []) : adminAccounts,
           initialized: true
         })
-        if (this.auth.isLoggedIn) {
+        if (this.auth.isLoggedIn && !apiMode) {
           const account = adminAccounts.find((item) => item.id === this.auth.accountId || item.account === this.auth.account)
           const role = adminRoles.find((item) => item.id === account?.roleId)
           if (!account?.enabled || !role?.enabled) this.logout()
@@ -1132,6 +1253,21 @@ export const useAdminStore = defineStore('operations', {
       return { ok: true }
     },
     async toggleCatalogProduct(id: string) {
+      if (getApiClientConfig().dataMode === 'api') {
+        const item = this.catalogProducts.find((product) => product.id === id)
+        if (!item) return false
+        const enabled = item.status !== 'active'
+        try {
+          await apiRequest('/api/v1/catalog/products/' + encodeURIComponent(id), { method: 'PATCH', body: { enabled }, idempotencyKey: createIdempotencyKey('product-status') })
+          item.status = enabled ? 'active' : 'offline'
+          this.catalogProducts = this.catalogProducts.map((product) => product.id === id ? item : product)
+          this.products = this.products.map((product) => product.id === id ? { ...product, status: item.status } as never : product)
+          return true
+        } catch (error) {
+          this.error = error instanceof Error ? error.message : '商品状态更新失败'
+          return false
+        }
+      }
       const item = this.catalogProducts.find((product) => product.id === id)
       const collectionRevision = readPlatformCollectionRevision(PLATFORM_CATALOG_STORAGE_KEY)
       const current = readCatalogState()
@@ -1203,6 +1339,13 @@ export const useAdminStore = defineStore('operations', {
       return result
     },
     async updatePricingDefaults(defaults: PricingDefaults) {
+      if (getApiClientConfig().dataMode === 'api') {
+        try {
+          await apiRequest('/api/v1/catalog/pricing-defaults', { method: 'PUT', idempotencyKey: createIdempotencyKey('pricing'), body: { storeLevelARate: (defaults as never as { storeLevelDiscounts?: Record<string, number> }).storeLevelDiscounts?.A, storeLevelBRate: (defaults as never as { storeLevelDiscounts?: Record<string, number> }).storeLevelDiscounts?.B, storeLevelCRate: (defaults as never as { storeLevelDiscounts?: Record<string, number> }).storeLevelDiscounts?.C } })
+          this.pricingDefaults = { ...defaults }
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '修改价格默认值失败'; return false }
+      }
       const revision = readPlatformCollectionRevision(PLATFORM_PRICING_DEFAULTS_STORAGE_KEY)
       const previous = readPricingDefaults()
       const result = await this.executeAdminTransaction('price.manage', { module: 'prices', action: 'price.defaults.update', targetType: 'pricing-defaults', targetId: 'default', deniedMessage: '无权修改价格配置' }, {
@@ -1215,6 +1358,13 @@ export const useAdminStore = defineStore('operations', {
       return true
     },
     async updateLeaderPricing(defaults: PricingDefaults) {
+      if (getApiClientConfig().dataMode === 'api') {
+        try {
+          await apiRequest('/api/v1/catalog/prices', { method: 'PUT', idempotencyKey: createIdempotencyKey('leader-price'), body: { scope: 'leader', items: [{ id: 'level1', discountRate: defaults.level1Amount }, { id: 'level2', discountRate: defaults.level2Amount }] } })
+          this.pricingDefaults = { ...defaults }
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '修改团长价格失败'; return false }
+      }
       const revision = readPlatformCollectionRevision(PLATFORM_PRICING_DEFAULTS_STORAGE_KEY)
       const previous = readPricingDefaults()
       const result = await this.executeAdminTransaction('leader.price.manage', { module: 'leaders', action: 'leader.price.update', targetType: 'leader-price', targetId: 'default', deniedMessage: '无权修改团长价格', validationMessage: '团长价格配置不合法' }, {
@@ -1231,6 +1381,12 @@ export const useAdminStore = defineStore('operations', {
       return true
     },
     async updateLeaderShareRates(payload: { level1Rate: number; level2Rate: number }) {
+      if (getApiClientConfig().dataMode === 'api') {
+        try {
+          await apiRequest('/api/v1/commissions/share-config', { method: 'PUT', idempotencyKey: createIdempotencyKey('share'), body: { leaderLevel1Rate: payload.level1Rate, leaderLevel2Rate: payload.level2Rate } })
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '修改团长分成失败'; return false }
+      }
       const rawShareConfig = readPlatformJson(PLATFORM_SHARE_CONFIG_STORAGE_KEY)
       const revision = readPlatformCollectionRevision(PLATFORM_SHARE_CONFIG_STORAGE_KEY)
       const previous = readShareConfig()
@@ -1247,6 +1403,14 @@ export const useAdminStore = defineStore('operations', {
       return result.ok
     },
     async setLeaderStatus(userId: string, enabled: boolean) {
+      if (getApiClientConfig().dataMode === 'api') {
+        try {
+          await apiRequest('/api/v1/org/leaders/' + encodeURIComponent(userId), { method: 'PATCH', idempotencyKey: createIdempotencyKey('leader'), body: { status: enabled ? 'active' : 'paused' } })
+          const profiles = readCDistributorProfiles() || {}
+          if (profiles[userId]) { profiles[userId] = { ...profiles[userId], status: enabled ? 'active' : 'paused' }; writeCDistributorProfiles(profiles) }
+          return profiles[userId] || { id: userId, status: enabled ? 'active' : 'paused' } as never
+        } catch (error) { this.error = error instanceof Error ? error.message : '修改团长状态失败'; return null }
+      }
       const rawProfiles = readPlatformJson(PLATFORM_C_DISTRIBUTORS_STORAGE_KEY)
       const previous = readCDistributorProfiles() || {}
       const current = previous[userId]
@@ -1266,6 +1430,21 @@ export const useAdminStore = defineStore('operations', {
     },
     async addCategory(name: string, type: Category['type'], image?: DictItem['image']) {
       const trimmed = name.trim()
+      if (getApiClientConfig().dataMode === 'api') {
+        if (!trimmed) { this.error = '请填写品类名称'; return false }
+        try {
+          const created = await apiRequest<{ id: string; name: string }>('/api/v1/catalog/categories', {
+            method: 'POST',
+            idempotencyKey: createIdempotencyKey('category'),
+            body: { code: createId('PC'), name: trimmed, icon: typeof image === 'string' ? image : undefined, sortOrder: 0 },
+          })
+          this.categories = [...this.categories, { id: created.id, name: created.name, type } as never]
+          return true
+        } catch (error) {
+          this.error = error instanceof Error ? error.message : '新增品类失败'
+          return false
+        }
+      }
       if (type === 'product') {
         const id = createId('DI')
         const code = createId('PC')
@@ -1307,6 +1486,18 @@ export const useAdminStore = defineStore('operations', {
       return true
     },
     async updateCategory(id: string, name: string, type: Category['type'], image?: DictItem['image']) {
+      if (getApiClientConfig().dataMode === 'api') {
+        const trimmed = name.trim()
+        if (!trimmed) { this.error = '请填写品类名称'; return false }
+        try {
+          await apiRequest('/api/v1/catalog/categories/' + encodeURIComponent(id), { method: 'PUT', body: { name: trimmed }, idempotencyKey: createIdempotencyKey('category') })
+          this.categories = this.categories.map((item) => item.id === id ? { ...item, name: trimmed, type } : item)
+          return true
+        } catch (error) {
+          this.error = error instanceof Error ? error.message : '修改品类失败'
+          return false
+        }
+      }
       const trimmed = name.trim()
       const dictionaryItem = this.dictItems.find((item) => item.id === id && item.type === 'productCategory')
       if (dictionaryItem) {
@@ -1335,6 +1526,16 @@ export const useAdminStore = defineStore('operations', {
       return true
     },
     async removeCategory(id: string) {
+      if (getApiClientConfig().dataMode === 'api') {
+        try {
+          await apiRequest('/api/v1/catalog/categories/' + encodeURIComponent(id), { method: 'DELETE', idempotencyKey: createIdempotencyKey('category') })
+          this.categories = this.categories.filter((item) => item.id !== id)
+          return true
+        } catch (error) {
+          this.error = error instanceof Error ? error.message : '删除品类失败'
+          return false
+        }
+      }
       const dictionaryItem = this.dictItems.find((item) => item.id === id && item.type === 'productCategory')
       if (dictionaryItem) {
         const inUse = this.catalogProducts.some((product) => product.category === dictionaryItem.label)
@@ -1406,23 +1607,76 @@ export const useAdminStore = defineStore('operations', {
       return true
     },
     async addDictGroup(payload: { type: string; name: string }) {
+      if (getApiClientConfig().dataMode === 'api') {
+        try {
+          await apiRequest('/api/v1/admin/dictionaries', { method: 'POST', idempotencyKey: createIdempotencyKey('dict'), body: { groupCode: payload.type, itemCode: 'group:' + payload.type, label: payload.name.trim(), sortOrder: 0 } })
+          this.dictGroups = [...this.dictGroups, { id: createId('DG'), type: payload.type.trim(), name: payload.name.trim() } as never]
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '新增字典分组失败'; return false }
+      }
       return this.publishDictionaryMutation({ module: 'dict', action: 'dictionary.group.create', targetType: 'dictionary-group', deniedMessage: '无权新增字典分组' }, (state) => addSharedDictGroup(state, { id: createId('DG'), type: payload.type.trim(), name: payload.name.trim() }))
     },
     async updateDictGroup(id: string, payload: { type?: string; name?: string; enabled?: boolean }) {
+      if (getApiClientConfig().dataMode === 'api') {
+        const group = this.dictGroups.find((candidate) => candidate.id === id)
+        if (!group) { this.error = '字典分组不存在'; return false }
+        try {
+          await apiRequest('/api/v1/admin/dictionaries', { method: 'PUT', idempotencyKey: createIdempotencyKey('dict'), body: { groupCode: group.type, itemCode: 'group:' + group.type, label: payload.name ?? group.name, sortOrder: 0, enabled: payload.enabled ?? true } })
+          this.dictGroups = this.dictGroups.map((candidate) => candidate.id === id ? { ...candidate, ...payload } as never : candidate)
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '修改字典分组失败'; return false }
+      }
       return this.publishDictionaryMutation({ module: 'dict', action: 'dictionary.group.update', targetType: 'dictionary-group', targetId: id, deniedMessage: '无权修改字典分组' }, (state) => updateSharedDictGroup(state, id, payload))
     },
     async removeDictGroup(id: string) {
+      if (getApiClientConfig().dataMode === 'api') {
+        const group = this.dictGroups.find((candidate) => candidate.id === id)
+        if (!group) { this.error = '字典分组不存在'; return false }
+        if (this.dictItems.some((item) => item.type === group.type)) { this.error = '该分组下还有字典项，请先清空'; return false }
+        try {
+          await apiRequest('/api/v1/admin/dictionaries?groupCode=' + encodeURIComponent(group.type) + '&itemCode=' + encodeURIComponent('group:' + group.type), { method: 'DELETE', idempotencyKey: createIdempotencyKey('dict') })
+          this.dictGroups = this.dictGroups.filter((candidate) => candidate.id !== id)
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '删除字典分组失败'; return false }
+      }
       return this.publishDictionaryMutation({ module: 'dict', action: 'dictionary.group.delete', targetType: 'dictionary-group', targetId: id, deniedMessage: '无权删除字典分组' }, (state) => removeSharedDictGroup(state, id), '该分组下还有字典项，请先清空')
     },
     async addDictItem(payload: { type: DictItem['type']; code: string; label: string; enabled?: boolean; sort?: number; tone?: DictItem['tone']; image?: DictItem['image'] }) {
+      if (getApiClientConfig().dataMode === 'api') {
+        try {
+          await apiRequest('/api/v1/admin/dictionaries', { method: 'POST', idempotencyKey: createIdempotencyKey('dict'), body: { groupCode: payload.type, itemCode: payload.code.trim(), label: payload.label.trim(), sortOrder: payload.sort ?? 0, enabled: payload.enabled ?? true } })
+          this.dictItems = [...this.dictItems, { id: createId('DI'), type: payload.type, code: payload.code.trim(), label: payload.label.trim(), enabled: payload.enabled ?? true, sort: payload.sort ?? 0, tone: payload.tone, image: payload.image } as never]
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '新增字典项失败'; return false }
+      }
       return this.publishDictionaryMutation({ module: 'dict', action: 'dictionary.item.create', targetType: 'dictionary-item', deniedMessage: '无权新增字典项' }, (state) => addSharedDictItem(state, {
         id: createId('DI'), type: payload.type, code: payload.code.trim(), label: payload.label.trim(), enabled: payload.enabled ?? true, sort: payload.sort ?? 0, tone: payload.tone, image: payload.image
       }))
     },
     async updateDictItem(id: string, payload: { code?: string; label?: string; enabled?: boolean; sort?: number; tone?: DictItem['tone']; image?: DictItem['image'] }) {
+      if (getApiClientConfig().dataMode === 'api') {
+        const item = this.dictItems.find((candidate) => candidate.id === id)
+        if (!item) { this.error = '字典项不存在'; return false }
+        try {
+          await apiRequest('/api/v1/admin/dictionaries', { method: 'PUT', idempotencyKey: createIdempotencyKey('dict'), body: { groupCode: item.type, itemCode: payload.code ?? item.code, label: payload.label ?? item.label, sortOrder: payload.sort ?? item.sort, enabled: payload.enabled ?? item.enabled } })
+          this.dictItems = this.dictItems.map((candidate) => candidate.id === id ? { ...candidate, ...payload } as never : candidate)
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '修改字典项失败'; return false }
+      }
       return this.publishDictionaryMutation({ module: 'dict', action: 'dictionary.item.update', targetType: 'dictionary-item', targetId: id, deniedMessage: '无权修改字典项' }, (state) => updateSharedDictItem(state, id, payload))
     },
     async removeDictItem(id: string) {
+      if (getApiClientConfig().dataMode === 'api') {
+        const item = this.dictItems.find((candidate) => candidate.id === id)
+        if (!item) { this.error = '字典项不存在'; return false }
+        if (item.type === 'productCategory' && this.catalogProducts.some((product) => product.category === item.label)) { this.error = '该品类正在被商品使用，不能删除'; return false }
+        try {
+          await apiRequest('/api/v1/admin/dictionaries?groupCode=' + encodeURIComponent(item.type) + '&itemCode=' + encodeURIComponent(item.code), { method: 'DELETE', idempotencyKey: createIdempotencyKey('dict') })
+          this.dictItems = this.dictItems.filter((candidate) => candidate.id !== id)
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '删除字典项失败'; return false }
+      }
+
       const item = this.dictItems.find((candidate) => candidate.id === id)
       const inUse = item?.type === 'productCategory' && this.catalogProducts.some((product) => product.category === item.label)
       return this.publishDictionaryMutation(
@@ -1432,6 +1686,13 @@ export const useAdminStore = defineStore('operations', {
       )
     },
     async addStoreAccount(payload: { farmId: string; name: string; account: string; password: string; role: StoreAccount['role']; promoEnabled?: boolean; priceLevel?: StoreAccount['priceLevel'] }) {
+      if (getApiClientConfig().dataMode === 'api') {
+        try {
+          const created = await apiRequest<{ id: string; farm_id: string; account: string; display_name: string }>('/api/v1/org/farm-accounts', { method: 'POST', idempotencyKey: createIdempotencyKey('store-account'), body: { farmId: payload.farmId, account: payload.account.trim(), displayName: payload.name.trim(), role: payload.role, priceLevel: payload.priceLevel } })
+          this.storeAccounts = [{ id: created.id, farmId: created.farm_id, name: created.display_name, account: created.account, password: payload.password, role: payload.role, enabled: true, promoEnabled: payload.promoEnabled ?? false, priceLevel: payload.priceLevel } as never, ...this.storeAccounts]
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '新增门店账号失败'; return false }
+      }
       const valid = !!payload.farmId && !!payload.name.trim() && !!payload.account.trim() && !!payload.password.trim() && !this.storeAccounts.some((item) => item.farmId === payload.farmId && item.account === payload.account)
       const revision = readPlatformCollectionRevision(PLATFORM_STORE_ACCOUNTS_STORAGE_KEY)
       const rawPersisted = readPlatformJson(PLATFORM_STORE_ACCOUNTS_STORAGE_KEY)
@@ -1448,6 +1709,13 @@ export const useAdminStore = defineStore('operations', {
       return true
     },
     async updateStoreAccount(id: string, payload: { name?: string; account?: string; password?: string; role?: StoreAccount['role']; enabled?: boolean; promoEnabled?: boolean; priceLevel?: StoreAccount['priceLevel'] }) {
+      if (getApiClientConfig().dataMode === 'api') {
+        try {
+          await apiRequest('/api/v1/org/farm-accounts/' + encodeURIComponent(id), { method: 'PUT', idempotencyKey: createIdempotencyKey('store-account'), body: { displayName: payload.name, priceLevel: payload.priceLevel, enabled: payload.enabled } })
+          this.storeAccounts = this.storeAccounts.map((candidate) => candidate.id === id ? { ...candidate, ...payload } as never : candidate)
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '修改门店账号失败'; return false }
+      }
       const revision = readPlatformCollectionRevision(PLATFORM_STORE_ACCOUNTS_STORAGE_KEY)
       const item = this.storeAccounts.find((candidate) => candidate.id === id)
       const nextItem = item ? { ...item } : null
@@ -1472,6 +1740,15 @@ export const useAdminStore = defineStore('operations', {
       return true
     },
     async toggleStoreAccount(id: string) {
+      if (getApiClientConfig().dataMode === 'api') {
+        const item = this.storeAccounts.find((candidate) => candidate.id === id)
+        if (!item) { this.error = '门店账号不存在'; return false }
+        try {
+          await apiRequest('/api/v1/org/farm-accounts/' + encodeURIComponent(id), { method: 'PATCH', idempotencyKey: createIdempotencyKey('store-account') })
+          this.storeAccounts = this.storeAccounts.map((candidate) => candidate.id === id ? { ...candidate, enabled: !candidate.enabled } as never : candidate)
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '启停门店账号失败'; return false }
+      }
       const revision = readPlatformCollectionRevision(PLATFORM_STORE_ACCOUNTS_STORAGE_KEY)
       const item = this.storeAccounts.find((candidate) => candidate.id === id)
       const rawPersisted = readPlatformJson(PLATFORM_STORE_ACCOUNTS_STORAGE_KEY)
@@ -1488,6 +1765,19 @@ export const useAdminStore = defineStore('operations', {
       return true
     },
     async inviteSupplier(payload: { name: string; category: string; region?: string; contactPhone?: string; brands?: string[]; serviceRegions?: string[]; businessLicenseNumber?: string; businessLicense?: BusinessMediaValue | null; permitNumber?: string; permit?: BusinessMediaValue | null; validUntil?: string; coop?: boolean }): Promise<{ ok: boolean; error?: string }> {
+      if (getApiClientConfig().dataMode === 'api') {
+        if (!this.can('supplier.create')) return { ok: false, error: '无权新增供应商' }
+        const phone = payload.contactPhone?.trim() || ''
+        if (!payload.name.trim() || !validatePhone(phone)) return { ok: false, error: !payload.name.trim() ? '请填写供应商名称' : '请输入正确的11位手机号' }
+        try {
+          const created = await apiRequest<SupplierDto>('/api/v1/org/suppliers', { method: 'POST', idempotencyKey: createIdempotencyKey('supplier'), body: {
+            name: payload.name.trim(), category: payload.category, region: payload.region?.trim(), contactPhone: phone,
+            profile: { coop: payload.coop ?? false, brands: payload.brands || [], serviceRegions: payload.serviceRegions || [], businessLicenseNumber: payload.businessLicenseNumber || '', businessLicense: await portableProfileImage(payload.businessLicense, undefined, 'supplier-business-license'), permitNumber: payload.permitNumber || '', permit: await portableProfileImage(payload.permit, undefined, 'supplier-permit'), validUntil: payload.validUntil || '' }
+          } })
+          this.suppliers.unshift(supplierFromDto(created))
+          return { ok: true }
+        } catch (error) { return { ok: false, error: error instanceof Error ? error.message : '供应商资料保存失败' } }
+      }
       const entityRevision = readPlatformCollectionRevision(PLATFORM_ENTITIES_STORAGE_KEY)
       const phone = payload.contactPhone?.trim() || ''
       const duplicate = this.suppliers.some((item) => item.contactPhone === phone) || this.supplierAccounts.some((item) => item.account === phone)
@@ -1523,6 +1813,22 @@ export const useAdminStore = defineStore('operations', {
       return { ok: true }
     },
     async updateSupplier(id: string, payload: { name: string; category: string; region?: string; contactPhone?: string; brands?: string[]; serviceRegions?: string[]; businessLicenseNumber?: string; businessLicense?: BusinessMediaValue | null; permitNumber?: string; permit?: BusinessMediaValue | null; validUntil?: string; coop?: boolean; password?: string }): Promise<{ ok: boolean; error?: string }> {
+      if (getApiClientConfig().dataMode === 'api') {
+        if (!this.can('supplier.update')) return { ok: false, error: '无权修改供应商' }
+        const current = this.suppliers.find((item) => item.id === id)
+        if (!current) return { ok: false, error: '供应商不存在' }
+        const phone = payload.contactPhone?.trim() || ''
+        if (!payload.name.trim() || !validatePhone(phone)) return { ok: false, error: !payload.name.trim() ? '请填写供应商名称' : '请输入正确的11位手机号' }
+        const qualification = readSupplierQualificationFields(current.qualification)
+        try {
+          const updated = await apiRequest<SupplierDto>('/api/v1/org/suppliers/' + encodeURIComponent(id), { method: 'PUT', idempotencyKey: createIdempotencyKey('supplier'), body: {
+            name: payload.name.trim(), category: payload.category, region: payload.region?.trim(), contactPhone: phone,
+            profile: { coop: payload.coop ?? current.coop ?? false, brands: payload.brands ?? current.brands ?? [], serviceRegions: payload.serviceRegions ?? current.serviceRegions ?? [], businessLicenseNumber: payload.businessLicenseNumber ?? qualification.businessLicenseNumber, businessLicense: await portableProfileImage(payload.businessLicense === undefined ? qualification.businessLicense : payload.businessLicense, undefined, 'supplier-business-license'), permitNumber: payload.permitNumber ?? qualification.permitNumber, permit: await portableProfileImage(payload.permit === undefined ? qualification.permit : payload.permit, undefined, 'supplier-permit'), validUntil: payload.validUntil ?? qualification.validUntil, reviewNote: qualification.reviewNote }
+          } })
+          this.suppliers = this.suppliers.map((item) => item.id === id ? { ...supplierFromDto(updated), productCount: item.productCount } : item)
+          return { ok: true }
+        } catch (error) { return { ok: false, error: error instanceof Error ? error.message : '供应商资料保存失败' } }
+      }
       const entityRevision = readPlatformCollectionRevision(PLATFORM_ENTITIES_STORAGE_KEY)
       const accountRevision = readPlatformCollectionRevision(PLATFORM_SUPPLIER_ACCOUNTS_STORAGE_KEY)
       const item = this.suppliers.find((supplier) => supplier.id === id)
@@ -1564,6 +1870,17 @@ export const useAdminStore = defineStore('operations', {
       return { ok: true }
     },
     async auditSupplier(id: string, approved: boolean) {
+      if (getApiClientConfig().dataMode === 'api') {
+        if (!this.can('supplier.audit')) { this.error = '无权审核供应商'; return false }
+        const item = this.suppliers.find((supplier) => supplier.id === id)
+        if (!item) return false
+        try {
+          const updated = await apiRequest<SupplierDto>('/api/v1/org/suppliers/' + encodeURIComponent(id) + '/audit', { method: 'POST', idempotencyKey: createIdempotencyKey('supplier-audit'), body: { approved } })
+          Object.assign(item, { ...supplierFromDto(updated), productCount: item.productCount })
+          if (approved) return this.retrySupplierAccountProvision(id)
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '供应商审核失败'; return false }
+      }
       const entityRevision = readPlatformCollectionRevision(PLATFORM_ENTITIES_STORAGE_KEY)
       const accountRevision = readPlatformCollectionRevision(PLATFORM_SUPPLIER_ACCOUNTS_STORAGE_KEY)
       const item = this.suppliers.find((supplier) => supplier.id === id)
@@ -1602,7 +1919,47 @@ export const useAdminStore = defineStore('operations', {
       this.supplierAccounts = nextAccounts
       return true
     },
+    async retrySupplierAccountProvision(id: string) {
+      if (getApiClientConfig().dataMode !== 'api') return false
+      if (!this.can('supplier.audit')) { this.error = '无权开通供应商账号'; return false }
+      const supplier = this.suppliers.find((item) => item.id === id)
+      if (!supplier?.certified || supplier.status !== 'cooperating' || !validatePhone(supplier.contactPhone || '')) {
+        this.error = '供应商尚未审核通过或手机号无效'
+        return false
+      }
+      try {
+        const account = await apiRequest<SupplierAccountDto>('/api/v1/auth/admin/supplier-accounts', {
+          method: 'POST', idempotencyKey: createIdempotencyKey('supplier-account'),
+          body: { supplierId: id, account: supplier.contactPhone, displayName: supplier.name }
+        })
+        this.supplierAccounts = [supplierAccountFromDto(account, supplier.name), ...this.supplierAccounts.filter((item) => item.supplierId !== id)]
+        this.newSupplierCredential = account.initialPassword ? { account: account.account, password: account.initialPassword } : null
+        this.error = account.initialPassword ? '' : '账号已存在；交付前请在账号信息中设置新密码'
+        return true
+      } catch (error) {
+        this.error = `资质审核已通过，账号开通失败：${error instanceof Error ? error.message : '请重试'}`
+        return false
+      }
+    },
     async restoreSupplierPending(id: string) {
+      if (getApiClientConfig().dataMode === 'api') {
+        const item = this.suppliers.find((supplier) => supplier.id === id)
+        if (!item) return false
+        try {
+          await apiRequest('/api/v1/org/suppliers/' + encodeURIComponent(id) + '/restore', { method: 'POST', idempotencyKey: createIdempotencyKey('supplier-restore') })
+          item.status = 'pending'
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '恢复待审核失败'; return false }
+      }
+      if (getApiClientConfig().dataMode === 'api') {
+        const item = this.suppliers.find((supplier) => supplier.id === id)
+        if (!item) return false
+        try {
+          await apiRequest('/api/v1/org/suppliers/' + encodeURIComponent(id) + '/restore', { method: 'POST', idempotencyKey: createIdempotencyKey('supplier-restore') })
+          item.status = 'pending'
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '恢复待审核失败'; return false }
+      }
       const revision = readPlatformCollectionRevision(PLATFORM_ENTITIES_STORAGE_KEY)
       const item = this.suppliers.find((supplier) => supplier.id === id)
       const next = item ? { ...item, status: 'pending' as const } : null
@@ -1613,6 +1970,17 @@ export const useAdminStore = defineStore('operations', {
       return true
     },
     async pauseSupplier(id: string, reason: string) {
+      if (getApiClientConfig().dataMode === 'api') {
+        const item = this.suppliers.find((supplier) => supplier.id === id)
+        if (!item) return false
+        if (!reason.trim()) { this.error = '请填写暂停原因'; return false }
+        try {
+          const updated = await apiRequest<SupplierDto>('/api/v1/org/suppliers/' + encodeURIComponent(id) + '/pause', { method: 'POST', idempotencyKey: createIdempotencyKey('supplier-pause'), body: { reason: reason.trim() } })
+          item.status = 'paused'
+          item.cooperationPauseReason = updated.cooperationPauseReason || undefined
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '暂停供应商失败'; return false }
+      }
       const revision = readPlatformCollectionRevision(PLATFORM_ENTITIES_STORAGE_KEY)
       const item = this.suppliers.find((supplier) => supplier.id === id)
       const pauseReason = reason.trim()
@@ -1624,6 +1992,16 @@ export const useAdminStore = defineStore('operations', {
       return true
     },
     async resumeSupplier(id: string) {
+      if (getApiClientConfig().dataMode === 'api') {
+        const item = this.suppliers.find((supplier) => supplier.id === id)
+        if (!item) return false
+        try {
+          await apiRequest('/api/v1/org/suppliers/' + encodeURIComponent(id) + '/resume', { method: 'POST', idempotencyKey: createIdempotencyKey('supplier-resume') })
+          item.status = 'cooperating'
+          delete item.cooperationPauseReason
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '恢复供应商失败'; return false }
+      }
       const revision = readPlatformCollectionRevision(PLATFORM_ENTITIES_STORAGE_KEY)
       const item = this.suppliers.find((supplier) => supplier.id === id)
       const next = item ? { ...item, status: 'cooperating' as const } : null
@@ -1638,6 +2016,26 @@ export const useAdminStore = defineStore('operations', {
       return true
     },
     async updateSupplierAccount(id: string, payload: { account?: string; password?: string; enabled?: boolean; freezeReason?: string }): Promise<{ ok: boolean; error?: string }> {
+      if (getApiClientConfig().dataMode === 'api') {
+        const existing = this.supplierAccounts.find((item) => item.supplierId === id)
+        if (!existing) return { ok: false, error: '供应商账号尚未开通' }
+        if (payload.account && payload.account.trim() !== existing.account) return { ok: false, error: '登录账号暂不支持修改' }
+        if (payload.password && (payload.password.length < 6 || payload.password.length > 64)) return { ok: false, error: '新密码需6-64位' }
+        if (payload.enabled === false && !payload.freezeReason?.trim()) return { ok: false, error: '请填写冻结原因' }
+        const reasonChanged = payload.freezeReason !== undefined && !existing.enabled && payload.enabled !== true
+        if (reasonChanged && !payload.freezeReason?.trim()) return { ok: false, error: '请填写冻结原因' }
+        if (payload.freezeReason !== undefined && existing.enabled && payload.enabled === undefined) return { ok: false, error: '启用中的账号不能设置冻结原因' }
+        if ((payload.enabled !== undefined || reasonChanged) && !this.can('supplier.account.freeze')) return { ok: false, error: '无权冻结或解冻供应商账号' }
+        if (payload.password && !this.can('supplier.account.update')) return { ok: false, error: '无权修改供应商账号' }
+        try {
+          const updated = await apiRequest<SupplierAccountDto>('/api/v1/auth/admin/supplier-accounts/' + encodeURIComponent(id), {
+            method: 'PATCH', idempotencyKey: createIdempotencyKey('supplier-account'),
+            body: { password: payload.password, enabled: payload.enabled, freezeReason: payload.enabled === false || reasonChanged ? payload.freezeReason?.trim() : undefined }
+          })
+          this.supplierAccounts = this.supplierAccounts.map((item) => item.supplierId === id ? supplierAccountFromDto(updated, item.supplierName) : item)
+          return { ok: true }
+        } catch (error) { return { ok: false, error: error instanceof Error ? error.message : '供应商账号保存失败' } }
+      }
       const revision = readPlatformCollectionRevision(PLATFORM_SUPPLIER_ACCOUNTS_STORAGE_KEY)
       const action = payload.enabled === false ? 'supplier.account.freeze' : payload.enabled === true ? 'supplier.account.unfreeze' : 'supplier.account.update'
       const permission: AdminPermissionCode = payload.enabled === undefined ? 'supplier.account.update' : 'supplier.account.freeze'
@@ -1657,6 +2055,13 @@ export const useAdminStore = defineStore('operations', {
       return { ok: true }
     },
     async createPolicy(name: string, type: PricePolicy['type'], scope: string, discount: number, tiers?: PriceTier[]) {
+      if (getApiClientConfig().dataMode === 'api') {
+        try {
+          const created = await apiRequest<{ id: string; name: string; scope: string; discount_rate?: number; enabled?: boolean }>('/api/v1/catalog/prices', { method: 'POST', idempotencyKey: createIdempotencyKey('policy'), body: { name, scope, discountRate: discount / 100, targetId: type } })
+          this.policies.unshift({ id: created.id, name: created.name, type, scope, discount: Math.round((created.discount_rate ?? discount / 100) * 100), enabled: created.enabled !== false, tiers: tiers ?? [] } as never)
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '新增价格策略失败'; return false }
+      }
       discount = round2(discount)
       const next = { id: createId('R'), name, type, scope, discount, enabled: true, tiers: tiers?.map((tier) => ({ ...tier, price: round2(tier.price) })) }
       const revision = readPlatformCollectionRevision(PLATFORM_ENTITIES_STORAGE_KEY)
@@ -1673,6 +2078,13 @@ export const useAdminStore = defineStore('operations', {
       return true
     },
     async updatePolicy(id: string, name: string, scope: string, discount: number, enabled?: boolean, tiers?: PriceTier[]) {
+      if (getApiClientConfig().dataMode === 'api') {
+        try {
+          await apiRequest('/api/v1/catalog/prices/' + encodeURIComponent(id), { method: 'PUT', idempotencyKey: createIdempotencyKey('policy'), body: { name, scope, discountRate: discount / 100, enabled } })
+          this.policies = this.policies.map((policy) => policy.id === id ? { ...policy, name, scope, discount, enabled: enabled ?? policy.enabled, tiers: tiers ?? policy.tiers } as never : policy)
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '修改价格策略失败'; return false }
+      }
       discount = round2(discount)
       const revision = readPlatformCollectionRevision(PLATFORM_ENTITIES_STORAGE_KEY)
       const previous = cloneSeed(readPlatformEntities() || { updatedAt: new Date(0).toISOString() })
@@ -1693,6 +2105,15 @@ export const useAdminStore = defineStore('operations', {
       return true
     },
     async togglePolicy(id: string) {
+      if (getApiClientConfig().dataMode === 'api') {
+        const policy = this.policies.find((candidate) => candidate.id === id)
+        if (!policy) { this.error = '价格策略不存在'; return false }
+        try {
+          await apiRequest('/api/v1/catalog/prices/' + encodeURIComponent(id), { method: 'PATCH', idempotencyKey: createIdempotencyKey('policy'), body: { enabled: !policy.enabled } })
+          this.policies = this.policies.map((candidate) => candidate.id === id ? { ...candidate, enabled: !candidate.enabled } as never : candidate)
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '启停价格策略失败'; return false }
+      }
       const revision = readPlatformCollectionRevision(PLATFORM_ENTITIES_STORAGE_KEY)
       const previous = cloneSeed(readPlatformEntities() || { updatedAt: new Date(0).toISOString() })
       const item = previous.policies?.[id] || this.policies.find((policy) => policy.id === id)
@@ -2105,6 +2526,18 @@ export const useAdminStore = defineStore('operations', {
       return true
     },
     async addFarm(payload: FarmSavePayload, geocode: FarmGeocoder = defaultFarmGeocoder) {
+      if (getApiClientConfig().dataMode === 'api') {
+        if (!this.can('farm.manage')) { this.error = '无权新增门店'; return false }
+        const farm = await prepareFarmApiProfile(payload, geocode)
+        if (!farm) { this.error = '请填写门店名称和地址'; return false }
+        if (farm.contactPhone && !validatePhone(farm.contactPhone)) { this.error = '请输入正确的11位门店联系人手机号'; return false }
+        try {
+          farm.image = await portableProfileImage(farm.image) ?? farm.image
+          const created = await apiRequest<FarmDto>('/api/v1/org/farms', { method: 'POST', idempotencyKey: createIdempotencyKey('farm'), body: farmApiBody(farm) })
+          this.farms.unshift(farmFromDto(created))
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '新增门店失败'; return false }
+      }
       const mediaRevision = readPlatformCollectionRevision(PLATFORM_MEDIA_STORAGE_KEY)
       const entityRevision = readPlatformCollectionRevision(PLATFORM_ENTITIES_STORAGE_KEY)
       const address = resolveFarmAddress(payload)
@@ -2142,6 +2575,20 @@ export const useAdminStore = defineStore('operations', {
       return true
     },
     async updateFarm(id: string, payload: FarmSavePayload, geocode: FarmGeocoder = defaultFarmGeocoder) {
+      if (getApiClientConfig().dataMode === 'api') {
+        if (!this.can('farm.manage')) { this.error = '无权修改门店'; return false }
+        const current = this.farms.find((item) => item.id === id)
+        if (!current) { this.error = '门店不存在'; return false }
+        const farm = await prepareFarmApiProfile(payload, geocode, current)
+        if (!farm) { this.error = '请填写门店名称和地址'; return false }
+        if (farm.contactPhone && !validatePhone(farm.contactPhone)) { this.error = '请输入正确的11位门店联系人手机号'; return false }
+        try {
+          farm.image = await portableProfileImage(farm.image) ?? farm.image
+          const updated = await apiRequest<FarmDto>('/api/v1/org/farms/' + encodeURIComponent(id), { method: 'PUT', idempotencyKey: createIdempotencyKey('farm'), body: farmApiBody(farm) })
+          this.farms = this.farms.map((item) => item.id === id ? { ...farmFromDto(updated), gmv: item.gmv, selectedCount: item.selectedCount, monthlySales: item.monthlySales } : item)
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '修改门店失败'; return false }
+      }
       const mediaRevision = readPlatformCollectionRevision(PLATFORM_MEDIA_STORAGE_KEY)
       const entityRevision = readPlatformCollectionRevision(PLATFORM_ENTITIES_STORAGE_KEY)
       const item = this.farms.find((farm) => farm.id === id)
@@ -2198,6 +2645,13 @@ export const useAdminStore = defineStore('operations', {
       return true
     },
     async addPromoter(payload: { name: string; level: string; type?: string; region?: string; status: Promoter['status'] }) {
+      if (getApiClientConfig().dataMode === 'api') {
+        try {
+          const created = await apiRequest<{ id: string; name: string }>('/api/v1/org/promoters', { method: 'POST', idempotencyKey: createIdempotencyKey('promoter'), body: { name: payload.name.trim(), level: payload.level, region: payload.region } })
+          this.promoters.unshift({ id: created.id, name: created.name, level: payload.level, type: payload.type, region: payload.region, fans: 0, orders: 0, gmv: 0, commission: 0, cumulativeCommission: 0, settled: false, status: payload.status } as never)
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '新增业务员失败'; return false }
+      }
       const entityRevision = readPlatformCollectionRevision(PLATFORM_ENTITIES_STORAGE_KEY)
       const accountRevision = readPlatformCollectionRevision(PLATFORM_PROMOTER_ACCOUNTS_STORAGE_KEY)
       const promoter: Promoter = {
@@ -2229,6 +2683,13 @@ export const useAdminStore = defineStore('operations', {
       return true
     },
     async updatePromoter(id: string, payload: { name: string; level: string; type?: string; region?: string; status: Promoter['status'] }) {
+      if (getApiClientConfig().dataMode === 'api') {
+        try {
+          await apiRequest('/api/v1/org/promoters/' + encodeURIComponent(id), { method: 'PUT', idempotencyKey: createIdempotencyKey('promoter'), body: { name: payload.name.trim(), level: payload.level, region: payload.region } })
+          this.promoters = this.promoters.map((item) => item.id === id ? { ...item, name: payload.name.trim(), level: payload.level, type: payload.type, region: payload.region, status: payload.status } as never : item)
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '修改业务员失败'; return false }
+      }
       const entityRevision = readPlatformCollectionRevision(PLATFORM_ENTITIES_STORAGE_KEY)
       const accountRevision = readPlatformCollectionRevision(PLATFORM_PROMOTER_ACCOUNTS_STORAGE_KEY)
       const persistedEntities = readPlatformEntities()
@@ -2356,6 +2817,13 @@ export const useAdminStore = defineStore('operations', {
       return true
     },
     async updateCommissionRule(id: string, rate: number, enabled: boolean) {
+      if (getApiClientConfig().dataMode === 'api') {
+        try {
+          await apiRequest('/api/v1/commissions/rules/' + encodeURIComponent(id), { method: 'PUT', idempotencyKey: createIdempotencyKey('commission-rule'), body: { name: id, promoterRate: rate / 100, storeRate: rate / 100, enabled } })
+          this.commissionRules = this.commissionRules.map((rule) => rule.id === id ? { ...rule, rate, enabled } as never : rule)
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '修改佣金规则失败'; return false }
+      }
       rate = round2(rate)
       const persistedRules = readPlatformCommissionRules() || cloneSeed(this.commissionRules)
       const item = persistedRules.find((rule) => rule.id === id)
@@ -2380,6 +2848,12 @@ export const useAdminStore = defineStore('operations', {
       return true
     },
     async saveShareConfig(config: ShareConfig) {
+      if (getApiClientConfig().dataMode === 'api') {
+        try {
+          await apiRequest('/api/v1/commissions/share-config', { method: 'PUT', idempotencyKey: createIdempotencyKey('share-config'), body: { promoterRate: config.promoterRate / 100, staffRate: config.staffRate / 100 } })
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '保存分佣配置失败'; return false }
+      }
       const previous = readShareConfig()
       const rawPrevious = readPlatformJson(PLATFORM_SHARE_CONFIG_STORAGE_KEY)
       const revision = readPlatformCollectionRevision(PLATFORM_SHARE_CONFIG_STORAGE_KEY)
@@ -2458,6 +2932,7 @@ export const useAdminStore = defineStore('operations', {
       return true
     },
     currentAdminRole(): AdminRole | undefined {
+      if (getApiClientConfig().dataMode === 'api') return this.apiRole || undefined
       return this.adminRoles.find((role) => role.id === this.auth.roleId) || readPlatformAdminRoles().find((role) => role.id === this.auth.roleId)
     },
     canMenu(menu: AdminMenuKey) {
@@ -2471,6 +2946,13 @@ export const useAdminStore = defineStore('operations', {
         const auditRecovery = recoverAdminFailureAudit({ module: 'roles', action: 'admin.role.create', actorId: this.auth.accountId || 'anonymous', actorName: this.auth.name, actorRole: this.auth.roleCode, result: 'failure', reason: 'permission-denied', operationId: createId('OP-ADMIN-ROLE') })
         this.error = auditRecovery?.message || '无权创建角色'
         return { ok: false, error: this.error }
+      }
+      if (getApiClientConfig().dataMode === 'api') {
+        try {
+          const created = await apiRequest<{ id: string; code: string; name: string }>('/api/v1/auth/admin/roles', { method: 'POST', idempotencyKey: createIdempotencyKey('role'), body: { code: payload.code.trim(), name: payload.name.trim(), permissions: payload.actionPermissions } })
+          this.adminRoles = [...this.adminRoles, { id: created.id, code: created.code, name: created.name, menuPermissions: payload.menuPermissions, actionPermissions: payload.actionPermissions, enabled: true } as never]
+          return { ok: true }
+        } catch (error) { return { ok: false, error: error instanceof Error ? error.message : '新增角色失败' } }
       }
       const code = payload.code.trim()
       const name = payload.name.trim()
@@ -2497,6 +2979,17 @@ export const useAdminStore = defineStore('operations', {
       return { ok: true }
     },
     async updateAdminRole(id: string, payload: { name?: string; menuPermissions?: AdminMenuKey[]; actionPermissions?: AdminPermissionCode[]; enabled?: boolean }): Promise<{ ok: boolean; error?: string }> {
+      if (getApiClientConfig().dataMode === 'api') {
+        if (this.auth.roleId !== ADMIN_SUPER_ROLE_ID) return { ok: false, error: '无权修改角色' }
+        if (payload.menuPermissions !== undefined || payload.actionPermissions !== undefined) return { ok: false, error: '权限分配请使用独立权限接口' }
+        if (!this.adminRoles.some((role) => role.id === id)) return { ok: false, error: '角色不存在' }
+        if (id === ADMIN_SUPER_ROLE_ID) return { ok: false, error: '超级管理员角色不可修改' }
+        try {
+          await apiRequest('/api/v1/auth/admin/roles/' + encodeURIComponent(id), { method: 'PUT', idempotencyKey: createIdempotencyKey('role'), body: { name: payload.name, enabled: payload.enabled } })
+          this.adminRoles = this.adminRoles.map((role) => role.id === id ? { ...role, name: payload.name?.trim() || role.name, enabled: payload.enabled ?? role.enabled } : role)
+          return { ok: true }
+        } catch (error) { return { ok: false, error: error instanceof Error ? error.message : '修改角色失败' } }
+      }
       const revision = readPlatformCollectionRevision(PLATFORM_ADMIN_ROLES_STORAGE_KEY)
       const roles = readPlatformAdminRoles()
       const role = roles.find((item) => item.id === id)
@@ -2525,6 +3018,15 @@ export const useAdminStore = defineStore('operations', {
         const auditRecovery = recoverAdminFailureAudit({ module: 'roles', action: 'admin.role.permissions', actorId: this.auth.accountId || 'anonymous', actorName: this.auth.name, actorRole: this.auth.roleCode, targetType: 'admin-role', targetId: id, result: 'failure', reason: 'permission-denied', operationId: createId('OP-ADMIN-ROLE-PERMISSIONS') })
         this.error = auditRecovery?.message || '无权分配角色权限'
         return { ok: false, error: this.error }
+      }
+      if (getApiClientConfig().dataMode === 'api') {
+        if (!this.adminRoles.some((role) => role.id === id)) return { ok: false, error: '角色不存在' }
+        if (id === ADMIN_SUPER_ROLE_ID) return { ok: false, error: '超级管理员角色不可修改' }
+        try {
+          await apiRequest('/api/v1/auth/admin/roles/' + encodeURIComponent(id) + '/permissions', { method: 'PUT', idempotencyKey: createIdempotencyKey('role'), body: { permissions: payload.actionPermissions } })
+          this.adminRoles = this.adminRoles.map((role) => role.id === id ? { ...role, menuPermissions: payload.menuPermissions, actionPermissions: payload.actionPermissions } : role)
+          return { ok: true }
+        } catch (error) { return { ok: false, error: error instanceof Error ? error.message : '修改角色权限失败' } }
       }
       const revision = readPlatformCollectionRevision(PLATFORM_ADMIN_ROLES_STORAGE_KEY)
       const roles = readPlatformAdminRoles()
@@ -2673,6 +3175,23 @@ export const useAdminStore = defineStore('operations', {
     },
     async login(account: string, password: string) {
       this.error = ''
+      if (getApiClientConfig().dataMode === 'api') {
+        try {
+          const result = await apiRequest<{ accessToken: string; profile: AdminApiProfile }>('/api/v1/auth/admin/login', {
+            method: 'POST', body: { account: account.trim(), password }, retryOnUnauthorized: false
+          })
+          if (result.profile.actorType !== 'admin' || result.profile.tenantId !== 'PLATFORM') throw new Error('当前账号无权访问运营后台')
+          saveAdminAccessToken(result.accessToken)
+          this.apiRole = roleFromApiProfile(result.profile)
+          this.auth = { isLoggedIn: true, account: account.trim(), accountId: result.profile.actorId,
+            roleId: this.apiRole.id, roleCode: this.apiRole.code, name: result.profile.displayName || account.trim() }
+          this.initialized = false
+          return true
+        } catch (error) {
+          this.error = error instanceof Error ? error.message : '登录失败'
+          return false
+        }
+      }
       if (!seedPlatformAdminSecurity()) {
         const auditRecovery = recoverAdminFailureAudit({ module: 'auth', action: 'admin.login', actorId: account.trim() || 'anonymous', result: 'failure', reason: 'security-seed-failed', operationId: createId('OP-ADMIN-LOGIN') })
         this.error = auditRecovery?.message || '登录数据初始化失败，请重试'
@@ -2707,6 +3226,14 @@ export const useAdminStore = defineStore('operations', {
       return true
     },
     logout() {
+      if (getApiClientConfig().dataMode === 'api') {
+        if (getApiClientConfig().getAccessToken?.()) void apiRequest('/api/v1/auth/logout', { method: 'POST', retryOnUnauthorized: false }).catch(() => undefined)
+        clearAdminAccessToken()
+        this.apiRole = null
+        this.initialized = false
+        this.auth = { isLoggedIn: false, account: '', accountId: '', roleId: '', roleCode: '', name: '' }
+        return
+      }
       if (this.auth.isLoggedIn) appendPlatformAuditLog({ module: 'auth', action: 'admin.logout', actorId: this.auth.accountId, actorName: this.auth.name, actorRole: this.auth.roleCode, targetType: 'admin-account', targetId: this.auth.accountId, result: 'success' })
       this.auth = { isLoggedIn: false, account: '', accountId: '', roleId: '', roleCode: '', name: '' }
     }

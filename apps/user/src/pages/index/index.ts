@@ -16,6 +16,7 @@ import {
 } from '@agritainment/shared'
 import { isDemoOrderId } from '../../data/demo-orders'
 import { projectDistributorOperations } from '../../services/distributor-operations'
+import { shouldRefreshUserIdentity } from '../../services/user-identity'
 import { useUserStore } from '../../stores/user'
 
 type CartDeliveryMode = 'pickup' | 'courier'
@@ -86,13 +87,13 @@ function shareProductOf(): CProduct | null {
 Page({
   data: {
     loading: true,
-    authorizing: false,
+    identityFailed: false,
+    identityError: '',
     activeTab: 'home',
     meSection: 'main',
     searchText: '',
     activeCategory: '全部',
     sheet: null as SheetName,
-    loginLevel: 'normal' as CUserLevel,
     productView: false,
     selectedQty: 1,
     afterSaleReason: AFTER_SALE_REASONS[0],
@@ -101,11 +102,9 @@ Page({
     addressDraft: { receiver: '', phone: '', region: '', detail: '', isDefault: true },
     afterSaleEvidence: [] as BusinessMediaValue[],
     appShellClass: 'app-shell',
-    isLoggedIn: false,
-    entryRestricted: false,
     roleLabel: LEVEL_LABELS.normal,
-    loginLevelLabel: LEVEL_LABELS.normal,
     userInitial: '普',
+    userAvatarUrl: '',
     userIdText: '演示用户',
     categories: [] as any[],
     visibleProducts: [] as any[],
@@ -146,9 +145,6 @@ Page({
     withdrawalRequests: [] as any[],
     hasWithdrawalRequests: false,
     hasDistributor: false,
-    isNormalLevel: true,
-    isLevel1: false,
-    isLevel2: false,
     pendingCommissionText: '0.00',
     availableCommissionText: '0.00',
     personalPerformanceText: '0.00',
@@ -235,13 +231,15 @@ Page({
         }))
       }))
 
+    const profile = store.identityProfile
+    const displayName = profile?.nickname || store.userId || '演示用户'
     this.setData({
-      isLoggedIn: !!store.auth.isLoggedIn,
-      entryRestricted: !!store.entryRestricted,
+      identityFailed: store.identityStatus === 'error',
+      identityError: store.identityError || '身份识别失败，请重试',
       roleLabel,
-      loginLevelLabel: LEVEL_LABELS[this.data.loginLevel as CUserLevel] || LEVEL_LABELS.normal,
-      userInitial: roleLabel.slice(0, 1),
-      userIdText: store.userId || '演示用户',
+      userInitial: displayName.slice(0, 1),
+      userAvatarUrl: profile?.avatarUrl || '',
+      userIdText: displayName,
       appShellClass: cart.length && this.data.activeTab !== 'cart' ? 'app-shell has-cart-bar' : 'app-shell',
       categories: ['全部', ...Array.from(new Set((store.cProducts as CProduct[]).map((item) => item.category)))].map((name) => ({
         name,
@@ -388,9 +386,6 @@ Page({
       })),
       hasWithdrawalRequests: withdrawalRequests.length > 0,
       hasDistributor: !!store.currentDistributor,
-      isNormalLevel: store.level === 'normal',
-      isLevel1: store.level === 'level1',
-      isLevel2: store.level === 'level2',
       pendingCommissionText: moneyText(store.pendingCommission),
       availableCommissionText: moneyText(store.availableCommission),
       personalPerformanceText: moneyText(projection.personalPerformance),
@@ -510,8 +505,6 @@ Page({
     } catch {
       // 取不到启动参数时按无参数处理。
     }
-    store.applyLaunch(launchQuery)
-    store.seedDemoData()
     this.unsubscribeStore = store.$subscribe(() => this.render())
     this.disposeDictionaryImages = dictCache.subscribe((state: typeof dictionaryState) => {
       dictionaryState = state
@@ -522,16 +515,38 @@ Page({
   },
 
   async bootstrap(this: any) {
-    await store.initialize()
+    this.setData({ loading: true }, () => this.render())
+    const profile = await store.authenticate()
+    if (!profile) {
+      this.setData({ loading: false }, () => this.render())
+      return
+    }
+    store.applyLaunch(launchQuery)
+    store.seedDemoData()
+    await store.initialize(true)
     this.syncSelectedCartLines()
     const launchProduct = (store.cProducts as CProduct[]).find((product) => product.id === store.launchProductId)
     if (launchProduct) this.openProductById(launchProduct.id)
     this.setData({ loading: false }, () => this.render())
   },
 
+  retryIdentity(this: any) {
+    void this.bootstrap()
+  },
+
   onShow(this: any) {
-    if (this.data.loading) return
-    void store.refreshSharedState().then(() => this.render(), () => this.render())
+    if (this.data.loading || !store.identityProfile) return
+    void (async () => {
+      if (shouldRefreshUserIdentity(store.identityCheckedAt)) {
+        const profile = await store.authenticate(true)
+        if (!profile) {
+          this.render()
+          return
+        }
+      }
+      await store.refreshSharedState()
+      this.render()
+    })().catch(() => this.render())
   },
 
   onUnload(this: any) {
@@ -582,34 +597,7 @@ Page({
     this.setData({ meSection: 'main' }, () => this.render())
   },
 
-  onSelectLoginLevel(this: any, event: { currentTarget: { dataset: Record<string, unknown> } }) {
-    this.setData({ loginLevel: String(event.currentTarget.dataset.level || 'normal') }, () => this.render())
-  },
 
-  onSelectRole(this: any, event: { currentTarget: { dataset: Record<string, unknown> } }) {
-    store.setDemoDistributorLevel(String(event.currentTarget.dataset.level || 'normal') as CUserLevel)
-    this.render()
-  },
-
-  async onAuthorize(this: any) {
-    if (this.data.authorizing) return
-    this.setData({ authorizing: true, loading: true })
-    try {
-      await store.wechatLogin()
-      store.applyLaunch(launchQuery)
-      store.setDemoDistributorLevel(this.data.loginLevel)
-      store.seedDemoData()
-      await store.initialize(true)
-    } finally {
-      this.setData({ authorizing: false, loading: false }, () => this.render())
-    }
-  },
-
-  onLogout(this: any) {
-    store.logout()
-    this.setData({ activeTab: 'home', meSection: 'main' }, () => this.render())
-    toast('已退出登录')
-  },
 
   onOpenProduct(this: any, event: { currentTarget: { dataset: Record<string, unknown> } }) {
     this.openProductById(String(event.currentTarget.dataset.id || ''))

@@ -1,3 +1,4 @@
+import { apiRequest, createCatalogApiClient, createIdempotencyKey, getApiClientConfig } from '@agritainment/shared'
 import { defineStore } from './native-store'
 import type { AfterSale, BusinessMediaValue, CatalogState, MockScenario, Order, OrderItem, OrderStatus, PlatformJournalEntry, PlatformRecoveryHandlerKey, PlatformPrincipal, Product, PurchaseStatus, StoreAccount, StoreRole } from '@agritainment/shared'
 import { abortCatalogTransaction, applyCatalogStockOperation, applyPlatformMedia, buildSupplierAccountSeeds, buildSupplierPlatformOrders, calcCartTotal, catalogProductToProduct, catalogProductsForAudience, cProducts, cloneSeed, commitCatalogTransaction, createId, createStrictSnapshotRecoveryHandlerRegistration, enqueuePlatformRecovery, ensureCatalogState, initializePlatformRecoveryHandlers, initialCatalogOrderQuantity, markCatalogTransactionStockApplied, mediaValueToImage, mergeEntitySeeds, mergePersistedDefaults, mergePlatformEntities, mergePlatformStoreAccounts, mergePlatformSupplierAccounts, nextPurchaseStatus, normalizeMinimumOrderQuantity, PLATFORM_AFTERSALES_STORAGE_KEY, PLATFORM_CATALOG_STORAGE_KEY, PLATFORM_ENTITIES_STORAGE_KEY, PLATFORM_ORDERS_STORAGE_KEY, PLATFORM_RECOVERY_QUEUE_STORAGE_KEY, PLATFORM_TRANSACTION_JOURNAL_STORAGE_KEY, prepareCatalogTransaction, pricePolicies, purchaseSteps, readCatalogState, readCatalogTransactionJournal, readPendingCatalogTransactions, readPlatformAfterSales, readPlatformCollectionRevision, readPlatformEntities, readPlatformMedia, readPlatformOrders, readPlatformRecoveryQueue, readPlatformStoreAccounts, readPlatformSupplierAccounts, reconcilePendingPlatformTransactions, resolvePlatformJournal, round2, runLockedPlatformTransaction, storeAccounts, supplierCanReceiveNewOrders, suppliers as supplierSeeds, tieredUnitPrice, validateCatalogSkuOrderQuantity, validateSmsCode, writeCatalogState, writePlatformAfterSale, writePlatformAfterSales, writePlatformOrder, writePlatformOrders } from '@agritainment/shared'
@@ -541,12 +542,15 @@ export const useStoreStore = defineStore('store', {
         const account = this.currentStoreAccounts().find((item: StoreAccount) => item.id === this.auth.accountId)
         // 运营后台可能调整了业务员档位，登录期间刷新时同步到当前会话
         if (this.auth.isLoggedIn) this.auth.priceLevel = resolveBusinessPriceLevel(account)
-        const data = await storeRepository.loadStore(this.mockScenario, farmId, account)
-        const catalog = ensureCatalogState(data.products, cProducts)
+        const apiMode = getApiClientConfig().dataMode === 'api'
+        const data = apiMode
+          ? { info: storeInfoForFarm(farmId, account), products: (await createCatalogApiClient().listProducts({ channel: 'store', pageSize: 200 })).items }
+          : await storeRepository.loadStore(this.mockScenario, farmId, account)
+        const catalog = apiMode ? null : ensureCatalogState(data.products, cProducts)
         this.$patch({
           info: hasPersistedData ? mergePersistedDefaults(data.info, this.info) : data.info,
-          products: catalogProductsForAudience(catalog, 'ordering').map(catalogProductToProduct),
-          catalogRevision: catalog.revision,
+          products: apiMode ? data.products : catalogProductsForAudience(catalog!, 'ordering').map(catalogProductToProduct),
+          catalogRevision: catalog?.revision ?? 0,
           orders: mergeStoreOrders(farmId, this.orders),
           initialized: true
         })
@@ -756,6 +760,38 @@ export const useStoreStore = defineStore('store', {
       if (!selectedLines.length) {
         this.checkoutError = '请先选择要结算的商品'
         return null
+      }
+      if (getApiClientConfig().dataMode === 'api') {
+        const amount = calcCartTotal(selectedLines.map(({ price, quantity }) => ({ price, quantity })))
+        const itemCount = selectedLines.reduce((sum, line) => sum + line.quantity, 0)
+        const nowDate = new Date()
+        const now = nowDate.toLocaleString('zh-CN')
+        try {
+          const created = await apiRequest<{ id: string; orderNo: string; status: string; amountCents: number }>('/api/v1/orders', {
+            method: 'POST',
+            idempotencyKey: createIdempotencyKey('order'),
+            body: {
+              buyerId: this.auth.farmId || 'F001',
+              items: selectedLines.map((line) => ({ skuId: line.skuId, quantity: line.quantity })),
+              receiver: this.info.contact || this.info.name,
+              receiverPhone: this.info.phone || '00000000000',
+              address: this.info.address,
+            }
+          })
+          const order: StoreOrder = {
+            id: created.id, farmId: this.auth.farmId || 'F001', amount: created.amountCents / 100, saved: 0, itemCount,
+            items: selectedLines.map((line) => ({ productId: line.productId, skuId: line.skuId, skuName: line.skuName, name: line.name, image: mediaValueToImage(line.image), quantity: line.quantity, price: line.price, minimumOrderQuantity: normalizeMinimumOrderQuantity(line.minimumOrderQuantity) })),
+            status: 'pending-payment', createdAt: now, paymentDeadlineAt: new Date(nowDate.getTime() + 15 * 60 * 1000).toISOString(),
+            logistics: [{ time: now, title: '订单待付款', detail: '请在 15 分钟内完成支付，支付后进入待接单' }], remark: remark.trim() || undefined
+          }
+          this.orders.unshift(order)
+          this.cart = this.cart.filter((line) => !selectedKeys.has(cartLineKey(line)))
+          this.checkoutLineKeys = this.checkoutLineKeys.filter((key) => !selectedKeys.has(key))
+          return order
+        } catch (error) {
+          this.checkoutError = error instanceof Error ? error.message : '下单失败，请重试'
+          return null
+        }
       }
       const platformEntitiesRevision = readPlatformCollectionRevision(PLATFORM_ENTITIES_STORAGE_KEY)
       const unavailableSupplier = unavailableSupplierName(selectedLines.map((line) => this.products.find((product) => product.id === line.productId)?.supplierId || ''))

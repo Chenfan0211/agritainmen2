@@ -2,7 +2,7 @@
 import { cloneForView, computed, getRootValuePath, onBeforeUnmount, onMounted, reactive, ref, runMountedCallbacks, runUnmountedCallbacks, runWatchers, setRootPath, snapshotRoots, watch } from '../../native/reactive'
 import type { CatalogProduct, CatalogProductSubmission, DailyDeliveryRoute, DriverAccount, Order, PlatformDictionaryState, RouteOrigin, RouteOutboundHandoverItem, RouteOutboundShortageAllocation, RouteStop, RouteWarehouseCheckInReason, ShortageItem } from '@agritainment/shared'
 import { PLATFORM_DICTIONARIES_STORAGE_KEY, aggregateRouteOutboundItems, defaultProductCategoryImage, distanceMeters, productCategoryImage, readPlatformDictionaries, validatePhone } from '@agritainment/shared'
-import { PLATFORM_AUDIT_LOG_STORAGE_KEY, PLATFORM_CATALOG_PRODUCT_SUBMISSIONS_STORAGE_KEY, PLATFORM_CATALOG_STORAGE_KEY, PLATFORM_C_ORDERS_STORAGE_KEY, PLATFORM_DAILY_DELIVERY_ROUTES_STORAGE_KEY, PLATFORM_DRIVERS_STORAGE_KEY, PLATFORM_DRIVER_STORE_SCOPES_STORAGE_KEY, PLATFORM_ENTITIES_STORAGE_KEY, PLATFORM_NAMED_DELIVERY_ROUTES_STORAGE_KEY, PLATFORM_ORDERS_STORAGE_KEY, PLATFORM_SUPPLIER_ACCOUNTS_STORAGE_KEY, PLATFORM_SUPPLIER_SETTLEMENTS_STORAGE_KEY, configurePlatformProviders, createDrivingRouteOptimizationProvider, createGeocodeProviders, createId, geocodeAddress, installKeyboardButtonSupport, money, subscribePlatformChanges, todayString } from '@agritainment/shared'
+import { PLATFORM_AUDIT_LOG_STORAGE_KEY, PLATFORM_CATALOG_PRODUCT_SUBMISSIONS_STORAGE_KEY, PLATFORM_CATALOG_STORAGE_KEY, PLATFORM_C_ORDERS_STORAGE_KEY, PLATFORM_DAILY_DELIVERY_ROUTES_STORAGE_KEY, PLATFORM_DRIVERS_STORAGE_KEY, PLATFORM_DRIVER_STORE_SCOPES_STORAGE_KEY, PLATFORM_ENTITIES_STORAGE_KEY, PLATFORM_NAMED_DELIVERY_ROUTES_STORAGE_KEY, PLATFORM_ORDERS_STORAGE_KEY, PLATFORM_SUPPLIER_ACCOUNTS_STORAGE_KEY, PLATFORM_SUPPLIER_SETTLEMENTS_STORAGE_KEY, configurePlatformProviders, createDrivingRouteOptimizationProvider, createGeocodeProviders, createId, geocodeAddress, getApiClientConfig, installKeyboardButtonSupport, money, subscribePlatformChanges, todayString } from '@agritainment/shared'
 
 
 import { routeOptimizationWarningText } from '../../delivery-map'
@@ -44,36 +44,43 @@ async function runBusy<T>(key: string, fn: () => Promise<T>): Promise<T | undefi
 
 // ---------- 登录（自动填充）----------
 const loginRole = ref<'supplier' | 'driver'>('loginRole', 'supplier')
-const loginAccount = ref('loginAccount', '13787366688')
-const loginPassword = ref('loginPassword', '13787366688')
+const loginAccount = ref('loginAccount', getApiClientConfig().dataMode === 'api' ? '' : '13787366688')
+const loginPassword = ref('loginPassword', getApiClientConfig().dataMode === 'api' ? '' : '13787366688')
 
 function switchLoginRole(role: 'supplier' | 'driver') {
   loginRole.value = role
   store.loginError = ''
-  loginAccount.value = role === 'supplier' ? '13787366688' : 'driver01'
-  loginPassword.value = role === 'supplier' ? '13787366688' : '123456'
+  loginAccount.value = getApiClientConfig().dataMode === 'api' ? '' : role === 'supplier' ? '13787366688' : 'driver01'
+  loginPassword.value = getApiClientConfig().dataMode === 'api' ? '' : role === 'supplier' ? '13787366688' : '123456'
 }
 
-function submitLogin() {
+async function submitLogin() {
   if (!loginAccount.value.trim() || !loginPassword.value) {
     store.loginError = '请输入账号和密码'
     return
   }
   busy.value = true
-  const ok = loginRole.value === 'supplier'
-    ? store.loginSupplier(loginAccount.value, loginPassword.value)
-    : store.loginDriver(loginAccount.value, loginPassword.value)
-  busy.value = false
+  let ok = false
+  try {
+    ok = getApiClientConfig().dataMode === 'api'
+      ? await (loginRole.value === 'supplier'
+        ? store.loginSupplierApi(loginAccount.value, loginPassword.value)
+        : store.loginDriverApi(loginAccount.value, loginPassword.value))
+      : loginRole.value === 'supplier'
+        ? store.loginSupplier(loginAccount.value, loginPassword.value)
+        : store.loginDriver(loginAccount.value, loginPassword.value)
+  } finally { busy.value = false }
   if (ok) {
     toast(loginRole.value === 'supplier' ? '供应商登录成功' : `司机 ${store.auth.name} 登录成功`)
     active.value = 'orders'
     secondaryWorkspace.value = null
-    void store.ensureTodayRoutes()
+    if (getApiClientConfig().dataMode !== 'api') void store.ensureTodayRoutes()
   }
 }
 
-function logout() {
-  store.logout()
+async function logout() {
+  if (getApiClientConfig().dataMode === 'api') await store.logoutApi().catch(() => { toast('退出请求未送达，请重新登录前确认网络') })
+  else store.logout()
   closeSheet()
 }
 
@@ -1295,8 +1302,11 @@ async function saveDriver() {
       if (!result.ok) { driverFormError.value = result.error || '保存失败'; return }
       toast(`司机账号已创建：${driverForm.account}`)
     } else if (editingDriver.value) {
-      if (!store.updateDriver(editingDriver.value.id, { name: driverForm.name, phone: driverForm.phone })) {
-        driverFormError.value = '姓名或手机号格式不正确'
+      const saved = getApiClientConfig().dataMode === 'api'
+        ? await store.updateDriverApi(editingDriver.value.id, { name: driverForm.name, phone: driverForm.phone })
+        : store.updateDriver(editingDriver.value.id, { name: driverForm.name, phone: driverForm.phone })
+      if (!saved) {
+        driverFormError.value = store.error || '姓名或手机号格式不正确'
         return
       }
       toast('司机信息已保存')
@@ -1317,7 +1327,10 @@ function confirmReset() {
     return
   }
   void runBusy('reset-password', async () => {
-    store.resetDriverPassword(editingDriver.value!.id, resetPassword.value)
+    const saved = getApiClientConfig().dataMode === 'api'
+      ? await store.resetDriverPasswordApi(editingDriver.value!.id, resetPassword.value)
+      : store.resetDriverPassword(editingDriver.value!.id, resetPassword.value)
+    if (!saved) { driverFormError.value = store.error || '密码重置失败'; return }
     toast('密码已重置')
     closeSheet()
   })
@@ -1333,10 +1346,14 @@ function driverToggleMessage(driver: DriverAccount) {
     ? `停用后「${driver.name}」将无法登录，已派任务不受影响。该司机当前有 ${taskCount} 个进行中任务，建议先改派。`
     : `停用后「${driver.name}」将无法登录，已派任务不受影响。`
 }
-function confirmToggle() {
+async function confirmToggle() {
   if (!driverStatusTarget.value) return
-  if (!store.toggleDriverStatus(driverStatusTarget.value.id)) return
-  toast(driverStatusTarget.value.status === 'active' ? '已停用司机' : '已启用司机')
+  const wasActive = driverStatusTarget.value.status === 'active'
+  const saved = getApiClientConfig().dataMode === 'api'
+    ? await store.toggleDriverStatusApi(driverStatusTarget.value.id)
+    : store.toggleDriverStatus(driverStatusTarget.value.id)
+  if (!saved) { toast(store.error || '司机状态修改失败'); return }
+  toast(wasActive ? '已停用司机' : '已启用司机')
   closeSheet()
 }
 
@@ -1391,8 +1408,10 @@ onMounted(() => {
   }
   if (!e2eEnabled) configurePlatformProviders({ routeOptimization: createDrivingRouteOptimizationProvider() })
   void store.initialize().then(async () => {
-    seedSupplierDemoRouteOnce()
-    if (store.auth.isLoggedIn) await store.ensureTodayRoutes()
+    if (getApiClientConfig().dataMode !== 'api') {
+      seedSupplierDemoRouteOnce()
+      if (store.auth.isLoggedIn) await store.ensureTodayRoutes()
+    }
   })
   disposeKeyboardButtons = installKeyboardButtonSupport()
   disposePlatformChanges = subscribePlatformChanges(refreshSharedState, platformChangeKeys)

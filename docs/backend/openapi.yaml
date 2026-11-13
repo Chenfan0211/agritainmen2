@@ -1,0 +1,1655 @@
+openapi: 3.1.0
+info:
+  title: Agritainmen Platform API
+  version: 1.0.0
+  description: 四端统一 API。金额使用整数分。写操作中库存预占/订单/支付意图/履约/佣金/提现等资金与库存敏感接口必须携带
+    Idempotency-Key 请求头；其余写接口按各自 schema 要求。
+servers:
+  - url: https://api.example.com/api/v1
+paths:
+  /org/suppliers/{id}/audit:
+    post:
+      summary: 审核供应商
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                approved: { type: boolean, description: true 为通过，false 为驳回 }
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /org/suppliers/{id}/restore:
+    post:
+      summary: 恢复供应商待审核
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /org/suppliers/{id}/pause:
+    post:
+      summary: 暂停供应商
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 1, maxLength: 500 }
+      responses:
+        "200":
+          description: 返回暂停状态及 cooperationPauseReason；恢复合作时清除当前原因
+  /org/suppliers/{id}/resume:
+    post:
+      summary: 恢复供应商合作
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /org/farm-accounts:
+    post:
+      summary: 新增门店账号
+      responses:
+        "200":
+          description: OK
+  /org/farm-accounts/{id}:
+    put:
+      summary: 修改门店账号
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+    patch:
+      summary: 启停门店账号
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /org/promoters:
+    post:
+      summary: 新增业务员
+      responses:
+        "200":
+          description: OK
+  /org/promoters/{id}:
+    put:
+      summary: 修改业务员
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /org/leaders/{id}:
+    patch:
+      summary: 启停团长
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /catalog/categories/{id}:
+    put:
+      summary: 修改品类
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+    delete:
+      summary: 删除品类
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /catalog/prices/{id}:
+    put:
+      summary: 修改价格策略
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+    patch:
+      summary: 启停价格策略
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /catalog/products/{id}:
+    patch:
+      summary: 商品上下架
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /catalog/products/{id}/review:
+    post:
+      summary: 商品审核
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /auth/admin/roles:
+    get:
+      summary: 后台角色列表
+      responses:
+        "200":
+          description: OK
+        "403": { $ref: '#/components/responses/Forbidden' }
+    post:
+      summary: 新增后台角色
+      responses:
+        "200":
+          description: OK
+        "403": { $ref: '#/components/responses/Forbidden' }
+  /auth/admin/roles/{id}:
+    put:
+      summary: 修改后台角色
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "403": { $ref: '#/components/responses/Forbidden' }
+  /auth/admin/roles/{id}/permissions:
+    put:
+      summary: 修改角色权限
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "403": { $ref: '#/components/responses/Forbidden' }
+  /auth/admin/accounts:
+    get:
+      summary: 后台账号列表
+      responses:
+        "200":
+          description: OK
+        "403": { $ref: '#/components/responses/Forbidden' }
+    post:
+      summary: 新增后台账号
+      responses:
+        "200":
+          description: OK
+        "403": { $ref: '#/components/responses/Forbidden' }
+  /auth/admin/accounts/{id}:
+    put:
+      summary: 修改后台账号
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "403": { $ref: '#/components/responses/Forbidden' }
+    patch:
+      summary: 启停后台账号
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "403": { $ref: '#/components/responses/Forbidden' }
+  /auth/admin/supplier-accounts:
+    get:
+      summary: 已开通供应商账号列表（不含密码）
+      responses:
+        "200": { description: 返回 PLATFORM 租户账号列表 }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+    post:
+      summary: 核验供应商审核状态后幂等开通账号
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SupplierAccountProvisionRequest' }
+      responses:
+        "200": { description: 首次创建时返回一次 initialPassword；重试不重置密码 }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "409": { $ref: '#/components/responses/Conflict' }
+        "500": { description: 组织服务暂不可用或响应无效，未创建账号 }
+  /auth/admin/supplier-accounts/{supplierId}:
+    get:
+      summary: 按供应商 ID 查询登录账号
+      parameters:
+        - in: path
+          name: supplierId
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: 返回账号资料及当前 freezeReason，不含密码 }
+        "404": { $ref: '#/components/responses/NotFound' }
+    patch:
+      summary: 修改供应商账号密码、名称或启用状态
+      parameters:
+        - in: path
+          name: supplierId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SupplierAccountPatch' }
+      responses:
+        "200": { description: 返回更新后的账号及当前 freezeReason；改密或停用撤销刷新会话 }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }
+  /catalog/categories:
+    get:
+      summary: 品类列表
+      responses:
+        "200":
+          description: OK
+    post:
+      summary: 新增品类
+      responses:
+        "200":
+          description: OK
+  /catalog/prices:
+    get:
+      summary: 价格策略列表
+      responses:
+        "200":
+          description: OK
+    post:
+      summary: 新增价格策略
+      responses:
+        "200":
+          description: OK
+    put:
+      summary: 批量更新价格策略
+      responses:
+        "200":
+          description: OK
+  /org/users:
+    get:
+      summary: 用户分页查询
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: pageSize
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+  /after-sales:
+    get:
+      summary: 售后工单分页查询
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: pageSize
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+  /commissions/me:
+    get:
+      summary: 我的佣金汇总
+      parameters:
+        - in: query
+          name: beneficiaryId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /catalog/products:
+    get:
+      summary: 分页查询可售商品
+      parameters:
+        - in: query
+          name: channel
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: pageSize
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+    post:
+      summary: 新增商品
+      responses:
+        "200":
+          description: OK
+  /org/suppliers:
+    get:
+      summary: 供应商列表（含完整资料 profile）
+      responses:
+        "200":
+          description: OK
+    post:
+      summary: 邀请供应商
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrgSupplierProfile'
+      responses:
+        "200":
+          description: 返回含 id、pending 状态及完整 profile 的供应商
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "409":
+          description: 联系人手机号已绑定其他供应商
+  /org/suppliers/{id}:
+    get:
+      summary: 按 ID 读取平台租户未删除的供应商及审核状态
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: 返回完整供应商资料与 certified、status }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }
+    put:
+      summary: 修改供应商
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrgSupplierProfile'
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 返回完整资料；审核状态保持不变
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "404":
+          description: 供应商不存在
+        "409":
+          description: 联系人手机号已绑定其他供应商
+  /org/farms:
+    get:
+      summary: 门店列表（含完整资料 profile）
+      responses:
+        "200":
+          description: OK
+    post:
+      summary: 新增门店
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrgFarmProfile'
+      responses:
+        "200":
+          description: 返回含 id 及完整 profile 的门店
+        "400":
+          $ref: '#/components/responses/BadRequest'
+  /org/farms/{id}:
+    put:
+      summary: 修改门店
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrgFarmProfile'
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 返回含完整 profile 的门店
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "404":
+          description: 门店不存在
+  /org/media:
+    post:
+      summary: 上传供应商资质或门店封面图片，资料中只保存返回的 assetId
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrgMediaUploadRequest' }
+      responses:
+        "200": { description: 返回稳定的 ORG-MEDIA assetId }
+        "400": { $ref: '#/components/responses/BadRequest' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+  /org/media/{id}:
+    get:
+      summary: 按媒体 ID 读取图片，需对应资料域权限
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 图片二进制
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }
+  /org/me/supplier:
+    get:
+      summary: 查询当前供应商或司机所属的供应商资料
+      responses:
+        "200":
+          description: 当前登录身份对应的供应商资料
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /org/drivers:
+    get:
+      summary: 司机列表
+      responses:
+        "200":
+          description: OK
+    post:
+      summary: 新增司机
+      responses:
+        "200":
+          description: OK
+  /org/drivers/{id}:
+    put:
+      summary: 修改司机
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+    patch:
+      summary: 启停司机
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /admin/dictionaries:
+    get:
+      summary: 字典列表
+      responses:
+        "200":
+          description: OK
+    post:
+      summary: 新增字典项
+      responses:
+        "200":
+          description: OK
+    put:
+      summary: 修改字典项
+      responses:
+        "200":
+          description: OK
+    delete:
+      summary: 删除字典项
+      responses:
+        "200":
+          description: OK
+  /admin/dashboard:
+    get:
+      summary: 运营看板聚合
+      responses:
+        "200":
+          description: OK
+  /admin/reports:
+    get:
+      summary: 经营报表分页
+      parameters:
+        - in: query
+          name: from
+          schema:
+            type: string
+        - in: query
+          name: to
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: pageSize
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+  /auth/admin/login:
+    post:
+      summary: 后台管理员登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+  /auth/wechat/exchange:
+    post:
+      summary: 微信 code 换服务端会话
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+              properties:
+                code:
+                  type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+  /catalog/skus/{skuId}/quote:
+    get:
+      summary: 服务端商品取价
+      parameters:
+        - in: path
+          name: skuId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+  /inventory/available:
+    get:
+      summary: 批量查询 SKU 可用库存
+      parameters:
+        - in: query
+          name: skuIds
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /inventory/reservations:
+    post:
+      summary: 库存预占
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReserveRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reservation"
+  /orders:
+    get:
+      summary: 分页查询订单
+      parameters:
+        - in: query
+          name: buyerId
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: pageSize
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        "200":
+          description: OK
+    post:
+      summary: 创建订单
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+  /payments/callback/wechat:
+    post:
+      summary: 微信支付沙箱/生产回调
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentCallback"
+      responses:
+        "200":
+          description: OK
+  /fulfillment/orders:
+    post:
+      summary: 创建履约单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - orderId
+                - supplierId
+              properties:
+                orderId:
+                  type: string
+                supplierId:
+                  type: string
+      responses:
+        "200":
+          description: OK
+    get:
+      summary: 分页查询履约单
+      parameters:
+        - in: query
+          name: supplierId
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: pageSize
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        "200":
+          description: OK
+  /fulfillment/orders/{id}/accept:
+    post:
+      summary: 供应商接单
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+          description: 幂等键：同键同载荷重放返回原结果；同键异载荷返回 409 IDEMPOTENCY_CONFLICT
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /fulfillment/orders/{id}/ship:
+    post:
+      summary: 快递/司机发货
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+          description: 幂等键：同键同载荷重放返回原结果；同键异载荷返回 409 IDEMPOTENCY_CONFLICT
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - shipType
+              properties:
+                shipType:
+                  type: string
+                  enum:
+                    - courier
+                    - driver
+                trackingNo:
+                  type: string
+                driverId:
+                  type: string
+      responses:
+        "200":
+          description: OK
+  /withdrawals/{id}/review:
+    post:
+      summary: 提现审批
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+          description: 幂等键：同键同载荷重放返回原结果；同键异载荷返回 409 IDEMPOTENCY_CONFLICT
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - approved
+                - operator
+              properties:
+                approved:
+                  type: boolean
+                operator:
+                  type: string
+                note:
+                  type: string
+      responses:
+        "200":
+          description: OK
+  /auth/store/login:
+    post:
+      summary: 门店登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+  /auth/supplier/login:
+    post:
+      summary: 供应商登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+  /auth/driver/login:
+    post:
+      summary: 司机登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: 返回绑定的 supplierId 与 driverId
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /auth/supplier/drivers:
+    get:
+      summary: 查询当前供应商的司机账号
+      responses:
+        "200":
+          description: 仅返回所属供应商司机，不含密码
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      summary: 为当前供应商创建司机账号
+      responses:
+        "200":
+          description: 已创建的司机账号，不含密码
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /auth/supplier/drivers/{id}:
+    patch:
+      summary: 修改当前供应商的司机资料、密码或启用状态
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 修改后的司机账号，不含密码
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /auth/refresh:
+    post:
+      summary: 刷新令牌
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+      parameters:
+        - in: cookie
+          name: agritainmen_admin_refresh
+          required: false
+          schema:
+            type: string
+          description: Admin 登录下发的刷新令牌 Cookie；与请求体 refreshToken 二选一
+  /auth/me:
+    get:
+      summary: 当前登录主体
+      responses:
+        "200":
+          description: OK
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /auth/logout:
+    post:
+      summary: 退出登录并撤销刷新令牌
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /inventory/reservations/{id}/release:
+    post:
+      summary: 释放库存预占
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /inventory/reservations/{id}/confirm:
+    post:
+      summary: 确认库存扣减
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /inventory/skus/{skuId}/adjust:
+    post:
+      summary: 调整库存
+      parameters:
+        - in: path
+          name: skuId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - delta
+                - reason
+              properties:
+                delta:
+                  type: integer
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: OK
+  /orders/{id}:
+    get:
+      summary: 订单详情
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+  /payments/intents:
+    post:
+      summary: 创建支付单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePaymentRequest"
+      responses:
+        "200":
+          description: OK
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+          description: 幂等键：同键同载荷重放返回原结果；同键异载荷返回 409 IDEMPOTENCY_CONFLICT
+  /fulfillment/logistics/{trackingNo}:
+    get:
+      summary: 查询沙箱物流轨迹
+      parameters:
+        - in: path
+          name: trackingNo
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+  /commissions:
+    get:
+      summary: 佣金分页查询
+      parameters:
+        - in: query
+          name: beneficiaryId
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: pageSize
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+    post:
+      summary: 新增佣金流水
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+          description: 幂等键：同键同载荷重放返回原结果；同键异载荷返回 409 IDEMPOTENCY_CONFLICT
+  /withdrawals:
+    post:
+      summary: 发起提现
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+          description: 幂等键：同键同载荷重放返回原结果；同键异载荷返回 409 IDEMPOTENCY_CONFLICT
+  /admin/audit:
+    get:
+      summary: 查询审计日志
+      responses:
+        "200":
+          description: OK
+    post:
+      summary: 追加审计日志
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: OK
+  /notifications/sms/verification-code:
+    post:
+      summary: 发送沙箱验证码
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - phone
+              properties:
+                phone:
+                  type: string
+      responses:
+        "200":
+          description: OK
+  /notifications/sms/verify:
+    post:
+      summary: 校验沙箱验证码
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - phone
+                - code
+              properties:
+                phone:
+                  type: string
+                code:
+                  type: string
+      responses:
+        "200":
+          description: OK
+  /org/leaders:
+    get:
+      summary: 团长列表
+      responses:
+        "200":
+          description: OK
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /inventory/skus/{skuId}/available:
+    get:
+      summary: 查询 SKU 可用库存
+      parameters:
+        - in: path
+          name: skuId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /payments/orders/{orderId}:
+    get:
+      summary: 按订单查询支付单
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /notifications/health:
+    get:
+      summary: 通知服务健康检查
+      responses:
+        "200":
+          description: OK
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /catalog/pricing-defaults:
+    put:
+      summary: 更新价格默认档位
+      responses:
+        "200":
+          description: OK
+  /commissions/share-config:
+    put:
+      summary: 更新分佣配置
+      responses:
+        "200":
+          description: OK
+  /commissions/rules/{id}:
+    put:
+      summary: 更新佣金规则
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+components:
+  responses:
+    BadRequest:
+      description: 请求参数错误
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    Unauthorized:
+      description: 未登录或登录已失效
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    Forbidden:
+      description: 当前账号无权访问资源
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    NotFound:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    Conflict:
+      description: 数据状态冲突或幂等键复用
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+  schemas:
+    SupplierAccountProvisionRequest:
+      type: object
+      required: [supplierId, account, displayName]
+      properties:
+        supplierId: { type: string }
+        account: { type: string, pattern: '^1[3-9][0-9]{9}$' }
+        displayName: { type: string }
+        password: { type: string, description: 可选；省略时生成一次性初始密码 }
+    SupplierAccountPatch:
+      type: object
+      properties:
+        displayName: { type: string }
+        password: { type: string }
+        enabled: { type: boolean }
+        freezeReason: { type: string, minLength: 1, maxLength: 500, description: enabled=false 时必填；解冻时清除当前原因 }
+    OrgMediaUploadRequest:
+      type: object
+      required: [mimeType, purpose, base64]
+      properties:
+        mimeType: { type: string, enum: [image/jpeg, image/png, image/webp] }
+        purpose: { type: string, enum: [supplier-business-license, supplier-permit, farm-cover] }
+        base64: { type: string, description: 图片原始字节的 base64，解码后不得超过 2MB }
+    OrgSupplierProfile:
+      type: object
+      required: [name, contactPhone]
+      properties:
+        name: { type: string, minLength: 1 }
+        contactPhone: { type: string, pattern: '^1[3-9][0-9]{9}$' }
+        region: { type: string }
+        category: { type: string }
+        cooperationPauseReason: { type: string, readOnly: true, description: 当前暂停原因；恢复合作后为空 }
+        profile:
+          type: object
+          properties:
+            coop: { type: boolean }
+            brands: { type: array, items: { type: string } }
+            serviceRegions: { type: array, items: { type: string } }
+            businessLicenseNumber: { type: string }
+            businessLicense: { description: 新上传使用 ORG-MEDIA 引用；历史 URL、data URL 仍可读取 }
+            permitNumber: { type: string }
+            permit: { description: 新上传使用 ORG-MEDIA 引用；历史 URL、data URL 仍可读取 }
+            validUntil: { type: string }
+            reviewNote: { type: string }
+    OrgFarmProfile:
+      type: object
+      required: [name, profile]
+      properties:
+        name: { type: string, minLength: 1 }
+        region: { type: string }
+        contact: { type: string }
+        contactPhone: { type: string, pattern: '^1[3-9][0-9]{9}$' }
+        status: { type: string, enum: [pending, active, paused] }
+        profile:
+          type: object
+          required: [address]
+          properties:
+            city: { type: string }
+            districtCode: { type: string }
+            detail: { type: string }
+            address: { type: string, minLength: 1 }
+            structuredAddress: { type: object }
+            tags: { type: array, items: { type: string } }
+            rating: { type: number, minimum: 0, maximum: 5 }
+            averageSpend: { type: number, minimum: 0, maximum: 1000000 }
+            image: { description: 新上传使用 ORG-MEDIA 引用；历史 URL、data URL 仍可读取 }
+            location: { type: object }
+            locationStatus: { type: string, enum: [resolved, pending, failed] }
+            locationError: { type: string }
+    LoginRequest:
+      type: object
+      required:
+        - account
+        - password
+      properties:
+        account:
+          type: string
+        password:
+          type: string
+          format: password
+    TokenResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            accessToken:
+              type: string
+            refreshToken:
+              type: string
+            tokenType:
+              type: string
+            expiresInSeconds:
+              type: integer
+              format: int64
+    CatalogProductPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogProduct"
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+    CatalogProduct:
+      type: object
+      properties:
+        id:
+          type: string
+        supplierId:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+        channel:
+          type: string
+        enabled:
+          type: boolean
+        skus:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              priceCents:
+                type: integer
+                format: int64
+              enabled:
+                type: boolean
+    Quote:
+      type: object
+      properties:
+        skuId:
+          type: string
+        productId:
+          type: string
+        supplierId:
+          type: string
+        name:
+          type: string
+        unitPriceCents:
+          type: integer
+          format: int64
+    ReserveRequest:
+      type: object
+      required:
+        - orderId
+        - items
+      properties:
+        orderId:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            required:
+              - skuId
+              - quantity
+            properties:
+              skuId:
+                type: string
+              quantity:
+                type: integer
+                minimum: 1
+    Reservation:
+      type: object
+      properties:
+        id:
+          type: string
+        orderId:
+          type: string
+        status:
+          type: string
+          enum:
+            - RESERVED
+            - RELEASED
+            - CONFIRMED
+    CreateOrderRequest:
+      type: object
+      required:
+        - buyerId
+        - items
+        - receiver
+        - receiverPhone
+        - address
+      properties:
+        buyerId:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            required:
+              - skuId
+              - quantity
+            properties:
+              skuId:
+                type: string
+              quantity:
+                type: integer
+                minimum: 1
+        receiver:
+          type: string
+        receiverPhone:
+          type: string
+        address:
+          type: string
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+        orderNo:
+          type: string
+        status:
+          type: string
+        amountCents:
+          type: integer
+          format: int64
+        reservationId:
+          type: string
+    PaymentCallback:
+      type: object
+      required:
+        - provider
+        - providerTxnId
+        - orderId
+        - success
+      properties:
+        provider:
+          type: string
+        providerTxnId:
+          type: string
+        orderId:
+          type: string
+        success:
+          type: boolean
+        failureReason:
+          type: string
+    CreatePaymentRequest:
+      type: object
+      required:
+        - orderId
+        - amountCents
+        - channel
+      properties:
+        orderId:
+          type: string
+        amountCents:
+          type: integer
+          format: int64
+        channel:
+          type: string
+          enum:
+            - WECHAT
+            - SANDBOX
+    ErrorEnvelope:
+      type: object
+      required:
+        - code
+        - message
+        - data
+        - traceId
+        - timestamp
+      properties:
+        code:
+          type: string
+          example: BAD_REQUEST
+        message:
+          type: string
+        data:
+          nullable: true
+        traceId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time

@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 import type { CatalogProduct, CUserLevel } from '@agritainment/shared'
 import { CATALOG_SCHEMA_VERSION, PLATFORM_CATALOG_STORAGE_KEY, PLATFORM_C_COMMISSIONS_STORAGE_KEY, PLATFORM_C_DISTRIBUTORS_STORAGE_KEY, PLATFORM_C_ORDERS_STORAGE_KEY, PLATFORM_ORDERS_STORAGE_KEY, PLATFORM_PAYMENT_ATTEMPTS_STORAGE_KEY, PLATFORM_RECOVERY_QUEUE_STORAGE_KEY, PLATFORM_TRANSACTION_JOURNAL_STORAGE_KEY, PLATFORM_USER_COMMERCE_INTENTS_STORAGE_KEY, PLATFORM_WITHDRAWALS_STORAGE_KEY, acceptSupplierOrder, catalogProductToProduct, cloneSeed, configurePlatformProviders, demoCDistributorProfiles, enqueuePlatformRecovery, normalizeMediaReference, preparePlatformJournal, readCAddresses, readCatalogTransactionJournal, readCCommissionRecords, readCOrders, readCUserSession, readCatalogState, readPaymentAttempts, readPendingCatalogTransactions, readPlatformCollectionRevision, readPlatformCommissionLedger, readPlatformAfterSales, readPlatformJournal, readPlatformOrders, readPlatformRecoveryQueue, readPlatformVoucherOrders, readPlatformWithdrawals, readStoreCatalogSelectionState, readUserBindings, readUserCommercePurchaseIntents, resolvePlatformJournal, retryPlatformRecoveryTask, saveStoreCatalogSelection, shipSupplierCourier, suppliers, todayString, transitionPlatformWithdrawal, updateCatalogStock, upsertPlatformEntity, upsertUserBinding, writeCAddresses, writeCCommissionRecords, readCDistributorProfiles, writeCDistributorProfiles, writeCOrders, writeCUserSession, writeCatalogState, writePlatformCommissionLedger, writePlatformOrder, writePlatformWithdrawal, writeUserCommercePurchaseIntents } from '@agritainment/shared'
 import { readStorePackageProjection } from '../../src/services/repository'
+import { configureUserIdentityResolver } from '../../src/services/user-identity'
 import { createUserStore, migrateUserCommerceData } from '../../src/stores/user'
 
 if (!globalThis.localStorage) {
@@ -20,7 +21,7 @@ if (!globalThis.localStorage) {
 
 describe('C端商城 user store', () => {
   beforeEach(async () => { localStorage.clear(); localStorage.setItem('agritainment-user-demo-orders-disabled', '1'); await migrateUserCommerceData() })
-  afterEach(() => { configurePlatformProviders(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
+  afterEach(() => { configureUserIdentityResolver(); configurePlatformProviders(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
   it('coalesces concurrent commerce bootstraps and preserves a write made while waiting for the lock', async () => {
     localStorage.clear()
@@ -79,12 +80,13 @@ describe('C端商城 user store', () => {
     expect(store.error).toBe('')
   })
 
-  it('授权期间保持 loading，初始化完成后才恢复商城展示', () => {
+  it('启动时先自动识别身份，识别及初始化完成后才恢复商城展示', () => {
     const source = readFileSync(resolve(import.meta.dirname, '../../src/pages/index/index.ts'), 'utf8')
-    const authorize = source.slice(source.indexOf('async onAuthorize('), source.indexOf('onLogout(this: any)'))
-    expect(authorize).toContain('authorizing: true, loading: true')
-    expect(authorize).toContain('authorizing: false, loading: false')
-    expect(authorize.indexOf('await store.initialize(true)')).toBeLessThan(authorize.lastIndexOf('loading: false'))
+    const bootstrap = source.slice(source.indexOf('async bootstrap('), source.indexOf('retryIdentity(this: any)'))
+    expect(bootstrap).toContain('await store.authenticate()')
+    expect(bootstrap).toContain('await store.initialize(true)')
+    expect(bootstrap.indexOf('await store.authenticate()')).toBeLessThan(bootstrap.indexOf('await store.initialize(true)'))
+    expect(bootstrap.indexOf('await store.initialize(true)')).toBeLessThan(bootstrap.lastIndexOf('loading: false'))
   })
 
   it('renders MOQ states and blocks unavailable cart checkout in the user page', () => {
@@ -124,6 +126,24 @@ describe('C端商城 user store', () => {
     return allowed
   }
 
+  function injectIdentity(store: ReturnType<typeof createUserStore>, userId: string, overrides: Record<string, unknown> = {}) {
+    const saved = readCDistributorProfiles()?.[userId]
+    const level = /L2/.test(userId) ? 'level2' : /L1/.test(userId) ? 'level1' : saved?.status === 'active' ? saved.level : 'normal'
+    const leaderId = level === 'level1' ? saved?.promoterId || 'T001' : level === 'level2' ? saved?.promoterId || 'T002' : undefined
+    store.$patch({
+      userId,
+      identityProfile: {
+        openid: `openid-${userId}`,
+        userId,
+        level,
+        leaderId,
+        parentLeaderId: level === 'level2' ? saved?.parentPromoterId || 'T001' : undefined,
+        status: 'active'
+      },
+      ...overrides
+    })
+  }
+
   function shipFromSupplier(store: ReturnType<typeof createUserStore>, orderId: string, subOrderId: string) {
     const key = `C-MALL-${subOrderId}`
     const supplierOrder = readPlatformOrders()?.[key]
@@ -160,7 +180,7 @@ describe('C端商城 user store', () => {
   it('does not write normalized shared data during initialize', async () => {
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 0, products: [catalogProduct('INIT-READONLY')] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-INIT-READONLY', auth: { isLoggedIn: true, openid: 'openid-init-readonly' } })
+    injectIdentity(store, 'U-INIT-READONLY')
     const writes = vi.spyOn(localStorage, 'setItem')
 
     await store.initialize()
@@ -172,7 +192,7 @@ describe('C端商城 user store', () => {
   it('reserves stock and releases it through the locked platform transaction only', async () => {
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 3, products: [catalogProduct('TX')] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-C-TX', auth: { isLoggedIn: true, openid: 'openid-tx' } })
+    injectIdentity(store, 'U-C-TX')
     store.applyLaunch({ promoter: 'T002' })
     await store.initialize()
     store.setAddress({ receiver: '李女士', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
@@ -196,14 +216,14 @@ describe('C端商城 user store', () => {
     expect(readCatalogTransactionJournal()[`${orderId}:release`]).toBeUndefined()
   })
 
-  it('exposes distributor profiles from the shared store and rejects invalid cart or address input', async () => {
+  it('只使用注入身份并拒绝非法购物车或地址输入', async () => {
     const store = allowedStore()
-    store.$patch({ userId: 'U-NEG', auth: { isLoggedIn: true, openid: 'openid-neg' } })
+    injectIdentity(store, 'U-NEG')
     await store.initialize()
-    expect(store.distributorProfiles).toEqual(readCDistributorProfiles() || {})
     expect(writeCDistributorProfiles({ 'U-NEG': { userId: 'U-NEG', promoterId: 'T001', level: 'level1', status: 'active' } })).toBe(true)
     store.distributorTick += 1
-    expect(store.distributorProfiles['U-NEG']).toMatchObject({ promoterId: 'T001' })
+    expect(store.level).toBe('normal')
+    expect(store.currentDistributor).toBeNull()
 
     expect(store.changeCart('MISSING', 'MISSING-SKU', 1)).toBe(false)
     expect(store.changeCart(store.cProducts[0].id, store.cProducts[0].skus[0].id, 0)).toBe(false)
@@ -213,7 +233,7 @@ describe('C端商城 user store', () => {
   it('removes cart lines idempotently and persists the trimmed cart', async () => {
     expect(writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 1, products: [catalogProduct('RM-A'), catalogProduct('RM-B')] })).toBe(true)
     const store = allowedStore()
-    store.$patch({ userId: 'U-RM', auth: { isLoggedIn: true, openid: 'openid-rm' } })
+    injectIdentity(store, 'U-RM')
     await store.initialize()
     expect(store.addToCart('RM-A', 'RM-A-SKU')).toBe(true)
     expect(store.addToCart('RM-B', 'RM-B-SKU')).toBe(true)
@@ -225,24 +245,26 @@ describe('C端商城 user store', () => {
     expect(readCUserSession('U-RM')?.cart.map((line) => line.productId)).toEqual(['RM-B'])
   })
 
-  it('signs in through the WeChat entry point, reuses the mock openid and clears session-bound state', async () => {
+  it('自动识别复用同一 OpenID 身份并清理旧会话数据', async () => {
+    configureUserIdentityResolver({
+      resolve: async (input) => ({ openid: input.openid, userId: 'U-STORE-SESSION', level: 'normal', status: 'active' })
+    })
     const store = createUserStore()
     store.$patch({
       cart: [{ productId: 'STALE', skuId: 'STALE-SKU', name: '旧商品', skuName: '默认', image: '', quantity: 1, unitPrice: 10, basePrice: 6, level1Commission: 2, level2Commission: 2, supplierId: 'S002' }] as never,
       orders: [{ id: 'STALE-ORDER' }] as never
     })
 
-    const first = await store.wechatLogin()
-    expect(store.auth).toEqual({ isLoggedIn: true, openid: first.openid })
-    expect(first.userId).toBe(store.userId)
-    expect(first.userId).toBeTruthy()
+    const first = await store.authenticate()
+    expect(first).toMatchObject({ userId: 'U-STORE-SESSION' })
+    expect(store.userId).toBe(first?.userId)
     expect(store.cart).toEqual([])
     expect(store.orders).toEqual([])
     expect(store.addresses).toEqual([])
 
-    const second = await store.wechatLogin()
-    expect(second.openid).toBe(first.openid)
-    expect(second.userId).toBe(first.userId)
+    const second = await store.authenticate()
+    expect(second?.openid).toBe(first?.openid)
+    expect(second?.userId).toBe(first?.userId)
   })
 
   it('recovers a confirmed payment attempt through the direct recovery entry point', async () => {
@@ -251,7 +273,7 @@ describe('C端商城 user store', () => {
     configurePlatformProviders({ payment: { createPayment, queryPayment } })
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-DIRECT-RECOVER', auth: { isLoggedIn: true, openid: 'openid-direct-recover' } })
+    injectIdentity(store, 'U-DIRECT-RECOVER')
     store.setAddress({ receiver: '直接恢复用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart(store.cProducts[0].id, store.cProducts[0].skus[0].id)
     expect(await store.submitOrder()).toBe(true)
@@ -279,7 +301,7 @@ describe('C端商城 user store', () => {
     const product = catalogProduct('MOQ-FIRST', { skus: [{ id: 'MOQ-FIRST-SKU', name: '整箱', image: '/static/images/field.jpg', retailPrice: 100, cost: 60, stock: 8, level1Amount: 10, level2Amount: 15, minimumOrderQuantity: 3 }] })
     expect(writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 1, products: [product] })).toBe(true)
     const store = allowedStore()
-    store.$patch({ userId: 'U-MOQ-FIRST', auth: { isLoggedIn: true, openid: 'openid-moq-first' } })
+    injectIdentity(store, 'U-MOQ-FIRST')
     await store.initialize()
     store.setAddress({ receiver: '李女士', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
 
@@ -296,7 +318,7 @@ describe('C端商城 user store', () => {
     const product = catalogProduct('MOQ-RAISED', { skus: [{ id: 'MOQ-RAISED-SKU', name: '整箱', image: '/static/images/field.jpg', retailPrice: 100, cost: 60, stock: 8, level1Amount: 10, level2Amount: 15, minimumOrderQuantity: 2 }] })
     expect(writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 1, products: [product] })).toBe(true)
     const store = allowedStore()
-    store.$patch({ userId: 'U-MOQ-RAISED', auth: { isLoggedIn: true, openid: 'openid-moq-raised' } })
+    injectIdentity(store, 'U-MOQ-RAISED')
     await store.initialize()
     store.setAddress({ receiver: '李女士', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     expect(store.addToCart(product.id, product.skus[0].id)).toBe(true)
@@ -324,7 +346,7 @@ describe('C端商城 user store', () => {
   it('keeps Pinia unchanged when a stock revision conflicts before checkout', async () => {
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 2, products: [catalogProduct('STALE')] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-C-STALE', auth: { isLoggedIn: true, openid: 'openid-stale' } })
+    injectIdentity(store, 'U-C-STALE')
     store.applyLaunch({ promoter: 'T002' })
     await store.initialize()
     store.setAddress({ receiver: '李女士', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
@@ -340,7 +362,7 @@ describe('C端商城 user store', () => {
   it('rejects checkout when catalog revision changes after lock acquisition', async () => {
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 2, products: [catalogProduct('LOCK-CONFLICT')] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-LOCK-CONFLICT', auth: { isLoggedIn: true, openid: 'openid-lock-conflict' } })
+    injectIdentity(store, 'U-LOCK-CONFLICT')
     await store.initialize()
     store.setAddress({ receiver: '李女士', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart('LOCK-CONFLICT', 'LOCK-CONFLICT-SKU')
@@ -362,19 +384,18 @@ describe('C端商城 user store', () => {
     expect(store.checkoutError).toBe('库存已更新，请刷新后重试')
   })
 
-  it('restricts unshared new users but lets a formally bound user revisit without replacing the binding', async () => {
-    const restricted = createUserStore()
-    restricted.applyLaunch({})
-    await restricted.initialize()
-    expect(restricted.entryRestricted).toBe(true)
-    expect(restricted.cProducts).toHaveLength(0)
+  it('无推广参数的新用户可直接进入，正式绑定用户不会被新参数替换', async () => {
+    const direct = createUserStore()
+    direct.applyLaunch({})
+    await direct.initialize()
+    expect(direct.cProducts.length).toBeGreaterThan(0)
+    expect(direct.promoterId).toBe('')
 
     upsertUserBinding({ userId: 'U-BOUND', promoterId: 'T003', status: 'bound', boundAt: new Date().toISOString() })
     const returning = createUserStore()
-    returning.$patch({ userId: 'U-BOUND', auth: { isLoggedIn: true, openid: 'openid-bound' } })
+    injectIdentity(returning, 'U-BOUND')
     returning.applyLaunch({ promoter: 'T002' })
     await returning.initialize()
-    expect(returning.entryRestricted).toBe(false)
     expect(returning.referralPromoterId).toBe('T003')
     expect(returning.cProducts.length).toBeGreaterThan(0)
   })
@@ -385,21 +406,20 @@ describe('C端商城 user store', () => {
       setStorageSync: () => undefined
     })
     const returning = createUserStore()
-    returning.$patch({ userId: 'U-STORED', auth: { isLoggedIn: true, openid: 'openid-stored' } })
+    injectIdentity(returning, 'U-STORED')
     returning.applyLaunch({})
     await returning.initialize()
-    expect(returning.entryRestricted).toBe(false)
     expect(returning.promoterId).toBe('T002')
     expect(returning.cProducts.length).toBeGreaterThan(0)
   })
 
-  it('restricts initialize when launch handling did not provide a referral', async () => {
+  it('没有推广参数时仍初始化完整商城目录', async () => {
     const unshared = createUserStore()
 
     await unshared.initialize()
 
-    expect(unshared.entryRestricted).toBe(true)
-    expect(unshared.cProducts).toHaveLength(0)
+    expect(unshared.cProducts.length).toBeGreaterThan(0)
+    expect(unshared.promoterId).toBe('')
   })
 
   it('binds a direct level2 promoter without an upstream and allocates only its level2 amount', async () => {
@@ -408,7 +428,7 @@ describe('C端商城 user store', () => {
       'U-NO-PARENT': { userId: 'U-NO-PARENT', promoterId: 'T003', level: 'level2', status: 'active' }
     })
     const store = allowedStore()
-    store.$patch({ userId: 'U-DIRECT', auth: { isLoggedIn: true, openid: 'openid-direct' } })
+    injectIdentity(store, 'U-DIRECT')
     store.applyLaunch({ promoter: 'T003' })
     await store.initialize()
     store.setAddress({ receiver: '李女士', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
@@ -432,7 +452,7 @@ describe('C端商城 user store', () => {
 
     for (const identity of identities) {
         const store = allowedStore()
-      store.$patch({ userId: identity.userId, auth: { isLoggedIn: true, openid: `openid-${identity.level}` } })
+      injectIdentity(store, identity.userId)
       store.applyLaunch({ promoter: 'T002' })
       await store.initialize()
       store.setAddress({ receiver: '李女士', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
@@ -452,9 +472,9 @@ describe('C端商城 user store', () => {
     const product = store.cProducts[0]
     expect(readCatalogState()?.products.some((item) => item.id === product.id)).toBe(true)
     expect(store.priceFor(product.skus[0])).toBe(45)
-    store.$patch({ userId: 'U-DEMO-L2' })
+    injectIdentity(store, 'U-DEMO-L2')
     expect(store.priceFor(product.skus[0])).toBe(30)
-    store.$patch({ userId: 'U-DEMO-L1' })
+    injectIdentity(store, 'U-DEMO-L1')
     expect(store.priceFor(product.skus[0])).toBe(20)
   })
 
@@ -464,7 +484,7 @@ describe('C端商城 user store', () => {
       'U-FORMAL-L2': { userId: 'U-FORMAL-L2', promoterId: 'T002', parentPromoterId: 'T001', level: 'level2', status: 'active' }
     })
     const store = allowedStore()
-    store.$patch({ userId: 'U-FORMAL-L2', auth: { isLoggedIn: true, openid: 'openid-formal-l2' } })
+    injectIdentity(store, 'U-FORMAL-L2')
     await store.initialize()
 
     const sku = store.cProducts[0].skus[0]
@@ -477,7 +497,7 @@ describe('C端商城 user store', () => {
   it('rolls back checkout atomically when order persistence fails and allows retry', async () => {
     expect(writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 0, products: [catalogProduct('RECOVER')] })).toBe(true)
     const store = allowedStore()
-    store.$patch({ userId: 'U-RECOVER', auth: { isLoggedIn: true, openid: 'openid-recover' } })
+    injectIdentity(store, 'U-RECOVER')
     await store.initialize()
     store.setAddress({ receiver: '李女士', phone: '13800000000', region: '湖南', detail: '恢复测试', isDefault: true })
     store.addToCart('RECOVER', 'RECOVER-SKU')
@@ -521,7 +541,7 @@ describe('C端商城 user store', () => {
 
   it('does not let a URL userId replace the authorized identity', () => {
     const store = allowedStore()
-    store.$patch({ userId: 'U-A', auth: { isLoggedIn: true, openid: 'openid-a' } })
+    injectIdentity(store, 'U-A')
     store.applyLaunch({ userId: 'U-B', promoter: 'T001' })
     expect(store.userId).toBe('U-A')
   })
@@ -529,7 +549,7 @@ describe('C端商城 user store', () => {
   it('checks stock, splits multi-supplier checkout and records price snapshots', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     const first = store.cProducts[0]
     const second = store.cProducts.find((item) => item.supplierId !== first.supplierId)!
     store.addToCart(first.id, first.skus[0].id)
@@ -547,7 +567,7 @@ describe('C端商城 user store', () => {
   it('publishes paid C sub-orders to supplier fulfillment and blocks direct user shipping', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     const product = store.cProducts[0]
     store.setAddress({ receiver: '李女士', phone: '13800000000', region: '湖南省湘西州', detail: '测试地址', isDefault: true })
     store.addToCart(product.id, product.skus[0].id)
@@ -563,7 +583,7 @@ describe('C端商城 user store', () => {
   it('keeps shared and Pinia order state unchanged when payment provider fails', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-PAYMENT-FAIL', auth: { isLoggedIn: true, openid: 'openid-payment-fail' } })
+    injectIdentity(store, 'U-PAYMENT-FAIL')
     const product = store.cProducts[0]
     store.setAddress({ receiver: '支付失败用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart(product.id, product.skus[0].id)
@@ -591,7 +611,7 @@ describe('C端商城 user store', () => {
   it('starts a new provider attempt after an explicit failure and keeps the business journal stable', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-PAYMENT-RETRY', auth: { isLoggedIn: true, openid: 'openid-payment-retry' } })
+    injectIdentity(store, 'U-PAYMENT-RETRY')
     const product = store.cProducts[0]
     store.setAddress({ receiver: '支付重试用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart(product.id, product.skus[0].id)
@@ -619,7 +639,7 @@ describe('C端商城 user store', () => {
   it('shares one retry attempt across concurrent user tabs', async () => {
     const first = allowedStore()
     await first.initialize()
-    first.$patch({ userId: 'U-PAYMENT-RETRY-TABS', auth: { isLoggedIn: true, openid: 'openid-payment-retry-tabs-1' } })
+    injectIdentity(first, 'U-PAYMENT-RETRY-TABS')
     const product = first.cProducts[0]
     first.setAddress({ receiver: '支付多标签用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     first.addToCart(product.id, product.skus[0].id)
@@ -630,7 +650,7 @@ describe('C端商城 user store', () => {
     expect(await first.payOrder(order.id)).toBe(false)
 
     const second = allowedStore()
-    second.$patch({ userId: order.userId, auth: { isLoggedIn: true, openid: 'openid-payment-retry-tabs-2' } })
+    injectIdentity(second, order.userId)
     await second.initialize(true)
     const createPayment = vi.fn().mockResolvedValue({ ok: true, value: { transactionId: 'PAY-RETRY-TABS' } })
     configurePlatformProviders({ payment: { createPayment } })
@@ -649,7 +669,7 @@ describe('C端商城 user store', () => {
   it('persists an unknown attempt before invoking the payment provider', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-PAY-ATTEMPT-FIRST', auth: { isLoggedIn: true, openid: 'openid-pay-attempt-first' } })
+    injectIdentity(store, 'U-PAY-ATTEMPT-FIRST')
     const product = store.cProducts[0]
     store.setAddress({ receiver: '支付记录用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart(product.id, product.skus[0].id)
@@ -669,7 +689,7 @@ describe('C端商城 user store', () => {
   it('queries the same operation after a lost payment response and synchronizes a confirmed result', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-PAY-QUERY-CONFIRMED', auth: { isLoggedIn: true, openid: 'openid-pay-query-confirmed' } })
+    injectIdentity(store, 'U-PAY-QUERY-CONFIRMED')
     const product = store.cProducts[0]
     store.setAddress({ receiver: '支付查询用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart(product.id, product.skus[0].id)
@@ -689,7 +709,7 @@ describe('C端商城 user store', () => {
   it('keeps an unknown attempt visible when a lost response cannot be confirmed', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-PAY-QUERY-UNKNOWN', auth: { isLoggedIn: true, openid: 'openid-pay-query-unknown' } })
+    injectIdentity(store, 'U-PAY-QUERY-UNKNOWN')
     const product = store.cProducts[0]
     store.setAddress({ receiver: '支付待确认用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart(product.id, product.skus[0].id)
@@ -710,7 +730,7 @@ describe('C端商城 user store', () => {
   it('retains a confirmed attempt across a business transaction failure and retries without another charge', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-PAY-SYNC-RETRY', auth: { isLoggedIn: true, openid: 'openid-pay-sync-retry' } })
+    injectIdentity(store, 'U-PAY-SYNC-RETRY')
     const product = store.cProducts[0]
     store.setAddress({ receiver: '支付同步重试用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart(product.id, product.skus[0].id)
@@ -738,7 +758,7 @@ describe('C端商城 user store', () => {
   it('persists confirmed payment recovery and completes it from current snapshots on refresh', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-PAY-PERSISTED-RECOVERY', auth: { isLoggedIn: true, openid: 'openid-pay-persisted-recovery' } })
+    injectIdentity(store, 'U-PAY-PERSISTED-RECOVERY')
     const product = store.cProducts[0]
     store.setAddress({ receiver: '支付持久恢复用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart(product.id, product.skus[0].id)
@@ -792,7 +812,7 @@ describe('C端商城 user store', () => {
   it('keeps a paid order successful when attempt synchronization fails and reconciles it on refresh', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-PAY-SYNC-RECOVERY', auth: { isLoggedIn: true, openid: 'openid-pay-sync-recovery' } })
+    injectIdentity(store, 'U-PAY-SYNC-RECOVERY')
     const product = store.cProducts[0]
     store.setAddress({ receiver: '支付记录恢复用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart(product.id, product.skus[0].id)
@@ -822,7 +842,7 @@ describe('C端商城 user store', () => {
   it('does not reuse a confirmed payment attempt owned by another user', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-PAY-OWNER', auth: { isLoggedIn: true, openid: 'openid-pay-owner' } })
+    injectIdentity(store, 'U-PAY-OWNER')
     const product = store.cProducts[0]
     store.setAddress({ receiver: '支付归属用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart(product.id, product.skus[0].id)
@@ -846,7 +866,7 @@ describe('C端商城 user store', () => {
   it('uses the persisted order amount when Pinia payment data is stale', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-PAY-PERSISTED', auth: { isLoggedIn: true, openid: 'openid-pay-persisted' } })
+    injectIdentity(store, 'U-PAY-PERSISTED')
     const product = store.cProducts[0]
     store.setAddress({ receiver: '持久化金额用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart(product.id, product.skus[0].id)
@@ -865,7 +885,7 @@ describe('C端商城 user store', () => {
   it('converts a rejected order payment promise into a visible unknown attempt without business writes', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-PAY-REJECT', auth: { isLoggedIn: true, openid: 'openid-pay-reject' } })
+    injectIdentity(store, 'U-PAY-REJECT')
     const product = store.cProducts[0]
     store.setAddress({ receiver: '支付异常用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart(product.id, product.skus[0].id)
@@ -885,7 +905,7 @@ describe('C端商城 user store', () => {
   it('refreshes a C sub-order from supplier platform fulfillment', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     const product = store.cProducts[0]
     store.setAddress({ receiver: '李女士', phone: '13800000000', region: '湖南省湘西州', detail: '测试地址', isDefault: true })
     store.addToCart(product.id, product.skus[0].id)
@@ -902,7 +922,7 @@ describe('C端商城 user store', () => {
   it('projects supplier fulfillment during shared refresh without writing C orders', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-C-SHARED-REFRESH', auth: { isLoggedIn: true, openid: 'openid-shared-refresh' } })
+    injectIdentity(store, 'U-C-SHARED-REFRESH')
     const product = store.cProducts[0]
     store.setAddress({ receiver: '李女士', phone: '13800000000', region: '湖南省湘西州', detail: '测试地址', isDefault: true })
     store.addToCart(product.id, product.skus[0].id)
@@ -924,7 +944,7 @@ describe('C端商城 user store', () => {
   it('persists fulfillment through an explicit idempotent synchronization transaction', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-C-FULFILLMENT-SYNC', auth: { isLoggedIn: true, openid: 'openid-fulfillment-sync' } })
+    injectIdentity(store, 'U-C-FULFILLMENT-SYNC')
     const product = store.cProducts[0]
     store.setAddress({ receiver: '履约同步用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart(product.id, product.skus[0].id)
@@ -948,7 +968,7 @@ describe('C端商城 user store', () => {
   it('reloads addresses and inventory changed by another H5 page', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-C-OTHER', auth: { isLoggedIn: true, openid: 'openid-other' } })
+    injectIdentity(store, 'U-C-OTHER')
     const inventory = readCatalogState()!
     const address = { id: 'ADDR-OTHER', userId: 'U-C-OTHER', receiver: '跨页用户', phone: '13800000000', region: '湖南', detail: '跨页地址', isDefault: true }
     writeCAddresses({ [address.id]: address })
@@ -961,7 +981,7 @@ describe('C端商城 user store', () => {
   it('keeps confirmed receipt after refreshing the supplier fulfillment snapshot', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     const product = store.cProducts[0]
     store.setAddress({ receiver: '李女士', phone: '13800000000', region: '湖南省湘西州', detail: '测试地址', isDefault: true })
     store.addToCart(product.id, product.skus[0].id)
@@ -977,7 +997,7 @@ describe('C端商城 user store', () => {
   it('keeps a sub-order in after-sale after refreshing supplier fulfillment', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     const product = store.cProducts[0]
     store.setAddress({ receiver: '李女士', phone: '13800000000', region: '湖南', detail: '售后测试地址', isDefault: true })
     store.addToCart(product.id, product.skus[0].id)
@@ -994,7 +1014,7 @@ describe('C端商城 user store', () => {
   it('persists after-sale evidence images to the shared platform after-sale', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-EVID-TEST', auth: { isLoggedIn: true, openid: 'openid-evid' } })
+    injectIdentity(store, 'U-EVID-TEST')
     const product = store.cProducts[0]
     store.setAddress({ receiver: '证据用户', phone: '13800000001', region: '湖南', detail: '售后测试地址', isDefault: true })
     store.addToCart(product.id, product.skus[0].id)
@@ -1011,7 +1031,7 @@ describe('C端商城 user store', () => {
   it('persists stable user portal source links for a processing after-sale request', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-AFTER-SALE-SOURCE', auth: { isLoggedIn: true, openid: 'openid-after-sale-source' } })
+    injectIdentity(store, 'U-AFTER-SALE-SOURCE')
     const product = store.cProducts[0]
     store.setAddress({ receiver: '售后用户', phone: '13800000000', region: '湖南', detail: '售后地址', isDefault: true })
     store.addToCart(product.id, product.skus[0].id)
@@ -1033,7 +1053,7 @@ describe('C端商城 user store', () => {
     const store = allowedStore()
     await store.initialize()
     writeCDistributorProfiles(demoCDistributorProfiles)
-    store.$patch({ userId: 'U-DEMO-L2', auth: { isLoggedIn: true, openid: 'openid-level2' } })
+    injectIdentity(store, 'U-DEMO-L2')
     const sku = store.cProducts[0].skus[0]
     store.addToCart(store.cProducts[0].id, sku.id)
     store.setAddress({ receiver: '李女士', phone: '13800000000', region: '湖南省湘西州', detail: '测试地址', isDefault: true })
@@ -1042,7 +1062,7 @@ describe('C端商城 user store', () => {
       expect.objectContaining({ beneficiaryId: 'T001', beneficiaryLevel: 'level1', amount: sku.level1Commission })
     ])
 
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     expect(store.setReferral('T002')).toBe(true)
     store.setAddress({ receiver: '王女士', phone: '13900000000', region: '湖南省湘西州', detail: '另一测试地址', isDefault: true })
     store.addToCart(store.cProducts[0].id, sku.id)
@@ -1054,7 +1074,7 @@ describe('C端商城 user store', () => {
     expect(await store.confirmSubOrderReceipt(orderId, subOrderId)).toBe(true)
     expect(shippedOrder.status).toBe('received')
     expect(shippedOrder.commissionAllocations.every((item) => item.status === 'available')).toBe(true)
-    store.$patch({ userId: 'U-DEMO-L2', auth: { isLoggedIn: true, openid: 'openid-level2' } })
+    injectIdentity(store, 'U-DEMO-L2')
     expect(await store.withdrawCommission()).toBe('pending')
     const withdrawal = Object.values(readPlatformWithdrawals() || {}).find((item) => item.requesterId === 'U-DEMO-L2')!
     expect(transitionPlatformWithdrawal(withdrawal.id, 'approved', 'admin')).toMatchObject({ status: 'approved' })
@@ -1069,7 +1089,7 @@ describe('C端商城 user store', () => {
   it('persists address defaults, inventory reservations and pending cancellation rollback', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     const sku = store.cProducts[0].skus[0]
     const originalStock = sku.stock
     expect(store.setAddress({ receiver: '甲', phone: '13800000000', region: '湖南', detail: '一号', isDefault: true })).toBe(true)
@@ -1095,7 +1115,7 @@ describe('C端商城 user store', () => {
       B: { id: 'B', userId: 'U-C-TEST', receiver: '乙', phone: '13900000000', region: '湖南', detail: '二号', isDefault: true }
     })
     const store = allowedStore()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     await store.initialize(true)
     expect(store.addresses.filter((item) => item.isDefault)).toHaveLength(1)
     expect(readCAddresses()).toEqual(expect.objectContaining({ B: expect.objectContaining({ isDefault: true }) }))
@@ -1104,7 +1124,7 @@ describe('C端商城 user store', () => {
   it('rejects non-courier products before adding them to cart', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     const product = { ...store.cProducts[0], shippingType: 'pickup' as never }
     store.cProducts = [product]
     expect(store.addToCart(product.id, product.skus[0].id)).toBe(false)
@@ -1114,7 +1134,7 @@ describe('C端商城 user store', () => {
   it('supports paid sub-order after-sale and releases inventory once', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     store.setReferral('T002')
     const product = store.cProducts[0]
     const sku = product.skus[0]
@@ -1135,7 +1155,7 @@ describe('C端商城 user store', () => {
   it('supports shipped sub-order after-sale without restoring inventory', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     store.setReferral('T002')
     const product = store.cProducts[0]
     const sku = product.skus[0]
@@ -1156,7 +1176,7 @@ describe('C端商城 user store', () => {
   it('keeps every after-sale snapshot and Pinia state unchanged when supplier publication fails', async () => {
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 0, products: [catalogProduct('AFTER-SALE-ROLLBACK')] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-AFTER-SALE-ROLLBACK', auth: { isLoggedIn: true, openid: 'openid-after-sale-rollback' } })
+    injectIdentity(store, 'U-AFTER-SALE-ROLLBACK')
     await store.initialize()
     store.setAddress({ receiver: '回滚测试', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart('AFTER-SALE-ROLLBACK', 'AFTER-SALE-ROLLBACK-SKU')
@@ -1204,7 +1224,7 @@ describe('C端商城 user store', () => {
   it('does not restore inventory when Pinia says paid but the persisted sub-order is shipped', async () => {
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 0, products: [catalogProduct('AFTER-SALE-PERSISTED')] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-AFTER-SALE-PERSISTED', auth: { isLoggedIn: true, openid: 'openid-after-sale-persisted' } })
+    injectIdentity(store, 'U-AFTER-SALE-PERSISTED')
     await store.initialize()
     store.setAddress({ receiver: '持久化测试', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart('AFTER-SALE-PERSISTED', 'AFTER-SALE-PERSISTED-SKU')
@@ -1227,7 +1247,7 @@ describe('C端商城 user store', () => {
   it('does not overwrite another users persisted addresses', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     expect(store.setAddress({ receiver: '甲', phone: '13800000000', region: '湖南', detail: '一号', isDefault: true })).toBe(true)
     const otherAddress = { id: 'ADDR-OTHER', userId: 'U-OTHER', receiver: '乙', phone: '13900000000', region: '湖南', detail: '二号', isDefault: true }
     const allAddresses = readCAddresses() || {}
@@ -1240,7 +1260,7 @@ describe('C端商城 user store', () => {
   it('preserves a same-user address added by another tab when changing the default', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     expect(store.setAddress({ receiver: '甲', phone: '13800000000', region: '湖南', detail: '一号', isDefault: true })).toBe(true)
     const firstId = store.addresses[0].id
     const all = readCAddresses() || {}
@@ -1255,7 +1275,7 @@ describe('C端商城 user store', () => {
   it('isolates persisted carts by user session', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-A', auth: { isLoggedIn: true, openid: 'openid-a' } })
+    injectIdentity(store, 'U-A')
     store.addToCart(store.cProducts[0].id, store.cProducts[0].skus[0].id)
     store.persistSession()
     store.$patch({ userId: 'U-B', cart: [] })
@@ -1270,7 +1290,7 @@ describe('C端商城 user store', () => {
   it('rejects checkout when another session advances inventory revision', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     store.setAddress({ receiver: '李女士', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart(store.cProducts[0].id, store.cProducts[0].skus[0].id)
     const inventory = readCatalogState()!
@@ -1284,7 +1304,7 @@ describe('C端商城 user store', () => {
   it('rejects invalid referrals and keeps a bound referral immutable', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     expect(store.setReferral('missing')).toBe(false)
     expect(store.setReferral('T002')).toBe(true)
     store.setAddress({ receiver: '李女士', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
@@ -1298,7 +1318,7 @@ describe('C端商城 user store', () => {
   it('fulfills and reverses only the selected supplier sub-order', async () => {
     const store = allowedStore()
     await store.initialize()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     store.setReferral('T002')
     const first = store.cProducts[0]
     const second = store.cProducts.find((item) => item.supplierId !== first.supplierId)!
@@ -1325,13 +1345,13 @@ describe('C端商城 user store', () => {
 
   it('restores a logged-in users orders and addresses after reinitialization', async () => {
     const store = allowedStore()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     await store.initialize(true)
     store.setAddress({ receiver: '李女士', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart(store.cProducts[0].id, store.cProducts[0].skus[0].id)
     expect(await store.submitOrder()).toBe(true)
     store.$reset()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     await store.initialize(true)
     expect(store.orders).toHaveLength(1)
     expect(store.addresses).toHaveLength(1)
@@ -1339,7 +1359,7 @@ describe('C端商城 user store', () => {
 
   it('does not restore an order whose address snapshot belongs to another user', async () => {
     const store = allowedStore()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     await store.initialize(true)
     store.setAddress({ receiver: '甲', phone: '13800000000', region: '湖南', detail: '一号', isDefault: true })
     store.addToCart(store.cProducts[0].id, store.cProducts[0].skus[0].id)
@@ -1348,14 +1368,14 @@ describe('C端商城 user store', () => {
     raw[store.orders[0].id].address.userId = 'U-OTHER'
     localStorage.setItem(PLATFORM_C_ORDERS_STORAGE_KEY, JSON.stringify(raw))
     store.$reset()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     await store.initialize(true)
     expect(store.orders).toHaveLength(0)
   })
 
   it('keeps historical price and commission snapshots after current catalog changes', async () => {
     const store = allowedStore()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     await store.initialize(true)
     store.setAddress({ receiver: '甲', phone: '13800000000', region: '湖南', detail: '一号', isDefault: true })
     const product = store.cProducts[0]
@@ -1366,14 +1386,14 @@ describe('C端商城 user store', () => {
     const changed = inventory.products.map((item) => item.id === product.id ? { ...item, skus: item.skus.map((sku) => sku.id === product.skus[0].id ? { ...sku, retailPrice: 99, level1Amount: 1, level2Amount: 1 } : sku) } : item)
     expect(writeCatalogState({ ...inventory, revision: inventory.revision + 1, products: changed }, inventory.revision)).toBe(true)
     store.$reset()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     await store.initialize(true)
     expect(store.orders.find((order) => order.id === orderId)?.items[0]).toMatchObject({ unitPrice: 45, basePrice: 20, level1Commission: 10, level2Commission: 15 })
   })
 
   it('does not cancel a pending order when a reserved SKU is missing', async () => {
     const store = allowedStore()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     await store.initialize(true)
     store.setAddress({ receiver: '甲', phone: '13800000000', region: '湖南', detail: '一号', isDefault: true })
     store.addToCart(store.cProducts[0].id, store.cProducts[0].skus[0].id)
@@ -1388,7 +1408,7 @@ describe('C端商城 user store', () => {
 
   it('keeps paid after-sale unchanged when inventory revision is stale', async () => {
     const store = allowedStore()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     await store.initialize(true)
     store.setReferral('T002')
     store.setAddress({ receiver: '甲', phone: '13800000000', region: '湖南', detail: '一号', isDefault: true })
@@ -1415,14 +1435,14 @@ describe('C端商城 user store', () => {
         { productId: 'missing', skuId: 'missing', name: '脏数据', skuName: '脏数据', image: '', quantity: 1, unitPrice: -1, basePrice: -1, level1Commission: 0, level2Commission: 0, supplierId: 'S1', lockedLevel: 'normal' }
       ]
     })
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     store.restoreSession()
     expect(store.cart).toHaveLength(0)
   })
 
   it('creates a negative withdrawn commission only for the selected sub-order', async () => {
     const store = allowedStore()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     await store.initialize(true)
     store.setReferral('T002')
     store.setAddress({ receiver: '甲', phone: '13800000000', region: '湖南', detail: '一号', isDefault: true })
@@ -1438,7 +1458,7 @@ describe('C端商城 user store', () => {
       expect(await store.confirmSubOrderReceipt(order.id, sub.id)).toBe(true)
     }
     writeCDistributorProfiles(demoCDistributorProfiles)
-    store.$patch({ userId: 'U-DEMO-L2', auth: { isLoggedIn: true, openid: 'openid-level2' } })
+    injectIdentity(store, 'U-DEMO-L2')
     expect(await store.withdrawCommission()).toBe('pending')
     const withdrawal = Object.values(readPlatformWithdrawals() || {}).find((item) => item.requesterId === 'U-DEMO-L2')!
     expect(transitionPlatformWithdrawal(withdrawal.id, 'approved', 'admin')).toMatchObject({ status: 'approved' })
@@ -1454,7 +1474,7 @@ describe('C端商城 user store', () => {
 
   it('preserves commission records added by another tab before a local status update', async () => {
     const store = allowedStore()
-    store.$patch({ userId: 'U-C-TEST', auth: { isLoggedIn: true, openid: 'openid-test' } })
+    injectIdentity(store, 'U-C-TEST')
     await store.initialize(true)
     store.setReferral('T002')
     store.setAddress({ receiver: '甲', phone: '13800000000', region: '湖南', detail: '一号', isDefault: true })
@@ -1475,7 +1495,7 @@ describe('C端商城 user store', () => {
   it('blocks checkout and payment when the supplier can no longer receive new orders', async () => {
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 1, products: [catalogProduct('SUPPLIER-GUARD', { supplierId: 'S002', supplierName: suppliers[1].name })] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-SUPPLIER-GUARD', auth: { isLoggedIn: true, openid: 'openid-supplier-guard' } })
+    injectIdentity(store, 'U-SUPPLIER-GUARD')
     await store.initialize()
     store.setAddress({ receiver: '李女士', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart('SUPPLIER-GUARD', 'SUPPLIER-GUARD-SKU')
@@ -1494,7 +1514,7 @@ describe('C端商城 user store', () => {
   it('restores C-order and commission snapshots when supplier receipt publication fails', async () => {
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 0, products: [catalogProduct('RECEIPT-FAIL')] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-RECEIPT-FAIL', auth: { isLoggedIn: true, openid: 'openid-receipt-fail' } })
+    injectIdentity(store, 'U-RECEIPT-FAIL')
     await store.initialize()
     store.setAddress({ receiver: '测试用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart('RECEIPT-FAIL', 'RECEIPT-FAIL-SKU')
@@ -1522,7 +1542,7 @@ describe('C端商城 user store', () => {
   it('records an owned recoverable receipt transaction only after all C-order snapshots are committed', async () => {
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 0, products: [catalogProduct('RECEIPT-OWNED')] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-RECEIPT-OWNED', auth: { isLoggedIn: true, openid: 'openid-receipt-owned' } })
+    injectIdentity(store, 'U-RECEIPT-OWNED')
     await store.initialize()
     store.setAddress({ receiver: '测试用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart('RECEIPT-OWNED', 'RECEIPT-OWNED-SKU')
@@ -1543,7 +1563,7 @@ describe('C端商城 user store', () => {
   it('rejects a receipt when its persisted C-order snapshot changes while revisions are captured', async () => {
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 0, products: [catalogProduct('RECEIPT-REVISION')] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-RECEIPT-REVISION', auth: { isLoggedIn: true, openid: 'openid-receipt-revision' } })
+    injectIdentity(store, 'U-RECEIPT-REVISION')
     await store.initialize()
     store.setAddress({ receiver: '测试用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart('RECEIPT-REVISION', 'RECEIPT-REVISION-SKU')
@@ -1583,7 +1603,7 @@ describe('C端商城 user store', () => {
 
   it('rejects a user recovery journal whose collections do not match its snapshot variant', async () => {
     const store = allowedStore()
-    store.$patch({ userId: 'U-RECOVERY-SHAPE', auth: { isLoggedIn: true, openid: 'openid-recovery-shape' } })
+    injectIdentity(store, 'U-RECOVERY-SHAPE')
     await store.initialize()
     const snapshot = { variant: 'withdrawal', ownerUserId: 'U-RECOVERY-SHAPE', orders: {}, commissions: [] }
     expect(preparePlatformJournal({ operationId: 'USER-WRONG-COLLECTIONS', collections: ['wrong-collection'], original: snapshot, target: snapshot, recoveryHandlerKey: 'user-commerce-recovery-v1', recoverySchema: 'user-commerce-snapshot-v1' })).toBe(true)
@@ -1598,7 +1618,7 @@ describe('C端商城 user store', () => {
     ['malformed catalog', 'user-commerce-snapshot-v1', { variant: 'after-sale-catalog', ownerUserId: 'U-RECOVERY-SCHEMA', orders: {}, commissions: [], supplierOrders: {}, afterSales: {}, catalog: { revision: 0, products: 'invalid' } }]
   ])('rejects a user recovery journal with %s', async (_label, recoverySchema, snapshot) => {
     const store = allowedStore()
-    store.$patch({ userId: 'U-RECOVERY-SCHEMA', auth: { isLoggedIn: true, openid: 'openid-recovery-schema' } })
+    injectIdentity(store, 'U-RECOVERY-SCHEMA')
     await store.initialize()
     const collections = snapshot.variant === 'withdrawal'
       ? [PLATFORM_C_COMMISSIONS_STORAGE_KEY, PLATFORM_C_ORDERS_STORAGE_KEY]
@@ -1614,7 +1634,7 @@ describe('C端商城 user store', () => {
   it('rejects a user recovery journal with a changed supplier order owned by another user', async () => {
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 0, products: [catalogProduct('RECOVERY-CROSS-USER')] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-RECOVERY-CROSS-USER', auth: { isLoggedIn: true, openid: 'openid-recovery-cross-user' } })
+    injectIdentity(store, 'U-RECOVERY-CROSS-USER')
     await store.initialize()
     store.setAddress({ receiver: '恢复测试', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart('RECOVERY-CROSS-USER', 'RECOVERY-CROSS-USER-SKU')
@@ -1637,7 +1657,7 @@ describe('C端商城 user store', () => {
 
   it('rejects a withdrawal recovery journal that forges beneficiary, amount, and status on the same order', async () => {
     const store = allowedStore()
-    store.$patch({ userId: 'U-RECOVERY-FINANCE', auth: { isLoggedIn: true, openid: 'openid-recovery-finance' } })
+    injectIdentity(store, 'U-RECOVERY-FINANCE')
     await store.initialize()
     const allocation = { id: 'CC-FINANCE', orderId: 'CO-FINANCE', subOrderId: 'CSO-FINANCE', beneficiaryId: 'T001', beneficiaryLevel: 'level1' as const, amount: 10, status: 'available' as const, createdAt: '2026-08-01T00:00:00.000Z' }
     const order = {
@@ -1661,7 +1681,7 @@ describe('C端商城 user store', () => {
   it('rejects a receipt recovery that releases commission without receiving the persisted sub-order', async () => {
     const store = allowedStore()
     const userId = 'U-RECEIPT-STATE-BINDING'
-    store.$patch({ userId, auth: { isLoggedIn: true, openid: 'openid-receipt-state-binding' } })
+    injectIdentity(store, userId)
     await store.initialize()
     const allocation = { id: 'CC-RECEIPT-STATE-BINDING', orderId: 'CO-RECEIPT-STATE-BINDING', subOrderId: 'CSO-RECEIPT-STATE-BINDING', beneficiaryId: 'T001', beneficiaryLevel: 'level1' as const, amount: 10, status: 'pending' as const, createdAt: '2026-08-01T00:00:00.000Z' }
     const order = {
@@ -1683,7 +1703,7 @@ describe('C端商城 user store', () => {
   it('rejects a withdrawal recovery journal whose encoded request key is not a persisted approved user request', async () => {
     const store = allowedStore()
     const userId = 'U-WITHDRAW-FAKE-REQUEST'
-    store.$patch({ userId, auth: { isLoggedIn: true, openid: 'openid-withdraw-fake-request' } })
+    injectIdentity(store, userId)
     await store.initialize()
     const allocation = { id: 'CC-WITHDRAW-FAKE-REQUEST', orderId: 'CO-WITHDRAW-FAKE-REQUEST', subOrderId: 'CSO-WITHDRAW-FAKE-REQUEST', beneficiaryId: 'T001', beneficiaryLevel: 'level1' as const, amount: 10, status: 'available' as const, createdAt: '2026-08-01T00:00:00.000Z' }
     const order = {
@@ -1709,7 +1729,7 @@ describe('C端商城 user store', () => {
   it('rejects a receipt recovery journal that mutates immutable target sub-order fields', async () => {
     const store = allowedStore()
     const userId = 'U-RECEIPT-IMMUTABLE'
-    store.$patch({ userId, auth: { isLoggedIn: true, openid: 'openid-receipt-immutable' } })
+    injectIdentity(store, userId)
     await store.initialize()
     const allocation = { id: 'CC-RECEIPT-IMMUTABLE', orderId: 'CO-RECEIPT-IMMUTABLE', subOrderId: 'CSO-RECEIPT-IMMUTABLE', beneficiaryId: 'T001', beneficiaryLevel: 'level1' as const, amount: 10, status: 'pending' as const, createdAt: '2026-08-01T00:00:00.000Z' }
     const item = { productId: 'P-RECEIPT-IMMUTABLE', skuId: 'SKU-RECEIPT-IMMUTABLE', name: '原商品', skuName: '规格', image: '', quantity: 1, unitPrice: 100, basePrice: 60, level1Commission: 10, level2Commission: 0, supplierId: 'S001' }
@@ -1738,7 +1758,7 @@ describe('C端商城 user store', () => {
   it('rejects a paid after-sale recovery journal whose catalog release follows forged target items', async () => {
     const store = allowedStore()
     const userId = 'U-AFTER-SALE-IMMUTABLE'
-    store.$patch({ userId, auth: { isLoggedIn: true, openid: 'openid-after-sale-immutable' } })
+    injectIdentity(store, userId)
     await store.initialize()
     expect(writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 0, products: [catalogProduct('AFTER-SALE-IMMUTABLE')] })).toBe(true)
     const allocation = { id: 'CC-AFTER-SALE-IMMUTABLE', orderId: 'CO-AFTER-SALE-IMMUTABLE', subOrderId: 'CSO-AFTER-SALE-IMMUTABLE', beneficiaryId: 'T001', beneficiaryLevel: 'level1' as const, amount: 10, status: 'available' as const, createdAt: '2026-08-01T00:00:00.000Z' }
@@ -1772,7 +1792,7 @@ describe('C端商城 user store', () => {
   it('rejects a withdrawal recovery snapshot with duplicate nested order allocation ids', async () => {
     const store = allowedStore()
     const userId = 'U-WITHDRAW-NESTED-DUPLICATE-ID'
-    store.$patch({ userId, auth: { isLoggedIn: true, openid: 'openid-withdraw-nested-duplicate-id' } })
+    injectIdentity(store, userId)
     await store.initialize()
     const allocation = { id: 'CC-WITHDRAW-NESTED-DUPLICATE-ID', orderId: 'CO-WITHDRAW-NESTED-DUPLICATE-ID', subOrderId: 'CSO-WITHDRAW-NESTED-DUPLICATE-ID', beneficiaryId: 'T001', beneficiaryLevel: 'level1' as const, amount: 0.3, status: 'available' as const, createdAt: '2026-08-01T00:00:00.000Z' }
     const split = { ...allocation, id: `${allocation.id}:withdrawn:WD-NESTED-DUPLICATE-ID`, amount: 0.1, status: 'withdrawn' as const, withdrawalRequestKeys: ['WD-NESTED-DUPLICATE-ID'] }
@@ -1799,7 +1819,7 @@ describe('C端商城 user store', () => {
   it('rejects a withdrawal recovery snapshot with duplicate commission ids', async () => {
     const store = allowedStore()
     const userId = 'U-WITHDRAW-DUPLICATE-ID'
-    store.$patch({ userId, auth: { isLoggedIn: true, openid: 'openid-withdraw-duplicate-id' } })
+    injectIdentity(store, userId)
     await store.initialize()
     const allocation = { id: 'CC-WITHDRAW-DUPLICATE-ID', orderId: 'CO-WITHDRAW-DUPLICATE-ID', subOrderId: 'CSO-WITHDRAW-DUPLICATE-ID', beneficiaryId: 'T001', beneficiaryLevel: 'level1' as const, amount: 0.3, status: 'available' as const, createdAt: '2026-08-01T00:00:00.000Z' }
     const split = { ...allocation, id: `${allocation.id}:withdrawn:WD-DUPLICATE-ID`, amount: 0.1, status: 'withdrawn' as const, withdrawalRequestKeys: ['WD-DUPLICATE-ID'] }
@@ -1823,7 +1843,7 @@ describe('C端商城 user store', () => {
   it('accepts a decimal-conserving withdrawal split', async () => {
     const store = allowedStore()
     const userId = 'U-WITHDRAW-DECIMAL'
-    store.$patch({ userId, auth: { isLoggedIn: true, openid: 'openid-withdraw-decimal' } })
+    injectIdentity(store, userId)
     await store.initialize()
     const allocation = { id: 'CC-WITHDRAW-DECIMAL', orderId: 'CO-WITHDRAW-DECIMAL', subOrderId: 'CSO-WITHDRAW-DECIMAL', beneficiaryId: 'T001', beneficiaryLevel: 'level1' as const, amount: 0.3, status: 'available' as const, createdAt: '2026-08-01T00:00:00.000Z' }
     const item = { productId: 'P-WITHDRAW-DECIMAL', skuId: 'SKU-WITHDRAW-DECIMAL', name: '小数商品', skuName: '规格', image: '', quantity: 1, unitPrice: 1, basePrice: 0.7, level1Commission: 0.3, level2Commission: 0, supplierId: 'S001' }
@@ -1851,7 +1871,7 @@ describe('C端商城 user store', () => {
 
   it('restores the original user snapshot when retrying an aborted fully-marked journal', async () => {
     const store = allowedStore()
-    store.$patch({ userId: 'U-RECOVERY-ABORT', auth: { isLoggedIn: true, openid: 'openid-recovery-abort' } })
+    injectIdentity(store, 'U-RECOVERY-ABORT')
     await store.initialize()
     const targetAllocation = { id: 'TARGET', orderId: 'O', subOrderId: 'S', beneficiaryId: 'T', beneficiaryLevel: 'level1' as const, amount: 1, status: 'available' as const, createdAt: '2026-08-01T00:00:00.000Z' }
     const ownedOrder = {
@@ -1882,7 +1902,7 @@ describe('C端商城 user store', () => {
   it('retries receipt successfully after a transient supplier-order write failure', async () => {
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 0, products: [catalogProduct('RECEIPT-RETRY')] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-RECEIPT-RETRY', auth: { isLoggedIn: true, openid: 'openid-receipt-retry' } })
+    injectIdentity(store, 'U-RECEIPT-RETRY')
     await store.initialize()
     store.setAddress({ receiver: '测试用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart('RECEIPT-RETRY', 'RECEIPT-RETRY-SKU')
@@ -1907,7 +1927,7 @@ describe('C端商城 user store', () => {
   it('surfaces a fatal receipt error when recovery queue persistence fails', async () => {
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 0, products: [catalogProduct('RECEIPT-FATAL')] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-RECEIPT-FATAL', auth: { isLoggedIn: true, openid: 'openid-receipt-fatal' } })
+    injectIdentity(store, 'U-RECEIPT-FATAL')
     await store.initialize()
     store.setAddress({ receiver: '测试用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart('RECEIPT-FATAL', 'RECEIPT-FATAL-SKU')
@@ -1934,8 +1954,7 @@ describe('C端商城 user store', () => {
     writeCDistributorProfiles({ 'U-WITHDRAW': { userId: 'U-WITHDRAW', promoterId: 'T002', level: 'level2', parentPromoterId: 'T001', status: 'active' } })
     writeCCommissionRecords([{ id: 'CC-WITHDRAW', orderId: 'CO-WITHDRAW', subOrderId: 'CSO-WITHDRAW', beneficiaryId: 'T002', beneficiaryLevel: 'level2', amount: 25, status: 'available', createdAt: '2026-08-01T10:00:00.000Z' }])
     const store = createUserStore()
-    store.$patch({ userId: 'U-WITHDRAW', auth: { isLoggedIn: true, openid: 'openid-withdraw' }, commissionRecords: readCCommissionRecords() || [] })
-
+    injectIdentity(store, 'U-WITHDRAW', { commissionRecords: readCCommissionRecords() || [] })
     expect(await store.withdrawCommission('微信提现')).toBe('pending')
     const request = Object.values(readPlatformWithdrawals() || {}).find((item) => item.requesterId === 'U-WITHDRAW')
     expect(request).toMatchObject({ requesterType: 'user', requesterId: 'U-WITHDRAW', amount: 25, method: '微信提现', status: 'pending' })
@@ -1969,7 +1988,7 @@ describe('C端商城 user store', () => {
     expect(writeCCommissionRecords([commission])).toBe(true)
     expect(writePlatformWithdrawal({ id: 'WD-WITHDRAW-INITIALIZE', requesterType: 'user', requesterId: userId, amount: 25, method: '微信提现', status: 'approved', requestKey: 'WD-WITHDRAW-INITIALIZE', createdAt: '2026-08-01T11:00:00.000Z' })).toBe(true)
     const store = allowedStore()
-    store.$patch({ userId, auth: { isLoggedIn: true, openid: 'openid-withdraw-initialize' } })
+    injectIdentity(store, userId)
 
     await store.initialize(true)
 
@@ -2002,7 +2021,7 @@ describe('C端商城 user store', () => {
       return callback()
     } } })
     const store = allowedStore()
-    store.$patch({ userId, auth: { isLoggedIn: true, openid: 'openid-withdraw-initialize-gate' } })
+    injectIdentity(store, userId)
     let resolved = false
     const initialization = store.initialize(true).then(() => { resolved = true })
 
@@ -2024,9 +2043,9 @@ describe('C端商城 user store', () => {
     writeCDistributorProfiles({ [userId]: { userId, promoterId: 'T002', level: 'level2', parentPromoterId: 'T001', status: 'active' } })
     expect(writeCCommissionRecords(records)).toBe(true)
     const first = createUserStore()
-    first.$patch({ userId, auth: { isLoggedIn: true, openid: 'openid-withdraw-concurrent-1' }, commissionRecords: records })
+    injectIdentity(first, userId, { commissionRecords: records })
     const second = createUserStore()
-    second.$patch({ userId, auth: { isLoggedIn: true, openid: 'openid-withdraw-concurrent-2' }, commissionRecords: records })
+    injectIdentity(second, userId, { commissionRecords: records })
     const acquiredLocks: string[] = []
     const lockTails = new Map<string, Promise<unknown>>()
     vi.stubGlobal('navigator', { locks: { request: (name: string, callback: () => Promise<unknown>) => {
@@ -2055,7 +2074,7 @@ describe('C端商城 user store', () => {
     writeCDistributorProfiles({ [userId]: { userId, promoterId: 'T002', level: 'level2', parentPromoterId: 'T001', status: 'active' } })
     expect(writeCCommissionRecords([sharedRecord])).toBe(true)
     const store = createUserStore()
-    store.$patch({ userId, auth: { isLoggedIn: true, openid: 'openid-withdraw-shared-balance' }, commissionRecords: [{ ...sharedRecord, amount: 99 }] })
+    injectIdentity(store, userId, { commissionRecords: [{ ...sharedRecord, amount: 99 }] })
 
     expect(await store.withdrawCommission()).toBe('pending')
     expect(Object.values(readPlatformWithdrawals() || {}).find((request) => request.requesterId === userId)).toMatchObject({ amount: 12 })
@@ -2068,7 +2087,7 @@ describe('C端商城 user store', () => {
     expect(writeCCommissionRecords([record])).toBe(true)
     expect(writePlatformWithdrawal({ id: 'WD-APPROVED-WINDOW', requesterType: 'user', requesterId: userId, amount: 20, method: '微信提现', status: 'approved', requestKey: 'WD-APPROVED-WINDOW', createdAt: '2026-08-01T11:00:00.000Z' })).toBe(true)
     const store = createUserStore()
-    store.$patch({ userId, auth: { isLoggedIn: true, openid: 'openid-withdraw-approved-window' }, commissionRecords: [record] })
+    injectIdentity(store, userId, { commissionRecords: [record] })
 
     expect(await store.withdrawCommission()).toBe('duplicate')
     expect(Object.values(readPlatformWithdrawals() || {}).filter((request) => request.requesterId === userId)).toHaveLength(1)
@@ -2078,8 +2097,7 @@ describe('C端商城 user store', () => {
     writeCDistributorProfiles({ 'U-WITHDRAW-REJECT': { userId: 'U-WITHDRAW-REJECT', promoterId: 'T002', level: 'level2', parentPromoterId: 'T001', status: 'active' } })
     writeCCommissionRecords([{ id: 'CC-WITHDRAW-REJECT', orderId: 'CO-WITHDRAW-REJECT', subOrderId: 'CSO-WITHDRAW-REJECT', beneficiaryId: 'T002', beneficiaryLevel: 'level2', amount: 18, status: 'available', createdAt: '2026-08-02T10:00:00.000Z' }])
     const store = createUserStore()
-    store.$patch({ userId: 'U-WITHDRAW-REJECT', auth: { isLoggedIn: true, openid: 'openid-withdraw-reject' }, commissionRecords: readCCommissionRecords() || [] })
-
+    injectIdentity(store, 'U-WITHDRAW-REJECT', { commissionRecords: readCCommissionRecords() || [] })
     expect(await store.withdrawCommission()).toBe('pending')
     const request = Object.values(readPlatformWithdrawals() || {}).find((item) => item.requesterId === 'U-WITHDRAW-REJECT')
     expect(request && transitionPlatformWithdrawal(request.id, 'rejected', 'admin', '资料不完整')).toMatchObject({ status: 'rejected', reviewedNote: '资料不完整' })
@@ -2094,9 +2112,7 @@ describe('C端商城 user store', () => {
     const commission = { id: 'CC-WITHDRAW-ORDER-FAIL', orderId: 'CO-WITHDRAW-ORDER-FAIL', subOrderId: 'CSO-WITHDRAW-ORDER-FAIL', beneficiaryId: 'T002', beneficiaryLevel: 'level2' as const, amount: 25, status: 'available' as const, createdAt: '2026-08-03T10:00:00.000Z' }
     writeCCommissionRecords([commission])
     const store = createUserStore()
-    store.$patch({
-      userId,
-      auth: { isLoggedIn: true, openid: 'openid-withdraw-order-fail' },
+    injectIdentity(store, userId, {
       commissionRecords: [commission],
       orders: [{ id: commission.orderId, commissionAllocations: [commission] } as never]
     })
@@ -2127,7 +2143,7 @@ describe('C端商城 user store', () => {
     writePlatformWithdrawal({ id: 'WD-MULTI-1', requesterType: 'user', requesterId: userId, amount: 10, method: '微信提现', status: 'approved', requestKey: 'WD-MULTI-1', createdAt: '2026-08-01T11:00:00.000Z' })
     writePlatformWithdrawal({ id: 'WD-MULTI-2', requesterType: 'user', requesterId: userId, amount: 20, method: '微信提现', status: 'approved', requestKey: 'WD-MULTI-2', createdAt: '2026-08-01T12:00:00.000Z' })
     const store = createUserStore()
-    store.$patch({ userId, auth: { isLoggedIn: true, openid: 'openid-multi' }, commissionRecords: records })
+    injectIdentity(store, userId, { commissionRecords: records })
     expect(await store.syncWithdrawals()).toBe(true)
     expect(store.myCommissionRecords.filter((item) => item.status === 'withdrawn').reduce((sum, item) => sum + item.amount, 0)).toBe(30)
     const count = store.myCommissionRecords.length
@@ -2144,7 +2160,7 @@ describe('C端商城 user store', () => {
     expect(writePlatformWithdrawal({ id: 'WD-SKIP-A', requesterType: 'user', requesterId: userId, amount: skippedAmount, method: '微信提现', status: 'approved', requestKey: 'WD-SKIP-A', createdAt: '2026-08-01T11:00:00.000Z' })).toBe(true)
     expect(writePlatformWithdrawal({ id: 'WD-SKIP-B', requesterType: 'user', requesterId: userId, amount: 10, method: '微信提现', status: 'approved', requestKey: 'WD-SKIP-B', createdAt: '2026-08-01T12:00:00.000Z' })).toBe(true)
     const store = createUserStore()
-    store.$patch({ userId, auth: { isLoggedIn: true, openid: `openid-${userId}` }, commissionRecords: records })
+    injectIdentity(store, userId)
 
     expect(await store.syncWithdrawals()).toBe(true)
     expect(readPlatformJournal()['withdrawal-sync:' + userId + ':WD-SKIP-B']).toMatchObject({ status: 'committed' })
@@ -2152,7 +2168,7 @@ describe('C端商城 user store', () => {
   it('buys a live package voucher and writes a pending promoter commission', async () => {
     const pkg = catalogProduct('PKG-LIVE', { productType: 'package', channel: 'store', expressDelivery: false, farmIds: ['F001'] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-VOUCHER', auth: { isLoggedIn: true, openid: 'openid-voucher' }, referralPromoterId: 'T002' })
+    injectIdentity(store, 'U-VOUCHER', { referralPromoterId: 'T002' })
     await store.initialize()
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: store.inventoryRevision + 1, products: [pkg] })
     store.applyCatalogState(readCatalogState()!)
@@ -2168,7 +2184,7 @@ describe('C端商城 user store', () => {
     const pkg = catalogProduct('PKG-MOQ', { productType: 'package', channel: 'store', expressDelivery: false, farmIds: ['F001'], skus: [{ id: 'PKG-MOQ-SKU', name: '三张起购', image: '/static/images/field.jpg', retailPrice: 100, cost: 60, stock: 8, level1Amount: 10, level2Amount: 15, minimumOrderQuantity: 3 }] })
     expect(writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 4, products: [pkg] })).toBe(true)
     const store = allowedStore()
-    store.$patch({ userId: 'U-PKG-MOQ', auth: { isLoggedIn: true, openid: 'openid-pkg-moq' }, referralPromoterId: 'T002' })
+    injectIdentity(store, 'U-PKG-MOQ', { referralPromoterId: 'T002' })
     await store.initialize()
     store.products = [catalogProductToProduct(pkg)]
 
@@ -2184,7 +2200,7 @@ describe('C端商城 user store', () => {
     const pkg = catalogProduct('PKG-PAY-FAIL', { productType: 'package', channel: 'store', expressDelivery: false, farmIds: ['F001'] })
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 4, products: [pkg] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-PKG-PAY-FAIL', auth: { isLoggedIn: true, openid: 'openid-pkg-pay-fail' }, referralPromoterId: 'T002' })
+    injectIdentity(store, 'U-PKG-PAY-FAIL', { referralPromoterId: 'T002' })
     await store.initialize()
     store.products = [catalogProductToProduct(pkg)]
     const before = {
@@ -2220,7 +2236,7 @@ describe('C端商城 user store', () => {
     const pkg = catalogProduct('PKG-INTENT', { productType: 'package', channel: 'store', expressDelivery: false, farmIds: ['F001'] })
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 5, products: [pkg] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-PKG-INTENT', auth: { isLoggedIn: true, openid: 'openid-pkg-intent' }, referralPromoterId: 'T002' })
+    injectIdentity(store, 'U-PKG-INTENT', { referralPromoterId: 'T002' })
     await store.initialize()
     store.products = [catalogProductToProduct(pkg)]
     const transactions = new Map<string, string>()
@@ -2248,7 +2264,7 @@ describe('C端商城 user store', () => {
     expect(persistedIntent).toMatchObject({ ownerUserId: 'U-PKG-INTENT', productId: pkg.id, skuId: pkg.skus[0].id, quantity: 1, amount: 100, operationId: expect.stringContaining('package-payment:') })
     expect(Object.keys(persistedIntent).sort()).toEqual(['amount', 'operationId', 'ownerUserId', 'productId', 'quantity', 'skuId'])
     const reloaded = allowedStore()
-    reloaded.$patch({ userId: 'U-PKG-INTENT', auth: { isLoggedIn: true, openid: 'openid-pkg-intent' }, referralPromoterId: 'T002' })
+    injectIdentity(reloaded, 'U-PKG-INTENT', { referralPromoterId: 'T002' })
     await reloaded.initialize()
     reloaded.refreshCatalog()
     reloaded.products = [catalogProductToProduct(readCatalogState()!.products[0])]
@@ -2261,7 +2277,7 @@ describe('C端商城 user store', () => {
     expect(readUserCommercePurchaseIntents()).toEqual({})
 
     const nextPurchase = allowedStore()
-    nextPurchase.$patch({ userId: 'U-PKG-INTENT', auth: { isLoggedIn: true, openid: 'openid-pkg-intent' }, referralPromoterId: 'T002' })
+    injectIdentity(nextPurchase, 'U-PKG-INTENT', { referralPromoterId: 'T002' })
     await nextPurchase.initialize()
     nextPurchase.refreshCatalog()
     nextPurchase.products = [catalogProductToProduct(readCatalogState()!.products[0])]
@@ -2277,7 +2293,7 @@ describe('C端商城 user store', () => {
     const pkg = catalogProduct('PKG-REJECT', { productType: 'package', channel: 'store', expressDelivery: false, farmIds: ['F001'] })
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 3, products: [pkg] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-PKG-REJECT', auth: { isLoggedIn: true, openid: 'openid-pkg-reject' } })
+    injectIdentity(store, 'U-PKG-REJECT')
     await store.initialize()
     store.products = [catalogProductToProduct(pkg)]
     const before = { pinia: cloneSeed(store.$state), catalog: cloneSeed(readCatalogState()), vouchers: cloneSeed(readPlatformVoucherOrders()), ledger: cloneSeed(readPlatformCommissionLedger()) }
@@ -2301,7 +2317,7 @@ describe('C端商城 user store', () => {
     expect(pendingIntent).toMatchObject({ ownerUserId: 'U-PKG-REJECT', productId: pkg.id, skuId: pkg.skus[0].id, quantity: 1, amount: 100 })
 
     const reloaded = allowedStore()
-    reloaded.$patch({ userId: 'U-PKG-REJECT', auth: { isLoggedIn: true, openid: 'openid-pkg-reject' } })
+    injectIdentity(reloaded, 'U-PKG-REJECT')
     await reloaded.initialize()
     reloaded.products = [catalogProductToProduct(pkg)]
 
@@ -2320,7 +2336,7 @@ describe('C端商城 user store', () => {
     const pkg = catalogProduct('PKG-CLEANUP-WRITE-FAIL', { productType: 'package', channel: 'store', expressDelivery: false, farmIds: ['F001'] })
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 3, products: [pkg] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-PKG-CLEANUP-WRITE-FAIL', auth: { isLoggedIn: true, openid: 'openid-pkg-cleanup-write-fail' }, referralPromoterId: 'T002' })
+    injectIdentity(store, 'U-PKG-CLEANUP-WRITE-FAIL', { referralPromoterId: 'T002' })
     await store.initialize()
     store.products = [catalogProductToProduct(pkg)]
     const before = { pinia: cloneSeed(store.$state), catalog: cloneSeed(readCatalogState()), vouchers: cloneSeed(readPlatformVoucherOrders()), ledger: cloneSeed(readPlatformCommissionLedger()) }
@@ -2356,7 +2372,7 @@ describe('C端商城 user store', () => {
     const pkg = catalogProduct('PKG-CLEANUP-CONFLICT', { productType: 'package', channel: 'store', expressDelivery: false, farmIds: ['F001'] })
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 3, products: [pkg] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-PKG-CLEANUP-CONFLICT', auth: { isLoggedIn: true, openid: 'openid-pkg-cleanup-conflict' }, referralPromoterId: 'T002' })
+    injectIdentity(store, 'U-PKG-CLEANUP-CONFLICT', { referralPromoterId: 'T002' })
     await store.initialize()
     store.products = [catalogProductToProduct(pkg)]
     const before = { pinia: cloneSeed(store.$state), catalog: cloneSeed(readCatalogState()), vouchers: cloneSeed(readPlatformVoucherOrders()), ledger: cloneSeed(readPlatformCommissionLedger()) }
@@ -2388,7 +2404,7 @@ describe('C端商城 user store', () => {
     const pkg = catalogProduct('PKG-CLEANUP-REPLACED', { productType: 'package', channel: 'store', expressDelivery: false, farmIds: ['F001'] })
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 3, products: [pkg] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-PKG-CLEANUP-REPLACED', auth: { isLoggedIn: true, openid: 'openid-pkg-cleanup-replaced' } })
+    injectIdentity(store, 'U-PKG-CLEANUP-REPLACED')
     await store.initialize()
     store.products = [catalogProductToProduct(pkg)]
     const createPayment = vi.fn().mockResolvedValue({ ok: false, code: 'declined', message: '套餐支付失败' })
@@ -2422,7 +2438,7 @@ describe('C端商城 user store', () => {
       evil: { ownerUserId: 'U-CORRUPT-INTENT', productId: pkg.id, skuId: pkg.skus[0].id, quantity: 1, amount: 100, operationId: 'javascript:alert(1)' }
     }))
     const store = allowedStore()
-    store.$patch({ userId: 'U-CORRUPT-INTENT', auth: { isLoggedIn: true, openid: 'openid-corrupt-intent' } })
+    injectIdentity(store, 'U-CORRUPT-INTENT')
     await store.initialize()
     store.products = [catalogProductToProduct(pkg)]
     const createPayment = vi.fn().mockResolvedValue({ ok: false, code: 'declined', message: '支付失败' })
@@ -2435,7 +2451,7 @@ describe('C端商城 user store', () => {
 
   it('rejects a checkout recovery target that tampers with the persisted order amount', async () => {
     const store = allowedStore()
-    store.$patch({ userId: 'U-CHECKOUT-RECOVERY-TAMPER', auth: { isLoggedIn: true, openid: 'openid-checkout-recovery-tamper' } })
+    injectIdentity(store, 'U-CHECKOUT-RECOVERY-TAMPER')
     await store.initialize()
     store.setAddress({ receiver: '恢复用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     const product = store.cProducts[0]
@@ -2459,7 +2475,7 @@ describe('C端商城 user store', () => {
 
   it('rejects a payment recovery target that tampers with paid order financial fields', async () => {
     const store = allowedStore()
-    store.$patch({ userId: 'U-PAYMENT-RECOVERY-TAMPER', auth: { isLoggedIn: true, openid: 'openid-payment-recovery-tamper' } })
+    injectIdentity(store, 'U-PAYMENT-RECOVERY-TAMPER')
     await store.initialize()
     store.setAddress({ receiver: '支付恢复用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     const product = store.cProducts[0]
@@ -2487,7 +2503,7 @@ describe('C端商城 user store', () => {
     const pkg = catalogProduct('PKG-RECOVERY-TAMPER', { productType: 'package', channel: 'store', expressDelivery: false, farmIds: ['F001'] })
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 2, products: [pkg] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-PACKAGE-RECOVERY-TAMPER', auth: { isLoggedIn: true, openid: 'openid-package-recovery-tamper' }, referralPromoterId: 'T002' })
+    injectIdentity(store, 'U-PACKAGE-RECOVERY-TAMPER', { referralPromoterId: 'T002' })
     await store.initialize()
     store.products = [catalogProductToProduct(pkg)]
     expect(await store.buyLivePackage(pkg.id, pkg.skus[0].id)).toBe(true)
@@ -2510,7 +2526,7 @@ describe('C端商城 user store', () => {
 
   it('does not roll back a valid checkout journal over a later unrelated order write', async () => {
     const store = allowedStore()
-    store.$patch({ userId: 'U-STALE-RECOVERY', auth: { isLoggedIn: true, openid: 'openid-stale-recovery' } })
+    injectIdentity(store, 'U-STALE-RECOVERY')
     await store.initialize()
     store.setAddress({ receiver: '过期恢复用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     const product = store.cProducts[0]
@@ -2535,7 +2551,7 @@ describe('C端商城 user store', () => {
   it('does not roll back a receipt recovery over a later unrelated order write', async () => {
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 0, products: [catalogProduct('RECEIPT-STALE')] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-RECEIPT-STALE', auth: { isLoggedIn: true, openid: 'openid-receipt-stale' } })
+    injectIdentity(store, 'U-RECEIPT-STALE')
     await store.initialize()
     store.setAddress({ receiver: '收货恢复用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart('RECEIPT-STALE', 'RECEIPT-STALE-SKU')
@@ -2559,7 +2575,7 @@ describe('C端商城 user store', () => {
   it('does not roll back an after-sale recovery over a later unrelated order write', async () => {
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 0, products: [catalogProduct('AFTER-SALE-STALE')] })
     const store = allowedStore()
-    store.$patch({ userId: 'U-AFTER-SALE-STALE', auth: { isLoggedIn: true, openid: 'openid-after-sale-stale' } })
+    injectIdentity(store, 'U-AFTER-SALE-STALE')
     await store.initialize()
     store.setAddress({ receiver: '售后恢复用户', phone: '13800000000', region: '湖南', detail: '测试地址', isDefault: true })
     store.addToCart('AFTER-SALE-STALE', 'AFTER-SALE-STALE-SKU')
@@ -2583,7 +2599,7 @@ describe('C端商城 user store', () => {
   it('does not roll back a withdrawal recovery over a later unrelated order write', async () => {
     const userId = 'U-WITHDRAW-STALE'
     const store = allowedStore()
-    store.$patch({ userId, auth: { isLoggedIn: true, openid: 'openid-withdraw-stale' } })
+    injectIdentity(store, userId)
     await store.initialize()
     const allocation = { id: 'CC-WITHDRAW-STALE', orderId: 'CO-WITHDRAW-STALE', subOrderId: 'CSO-WITHDRAW-STALE', beneficiaryId: 'T001', beneficiaryLevel: 'level1' as const, amount: 0.3, status: 'available' as const, createdAt: '2026-08-01T00:00:00.000Z' }
     const item = { productId: 'P-WITHDRAW-STALE', skuId: 'SKU-WITHDRAW-STALE', name: '提现商品', skuName: '规格', image: '', quantity: 1, unitPrice: 1, basePrice: 0.7, level1Commission: 0.3, level2Commission: 0, supplierId: 'S001' }
@@ -2617,7 +2633,7 @@ describe('C端商城 user store', () => {
     writeCatalogState({ schemaVersion: CATALOG_SCHEMA_VERSION, revision: 0, products: [pkg] })
     expect(saveStoreCatalogSelection({ storeId: 'F001', productId: pkg.id, listed: true, skuRetailPrices: { 'PKG-RECOVER-SKU': 100 } }, readStoreCatalogSelectionState().revision)).toBeTruthy()
     const store = allowedStore()
-    store.$patch({ userId: 'U-VOUCHER-RECOVER', auth: { isLoggedIn: true, openid: 'openid-voucher-recover' }, referralPromoterId: 'T002' })
+    injectIdentity(store, 'U-VOUCHER-RECOVER', { referralPromoterId: 'T002' })
     await store.initialize()
     const originalSetItem = localStorage.setItem.bind(localStorage)
     let failed = false
@@ -2641,7 +2657,7 @@ describe('C端商城 user store', () => {
   it('seeds demo C orders and voucher orders once when enabled', async () => {
     localStorage.removeItem('agritainment-user-demo-orders-disabled')
     const store = allowedStore()
-    store.$patch({ userId: 'U-DEMO-SEED', auth: { isLoggedIn: true, openid: 'openid-demo-seed' } })
+    injectIdentity(store, 'U-DEMO-SEED')
     store.seedDemoData()
     await store.initialize()
     const demoOrders = store.orders.filter((item) => item.id.startsWith('DEMO-ORD'))
@@ -2688,12 +2704,12 @@ describe('C端商城 user store', () => {
   it('keeps each users demo orders isolated when a second user is seeded', async () => {
     localStorage.removeItem('agritainment-user-demo-orders-disabled')
     const first = allowedStore()
-    first.$patch({ userId: 'U-DEMO-FIRST', auth: { isLoggedIn: true, openid: 'openid-demo-first' } })
+    injectIdentity(first, 'U-DEMO-FIRST')
     first.seedDemoData()
     await first.initialize()
 
     const second = allowedStore()
-    second.$patch({ userId: 'U-DEMO-SECOND', auth: { isLoggedIn: true, openid: 'openid-demo-second' } })
+    injectIdentity(second, 'U-DEMO-SECOND')
     second.seedDemoData()
     await second.initialize()
 
@@ -2701,34 +2717,43 @@ describe('C端商城 user store', () => {
     expect(orders.filter((item) => item.userId === 'U-DEMO-FIRST')).toHaveLength(4)
     expect(orders.filter((item) => item.userId === 'U-DEMO-SECOND')).toHaveLength(4)
   })
-  describe('分销角色演示切换', () => {
-    it('切到一级/二级分销商会写入当前用户分销档案并解除 entry 限制', () => {
-      const store = allowedStore()
-      store.setDemoDistributorLevel('level1')
-      expect(store.level).toBe('level1')
-      expect(store.currentDistributor?.promoterId).toBe('T001')
-      expect(store.entryRestricted).toBe(false)
-      store.setDemoDistributorLevel('level2')
-      expect(store.level).toBe('level2')
-      expect(store.currentDistributor?.promoterId).toBe('T002')
-      expect(store.currentDistributor?.parentPromoterId).toBe('T001')
+  describe('OpenID 身份只读', () => {
+    it('页面不再暴露手动角色切换入口', () => {
+      const script = readFileSync(resolve(import.meta.dirname, '../../src/pages/index/index.ts'), 'utf8')
+      const template = readFileSync(resolve(import.meta.dirname, '../../src/pages/index/index.wxml'), 'utf8')
+      expect(script).not.toContain('setDemoDistributorLevel(')
+      expect(script).not.toContain('onSelectRole(')
+      expect(template).not.toContain('class="role-switch"')
+      expect(template).toContain('不提供手动身份切换')
     })
 
-    it('切回普通用户移除档案并恢复普通用户身份', () => {
+    it('OpenID 身份档案优先于本地只读档案', () => {
       const store = allowedStore()
-      store.setDemoDistributorLevel('level1')
+      store.$patch({
+        userId: 'U-IDENTITY-PRIORITY',
+        identityProfile: { openid: 'openid-identity-priority', userId: 'U-IDENTITY-PRIORITY', level: 'level1', leaderId: 'T001', status: 'active' }
+      })
+      writeCDistributorProfiles({ 'U-IDENTITY-PRIORITY': { userId: 'U-IDENTITY-PRIORITY', promoterId: 'T002', level: 'level2', parentPromoterId: 'T001', status: 'active' } })
       expect(store.level).toBe('level1')
-      store.setDemoDistributorLevel('normal')
+      expect(store.currentDistributor?.promoterId).toBe('T001')
+    })
+
+    it('没有 identityProfile 时不得读取本地团长档案决定角色', () => {
+      const store = allowedStore()
+      store.$patch({ userId: 'U-LOCAL-ONLY', identityProfile: null })
+      writeCDistributorProfiles({ 'U-LOCAL-ONLY': { userId: 'U-LOCAL-ONLY', promoterId: 'T002', level: 'level2', parentPromoterId: 'T001', status: 'active' } })
       expect(store.level).toBe('normal')
       expect(store.currentDistributor).toBeNull()
     })
 
-    it('重复切换不产生多余分销档案', () => {
+it('停用团长身份按普通用户处理', () => {
       const store = allowedStore()
-      store.setDemoDistributorLevel('level1')
-      store.setDemoDistributorLevel('level1')
-      const profiles = readCDistributorProfiles() || {}
-      expect(Object.values(profiles).filter((item) => item.userId === store.userId)).toHaveLength(1)
+      store.$patch({
+        userId: 'U-IDENTITY-PAUSED',
+        identityProfile: { openid: 'openid-identity-paused', userId: 'U-IDENTITY-PAUSED', level: 'normal', status: 'disabled' }
+      })
+      expect(store.level).toBe('normal')
+      expect(store.currentDistributor).toBeNull()
     })
   })
 })

@@ -1,14 +1,16 @@
+import { apiRequest, createAdminQueryClient, createCatalogApiClient, createIdempotencyKey, getApiClientConfig } from '@agritainment/shared'
 import { createNativeStore } from './create-native-store'
 import type { NativeStoreOptions } from './create-native-store'
 import type { AfterSale, BusinessMediaValue, CatalogState, CAddress, CCartItem, CCommissionAllocation, CCommissionChain, CDistributorProfile, COrder, CProduct, CProductSku, CUserLevel, CommissionLedgerEntry, FarmStore, MockScenario, Order, PaymentAttempt, PlatformJournalEntry, Product, UserBinding, UserCommercePurchaseIntent, VoucherOrder, WithdrawalRequest } from '@agritainment/shared'
 import {
   initialCatalogOrderQuantity,
-  CATALOG_SCHEMA_VERSION, abortCatalogTransaction, allocateCCommissions, applyCatalogStockOperation, beginPaymentAttempt, buildSupplierAccountSeeds, cPriceForSku, catalogProductToCProduct, catalogProductsForAudience, cloneSeed, commitCatalogTransaction, cProducts as cProductSeeds, createId, demoCDistributorProfiles, deriveCOrderStatus, ensureCatalogState, ensureConfirmedPaymentRecoveryTask, markCatalogTransactionStockApplied, mergePlatformEntities, mergePlatformSupplierAccounts, migrateLegacyCatalog, normalizeCAddresses, normalizeCCommissionRecords, normalizeCOrders, normalizeCProducts, normalizeMinimumOrderQuantity, prepareCatalogTransaction, products as storeProductSeeds, promoters, readCAddresses, readCCommissionRecords, readCatalogState, readCOrders, readCUserSession, readCDistributorProfiles, writeCDistributorProfiles, readPendingCatalogTransactions, readPlatformJson, round2, seedCCommerceData,
-  confirmCSubOrderReceiptAtSupplier, createUserAtomicRecoveryHandlerRegistrations, getPlatformProviders, initializePlatformRecoveryHandlers, isValidUserAtomicRecoveryJournal, markCSubOrderAfterSaleAtSupplier, readPaymentAttempts, readPlatformAfterSales, readPlatformCollectionRevision, readPlatformCommissionLedger, readPlatformEntities, readPlatformOrders, readPlatformSupplierAccounts, readPlatformWithdrawals, readUserBindings, readPlatformJournal, readUserCommercePurchaseIntents, reconcilePendingPlatformTransactions, resolveCReferralChain, resolveUserIdentity, retryPlatformRecoveryTask, runLockedPlatformCollectionTask, runLockedPlatformTransaction, simulateWechatLogin, splitCOrderItems, supplierCanReceiveNewOrders, suppliers as supplierSeeds, syncCSubOrderFromSupplier, transitionPaymentAttempt, upsertUserBinding, validateCatalogSkuOrderQuantity, writeUserBindings, writeCAddresses, writeCCommissionRecords, writeCOrder, writeCOrders, writeCUserSession, publishCSubOrderToSupplier, migrateLegacyCommissionsToLedger, readPlatformVoucherOrders, writePlatformAfterSales, writePlatformCommissionLedger, writePlatformCommissionLedgerEntry, writePlatformOrder, writePlatformOrders, writePlatformVoucherOrder, writePlatformVoucherOrders, writePlatformWithdrawal, writeUserCommercePurchaseIntents, preparePlatformJournal, markPlatformJournalStep, resolvePlatformJournal, enqueuePlatformRecovery, writeCatalogState, PLATFORM_AFTERSALES_STORAGE_KEY, PLATFORM_BINDINGS_STORAGE_KEY, PLATFORM_CATALOG_LEGACY_MIGRATION_MARKER_STORAGE_KEY, PLATFORM_CATALOG_STORAGE_KEY, PLATFORM_CATALOG_TRANSACTION_JOURNAL_STORAGE_KEY, PLATFORM_COMMISSION_LEDGER_MIGRATED_STORAGE_KEY, PLATFORM_COMMISSION_LEDGER_STORAGE_KEY, PLATFORM_C_COMMISSIONS_STORAGE_KEY, PLATFORM_C_DISTRIBUTORS_STORAGE_KEY, PLATFORM_C_ORDERS_STORAGE_KEY, PLATFORM_C_PRODUCTS_STORAGE_KEY, PLATFORM_C_SCHEMA_VERSION_STORAGE_KEY, PLATFORM_ORDERS_STORAGE_KEY, PLATFORM_RECOVERY_QUEUE_STORAGE_KEY, PLATFORM_TRANSACTION_JOURNAL_STORAGE_KEY, PLATFORM_USER_COMMERCE_INTENTS_STORAGE_KEY, PLATFORM_VOUCHERS_STORAGE_KEY, PLATFORM_WITHDRAWALS_STORAGE_KEY
+  CATALOG_SCHEMA_VERSION, abortCatalogTransaction, allocateCCommissions, applyCatalogStockOperation, beginPaymentAttempt, buildSupplierAccountSeeds, cPriceForSku, catalogProductToCProduct, catalogProductsForAudience, cloneSeed, commitCatalogTransaction, cProducts as cProductSeeds, createId, demoCDistributorProfiles, deriveCOrderStatus, ensureCatalogState, ensureConfirmedPaymentRecoveryTask, markCatalogTransactionStockApplied, mergePlatformEntities, mergePlatformSupplierAccounts, migrateLegacyCatalog, normalizeCAddresses, normalizeCCommissionRecords, normalizeCOrders, normalizeCProducts, normalizeMinimumOrderQuantity, prepareCatalogTransaction, products as storeProductSeeds, promoters, readCAddresses, readCCommissionRecords, readCatalogState, readCOrders, readCUserSession, readCDistributorProfiles, readPendingCatalogTransactions, readPlatformJson, round2, seedCCommerceData,
+  confirmCSubOrderReceiptAtSupplier, createUserAtomicRecoveryHandlerRegistrations, getPlatformProviders, initializePlatformRecoveryHandlers, isValidUserAtomicRecoveryJournal, markCSubOrderAfterSaleAtSupplier, readPaymentAttempts, readPlatformAfterSales, readPlatformCollectionRevision, readPlatformCommissionLedger, readPlatformEntities, readPlatformOrders, readPlatformSupplierAccounts, readPlatformWithdrawals, readUserBindings, readPlatformJournal, readUserCommercePurchaseIntents, reconcilePendingPlatformTransactions, resolveCReferralChain, retryPlatformRecoveryTask, runLockedPlatformCollectionTask, runLockedPlatformTransaction, splitCOrderItems, supplierCanReceiveNewOrders, suppliers as supplierSeeds, syncCSubOrderFromSupplier, transitionPaymentAttempt, upsertUserBinding, validateCatalogSkuOrderQuantity, writeUserBindings, writeCAddresses, writeCCommissionRecords, writeCOrder, writeCOrders, writeCUserSession, publishCSubOrderToSupplier, migrateLegacyCommissionsToLedger, readPlatformVoucherOrders, writePlatformAfterSales, writePlatformCommissionLedger, writePlatformCommissionLedgerEntry, writePlatformOrder, writePlatformOrders, writePlatformVoucherOrder, writePlatformVoucherOrders, writePlatformWithdrawal, writeUserCommercePurchaseIntents, preparePlatformJournal, markPlatformJournalStep, resolvePlatformJournal, enqueuePlatformRecovery, writeCatalogState, PLATFORM_AFTERSALES_STORAGE_KEY, PLATFORM_BINDINGS_STORAGE_KEY, PLATFORM_CATALOG_LEGACY_MIGRATION_MARKER_STORAGE_KEY, PLATFORM_CATALOG_STORAGE_KEY, PLATFORM_CATALOG_TRANSACTION_JOURNAL_STORAGE_KEY, PLATFORM_COMMISSION_LEDGER_MIGRATED_STORAGE_KEY, PLATFORM_COMMISSION_LEDGER_STORAGE_KEY, PLATFORM_C_COMMISSIONS_STORAGE_KEY, PLATFORM_C_DISTRIBUTORS_STORAGE_KEY, PLATFORM_C_ORDERS_STORAGE_KEY, PLATFORM_C_PRODUCTS_STORAGE_KEY, PLATFORM_C_SCHEMA_VERSION_STORAGE_KEY, PLATFORM_ORDERS_STORAGE_KEY, PLATFORM_RECOVERY_QUEUE_STORAGE_KEY, PLATFORM_TRANSACTION_JOURNAL_STORAGE_KEY, PLATFORM_USER_COMMERCE_INTENTS_STORAGE_KEY, PLATFORM_VOUCHERS_STORAGE_KEY, PLATFORM_WITHDRAWALS_STORAGE_KEY
 } from '@agritainment/shared'
 import { seedDemoUserCart, seedDemoUserDistributor } from '../data/demo-distributor'
 import { seedDemoUserOrders } from '../data/demo-orders'
 import { readStorePackageProjection, userRepository } from '../services/repository'
+import { getWechatLoginProvider, getUserIdentityResolver, loadUserIdentityProfile, userIdentityErrorMessage, type UserIdentityProfile } from '../services/user-identity'
 
 /** 微信同步存储（原生端唯一存储通道）；非小程序环境（单测）退化为无操作。 */
 function hasWxStorage(): boolean {
@@ -703,15 +705,24 @@ interface UserState {
   orders: COrder[]
   addresses: CAddress[]
   commissionRecords: CCommissionAllocation[]
-  auth: { isLoggedIn: boolean; openid: string }
+  commissionSummary: { available: number; pending: number; withdrawn: number } | null
+  identityStatus: 'idle' | 'loading' | 'ready' | 'error'
+  identityProfile: UserIdentityProfile | null
+  identityError: string
+  identityCheckedAt: number
+  openid: string
   checkoutError: string
-  entryChecked: boolean
-  entryRestricted: boolean
 }
 
 const nowString = () => new Date().toISOString()
 const validLevel = (value: unknown): value is CUserLevel => value === 'normal' || value === 'level1' || value === 'level2'
 const resolveDirectReferralChain = (promoterId: string, profiles: Record<string, CDistributorProfile>): CCommissionChain | null => resolveCReferralChain(promoterId, promoters, profiles)
+const activeDistributorForState = (state: Pick<UserState, 'identityProfile' | 'distributorTick'>): CDistributorProfile | null => {
+  void state.distributorTick
+  const profile = state.identityProfile
+  if (!profile || profile.status !== 'active' || profile.level === 'normal' || !profile.leaderId) return null
+  return { userId: profile.userId, promoterId: profile.leaderId, level: profile.level, parentPromoterId: profile.parentLeaderId, status: 'active' }
+}
 const persistUserAddresses = (userId: string, addresses: CAddress[], options: { removedIds?: string[]; defaultId?: string } = {}) => {
   const all = cloneSeed(readCAddresses() || {})
   options.removedIds?.forEach((id) => { delete all[id] })
@@ -798,28 +809,21 @@ function syncPersistedFulfillment(orders: Record<string, COrder>): Record<string
 }
 
 const USER_STORE_ID = 'user'
-const USER_STORE_PERSISTENCE = { storageKey: `agritainment-user-${USER_STORE_ID}`, keys: ['farms', 'products', 'cProducts', 'auth'] }
+const USER_STORE_PERSISTENCE = { storageKey: `agritainment-user-${USER_STORE_ID}`, keys: ['farms', 'products', 'cProducts'] }
+let activeUserIdentityRequest: Promise<UserIdentityProfile | null> | null = null
 
 const userStoreOptions: NativeStoreOptions<UserState> = {
   state: (): UserState => ({
     initialized: false, loading: false, withdrawalsTick: 0, distributorTick: 0, error: '', mockScenario: 'normal', farms: [], products: [], cProducts: [], inventoryRevision: 0, launchProductId: '', promoterId: '', promoterName: '', referralPromoterId: '', userId: '',
-    cart: [], orders: [], addresses: [], commissionRecords: [], auth: { isLoggedIn: false, openid: '' }, checkoutError: '', entryChecked: false, entryRestricted: false
+    cart: [], orders: [], addresses: [], commissionRecords: [], commissionSummary: null, identityStatus: 'idle', identityProfile: null, identityError: '', identityCheckedAt: 0, openid: '', checkoutError: ''
   }),
   getters: {
-    distributorProfiles: (state): Record<string, CDistributorProfile> => { void state.distributorTick; return readCDistributorProfiles() || {} },
-    level: (state): CUserLevel => { void state.distributorTick; return (readCDistributorProfiles()?.[state.userId]?.status === 'active' ? readCDistributorProfiles()?.[state.userId]?.level : 'normal') || 'normal' },
-    currentDistributor: (state) => {
-      void state.distributorTick
-      const profile = readCDistributorProfiles()?.[state.userId]
-      return profile && profile.status === 'active' ? profile : null
-    },
+    level: (state): CUserLevel => activeDistributorForState(state)?.level || 'normal',
+    currentDistributor: (state): CDistributorProfile | null => activeDistributorForState(state),
     priceFor: (state) => {
-      void state.distributorTick
-      const userId = state.userId
       return (sku: CProductSku, level?: CUserLevel) => {
-      const profile = readCDistributorProfiles()?.[userId]
-      const resolved = level || (profile?.status === 'active' ? profile.level : 'normal')
-      return cPriceForSku(sku, resolved)
+        const resolved = level || activeDistributorForState(state)?.level || 'normal'
+        return cPriceForSku(sku, resolved)
       }
     },
     cartCount: (state) => state.cart.reduce((sum, item) => sum + item.quantity, 0),
@@ -828,10 +832,7 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
     defaultAddress: (state) => state.addresses.find((item) => item.isDefault) || state.addresses[0] || null,
     vouchers: (state): VoucherOrder[] => Object.values(readPlatformVoucherOrders() || {}).filter((item) => item.userId === state.userId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     myCommissionRecords: (state) => {
-      void state.distributorTick
-      void state.distributorTick
-      const profile = readCDistributorProfiles()?.[state.userId]
-      const beneficiaryId = profile?.status === 'active' ? profile.promoterId : undefined
+      const beneficiaryId = activeDistributorForState(state)?.promoterId
       return state.commissionRecords.filter((item) => item.beneficiaryId === beneficiaryId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     },
     withdrawalRequests: (state): WithdrawalRequest[] => {
@@ -839,11 +840,12 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
       return Object.values(readPlatformWithdrawals() || {}).filter((item) => item.requesterType === 'user' && item.requesterId === state.userId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     },
     availableCommission(): number {
+      if (this.commissionSummary) return Math.max(0, round2(this.commissionSummary.available))
       const available = this.myCommissionRecords.filter((item) => item.status === 'available').reduce((sum, item) => sum + item.amount, 0)
       const pending = this.withdrawalRequests.filter((item) => item.status === 'pending').reduce((sum, item) => sum + item.amount, 0)
       return Math.max(0, round2(available - pending))
     },
-    pendingCommission(): number { return Math.round(this.myCommissionRecords.filter((item) => item.status === 'pending').reduce((sum, item) => sum + item.amount, 0) * 100) / 100 }
+    pendingCommission(): number { return this.commissionSummary ? round2(this.commissionSummary.pending) : Math.round(this.myCommissionRecords.filter((item) => item.status === 'pending').reduce((sum, item) => sum + item.amount, 0) * 100) / 100 }
   },
   actions: {
     paymentAttemptForOrder(orderId: string): PaymentAttempt | null {
@@ -948,12 +950,6 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
     },
     async initialize(force = false) {
       if ((!force && this.initialized) || this.loading) return
-      if (!this.entryChecked) this.applyLaunch({})
-      if (this.entryChecked && this.entryRestricted) {
-        this.cProducts = []
-        this.initialized = true
-        return
-      }
       this.loading = true; this.error = ''
       try {
         await getUserCommerceBootstrapPromise()
@@ -970,8 +966,10 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
             readSnapshot: (task, journal) => task.handlerKey !== USER_COMMERCE_RECOVERY_HANDLER_KEY ? null : isValidUserAtomicRecoveryJournal(journal, 'checkout') ? checkoutRecoveryHandler.readSnapshot(task, journal) : readUserCommerceSnapshot(journal)
           }
         }, ...atomicRecoveryHandlers.filter((registration) => registration.key !== USER_COMMERCE_RECOVERY_HANDLER_KEY)])
-        const data = await userRepository.loadDashboard(this.mockScenario)
-        const catalog = readCatalogState() || { schemaVersion: CATALOG_SCHEMA_VERSION, revision: 0, products: migrateLegacyCatalog(data.catalogStoreProducts, data.cProducts), appliedOperations: {} }
+        const apiMode = getApiClientConfig().dataMode === 'api'
+        const baseData = await userRepository.loadDashboard(apiMode ? 'normal' : this.mockScenario)
+        const data = apiMode ? { ...baseData, products: (await createCatalogApiClient().listProducts({ channel: 'live', pageSize: 200 })).items } : baseData
+        const catalog = apiMode ? null : readCatalogState() || { schemaVersion: CATALOG_SCHEMA_VERSION, revision: 0, products: migrateLegacyCatalog(data.catalogStoreProducts, data.cProducts), appliedOperations: {} }
         const savedOrders = syncPersistedFulfillment(normalizeCOrders(readCOrders() || {}))
         const savedAddresses = normalizeCAddresses(readCAddresses() || {})
         const rawCommissionRecords = readPlatformJson<CCommissionAllocation[]>(PLATFORM_C_COMMISSIONS_STORAGE_KEY)
@@ -983,7 +981,7 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
           addresses: this.userId ? Object.values(savedAddresses).filter((item) => item.userId === this.userId) : [],
           commissionRecords: this.userId ? savedCommissionRecords : [], initialized: true
         })
-        this.applyCatalogState(catalog)
+        if (catalog) this.applyCatalogState(catalog)
         await this.reconcilePaymentAttempts()
         if (this.userId) await this.syncWithdrawals()
         if (this.userId) this.restoreSession()
@@ -994,17 +992,14 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
       const savedPromoter = readUserStorage('agritainment-user-promoter-id')
       this.launchProductId = query.product?.trim() || ''
       this.promoterName = query.promoterName || (typeof savedName === 'string' ? savedName : '') || ''
-      if (!this.userId && this.auth.isLoggedIn && this.auth.openid) this.userId = resolveUserIdentity(this.auth.openid)
       const bound = this.userId ? readUserBindings()?.[this.userId] : undefined
       const requestedPromoter = query.promoter?.trim() || ''
       const storedPromoter = typeof savedPromoter === 'string' ? savedPromoter.trim() : ''
       const profiles = readCDistributorProfiles() || demoCDistributorProfiles
       const validRequestedPromoter = resolveDirectReferralChain(requestedPromoter, profiles) ? requestedPromoter : ''
-      const validStoredPromoter = this.auth.isLoggedIn && storedPromoter && resolveDirectReferralChain(storedPromoter, profiles) ? storedPromoter : ''
+      const validStoredPromoter = storedPromoter && resolveDirectReferralChain(storedPromoter, profiles) ? storedPromoter : ''
       this.promoterId = bound?.status === 'bound' ? bound.promoterId || '' : validRequestedPromoter || validStoredPromoter
       this.referralPromoterId = this.promoterId
-      this.entryChecked = true
-      this.entryRestricted = !this.promoterId
       if (this.promoterId) writeUserStorage('agritainment-user-promoter-id', this.promoterId)
       if (this.promoterName) writeUserStorage('agritainment-user-promoter-name', this.promoterName)
     },
@@ -1036,7 +1031,16 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
       this.refreshFulfillment()
       return true
     },
-    async refreshSharedState() {
+    async refreshCommissionSummary() {
+      if (getApiClientConfig().dataMode !== 'api') return
+      const beneficiaryId = this.currentDistributor?.promoterId || this.promoterId
+      if (!beneficiaryId) return
+      try {
+        this.commissionSummary = await createAdminQueryClient().myCommission(beneficiaryId)
+      } catch (error) {
+        this.error = error instanceof Error ? error.message : '佣金数据加载失败'
+      }
+    },    async refreshSharedState() {
       this.refreshCatalog()
       this.products = readStorePackageProjection()
       const persisted = normalizeCOrders(readCOrders() || {})
@@ -1050,27 +1054,56 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
       if (this.userId) this.restoreSession()
       return this.orders
     },
-    async wechatLogin() { this.persistSession(); const { openid } = await simulateWechatLogin(); this.auth = { isLoggedIn: true, openid }; this.userId = resolveUserIdentity(openid); this.cart = []; this.orders = []; this.addresses = []; this.commissionRecords = []; this.checkoutError = ''; return { openid, userId: this.userId } },
+    async authenticate(force = false) {
+      if (!force && this.identityStatus === 'ready' && this.identityProfile) return this.identityProfile
+      if (activeUserIdentityRequest) return activeUserIdentityRequest
+      this.identityStatus = 'loading'
+      this.identityError = ''
+      activeUserIdentityRequest = (async () => {
+        try {
+          this.persistSession()
+          const session = await getWechatLoginProvider().login()
+          const profile = await loadUserIdentityProfile(getUserIdentityResolver(), { openid: session.openid, loginCode: session.loginCode })
+          const changed = this.userId !== profile.userId || this.openid !== profile.openid
+          this.openid = profile.openid
+          this.userId = profile.userId
+          this.identityProfile = profile
+          this.identityStatus = 'ready'
+          this.identityCheckedAt = Date.now()
+          if (changed) {
+            this.cart = []
+            this.orders = []
+            this.addresses = []
+            this.commissionRecords = []
+            this.checkoutError = ''
+          }
+          return profile
+        } catch (error) {
+          this.identityProfile = null
+          this.identityStatus = 'error'
+          this.identityError = userIdentityErrorMessage(error)
+          this.identityCheckedAt = 0
+          this.openid = ''
+          this.userId = ''
+          this.initialized = false
+          return null
+        }
+      })()
+      try {
+        return await activeUserIdentityRequest
+      } finally {
+        activeUserIdentityRequest = null
+      }
+    },
     setReferral(promoterId: string) {
       const value = promoterId.trim()
       const bound = this.userId ? readUserBindings()?.[this.userId] : undefined
       if (bound?.status === 'bound') return bound.promoterId === value
       if (!resolveDirectReferralChain(value, readCDistributorProfiles() || demoCDistributorProfiles)) return false
       this.referralPromoterId = value; this.promoterId = value; this.persistSession()
-      this.entryChecked = true; this.entryRestricted = false
       return true
     },
-    setDemoDistributorLevel(level: CUserLevel) {
-      const userId = this.userId || (this.userId = 'U-DEMO-L1')
-      const list = { ...(readCDistributorProfiles() || {}) }
-      if (level === 'normal') delete list[userId]
-      else if (level === 'level1') list[userId] = { userId, promoterId: 'T001', level: 'level1', status: 'active' }
-      else list[userId] = { userId, promoterId: 'T002', level: 'level2', parentPromoterId: 'T001', status: 'active' }
-      writeCDistributorProfiles(list)
-      this.entryChecked = true
-      this.entryRestricted = false
-      this.distributorTick = (this.distributorTick || 0) + 1
-    },
+
     priceForSku(sku: CProductSku) { return cPriceForSku(sku, this.level) },
     addToCart(productId: string, skuId: string, quantity?: number) {
       const product = this.cProducts.find((item) => item.id === productId)
@@ -1141,10 +1174,40 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
     async submitOrder(remark = '', selectedKeys?: string[]) {
       this.checkoutError = ''; const address = this.defaultAddress
       const checkoutCart = selectedKeys?.length ? this.cart.filter((line) => selectedKeys.includes(`${line.productId}-${line.skuId}`)) : this.cart
-      if (this.entryChecked && this.entryRestricted) { this.checkoutError = '请通过有效团长分享链接进入商城'; return false }
+
       if (!this.userId || !checkoutCart.length) { this.checkoutError = selectedKeys?.length ? '请先选择要结算的商品' : '购物车为空'; return false }
       if (!address) { this.checkoutError = '请先设置收货地址'; return false }
       const unavailableSupplier = unavailableSupplierName(checkoutCart.map((item) => item.supplierId))
+      if (getApiClientConfig().dataMode === 'api') {
+        const now = new Date().toISOString()
+        try {
+          const created = await apiRequest<{ id: string; orderNo: string; status: string; amountCents: number }>('/api/v1/orders', {
+            method: 'POST',
+            idempotencyKey: createIdempotencyKey('order'),
+            body: {
+              buyerId: this.userId,
+              items: checkoutCart.map((line) => ({ skuId: line.skuId, quantity: line.quantity })),
+              receiver: address.receiver,
+              receiverPhone: address.phone,
+              address: `${address.region} ${address.detail}`.trim(),
+            }
+          })
+          const order: COrder = {
+            id: created.id, userId: this.userId, level: this.level, address: { ...address },
+            amount: created.amountCents / 100,
+            items: checkoutCart.map((line) => ({ productId: line.productId, skuId: line.skuId, name: line.name, skuName: line.skuName, image: line.image, quantity: line.quantity, unitPrice: line.unitPrice, basePrice: line.basePrice, level1Commission: line.level1Commission, level2Commission: line.level2Commission, supplierId: line.supplierId })),
+            subOrders: [], commissionAllocations: [], distributorChain: [], status: 'pending_payment', createdAt: now, remark: remark.trim() || undefined
+          }
+          this.orders.unshift(order)
+          const checkedOutKeys = new Set(checkoutCart.map((line) => `${line.productId}-${line.skuId}`))
+          this.cart = this.cart.filter((line) => !checkedOutKeys.has(`${line.productId}-${line.skuId}`))
+          this.persistSession()
+          return true
+        } catch (error) {
+          this.checkoutError = error instanceof Error ? error.message : '下单失败，请重试'
+          return false
+        }
+      }
       if (unavailableSupplier) { this.checkoutError = `${unavailableSupplier}已暂停接单，请选择其他商品`; return false }
       const catalog = readCatalogState()
       if (!catalog) return this.failStockConflict()
@@ -1520,7 +1583,7 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
         execute: () => {
           const withdrawals = readPlatformWithdrawals() || {}
           const records = readCCommissionRecords() || []
-          const promoterId = (readCDistributorProfiles() || {})[userId]?.promoterId || ''
+          const promoterId = this.currentDistributor?.promoterId || ''
           const hasActiveRequest = Object.values(withdrawals).some((item) => {
             if (item.requesterType !== 'user' || item.requesterId !== userId) return false
             if (item.status === 'pending') return true
@@ -1549,10 +1612,11 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
       const nextOrders = cloneSeed(original.orders)
       let changed = false
       const consumedRequestKeys: string[] = []
+      const promoterId = this.currentDistributor?.promoterId || ''
       for (const request of requests) {
         const marked = records.some((item) => (item as CommissionWithWithdrawalKeys).withdrawalRequestKeys?.includes(request.requestKey))
         if (marked) continue
-        const available = records.filter((item) => item.beneficiaryId === (readCDistributorProfiles()?.[this.userId]?.promoterId || '') && item.status === 'available').sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+        const available = records.filter((item) => item.beneficiaryId === promoterId && item.status === 'available').sort((a, b) => a.createdAt.localeCompare(b.createdAt))
         const total = round2(available.reduce((sum, item) => sum + item.amount, 0))
         if (total < request.amount) { this.error = `提现 ${request.id} 的可用佣金不足`; continue }
         let remaining = request.amount
@@ -1754,18 +1818,7 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
       this.commissionRecords = target.commissions
       return true
     },
-    logout() {
-      this.persistSession()
-      this.auth = { isLoggedIn: false, openid: '' }
-      this.userId = ''
-      this.cart = []
-      this.orders = []
-      this.addresses = []
-      this.commissionRecords = []
-      this.referralPromoterId = ''
-      this.promoterId = ''
-      this.initialized = false
-    }
+
   }
 } as NativeStoreOptions<UserState>
 

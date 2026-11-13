@@ -1,4 +1,5 @@
 import { defineStore } from './native-store'
+import { apiRequest, createFulfillmentApiClient, createIdempotencyKey, getApiClientConfig } from '@agritainment/shared'
 import type { COrder, CatalogProduct, CatalogProductSubmission, DailyDeliveryRoute, DailyDeliveryRouteState, DriverAccount, DriverStoreScope, DriverStoreScopeState, MockScenario, NamedDeliveryRoute, Order, PlatformAuditLogEntry, PlatformEntities, PlatformJournalEntry, PlatformRecoveryHandlerKey, RouteOptimizationOutput, RouteOrigin, RouteOutboundShortageAllocation, RouteSegment, RouteWarehouseCheckIn, RouteStop, ShortageItem, Supplier, SupplierAccount, SupplierSettlementRecord, WriteResult } from '@agritainment/shared'
 import {
   CATALOG_PRODUCT_REVIEW_RECOVERY_HANDLER_KEY, PLATFORM_AUDIT_LOG_STORAGE_KEY, PLATFORM_CATALOG_PRODUCT_SUBMISSIONS_STORAGE_KEY, PLATFORM_CATALOG_STORAGE_KEY, PLATFORM_C_ORDERS_STORAGE_KEY, PLATFORM_DAILY_DELIVERY_ROUTES_STORAGE_KEY, PLATFORM_DRIVERS_STORAGE_KEY, PLATFORM_DRIVER_STORE_SCOPES_STORAGE_KEY, PLATFORM_ENTITIES_STORAGE_KEY, PLATFORM_NAMED_DELIVERY_ROUTES_STORAGE_KEY, PLATFORM_ORDERS_STORAGE_KEY, PLATFORM_RECOVERY_QUEUE_STORAGE_KEY, PLATFORM_TRANSACTION_JOURNAL_STORAGE_KEY, SUPPLIER_DEMO_ID, acceptSupplierOrder, appendPlatformAuditLog, applyCatalogStockOperation, assignSupplierDriver, authenticateSupplier, buildSupplierAccountSeeds, clearPlatformJson, cloneSeed, confirmCourierDelivered, createCatalogProductReviewRecoveryHandlerRegistration, createCatalogProductSubmission, createId,
@@ -7,6 +8,25 @@ import {
   completeRouteStopHandover as completeRouteStopHandoverState, createAbnormalWarehouseCheckIn, createRouteOutboundHandover as createRouteOutboundHandoverState, createStrictSnapshotRecoveryHandlerRegistration, dispatchRouteOutbound as dispatchRouteOutboundState, enqueuePlatformRecovery, getPlatformProviders, reconcilePendingPlatformTransactions, reassignSupplierDriver, rejectRouteOutboundHandover as rejectRouteOutboundHandoverState, reorderRouteStops as reorderRouteStopState, resolvePlatformJournal, reviewRouteOutboundHandover as reviewRouteOutboundHandoverState, rollbackPlatformCollectionSnapshot, runLockedPlatformCollectionTask, runLockedPlatformTransaction, runPlatformTransaction, saveCatalogProduct as persistCatalogProduct, saveRouteOutboundShortages as applyRouteOutboundShortages, shipSupplierCourier, supplierCanLogin, supplierCanReceiveNewOrders, suppliers as supplierSeeds, syncCSubOrderFromSupplier, todayString, upsertPlatformEntity, validateWarehouseCheckIn, writeCOrders, writeCatalogState, writePlatformDrivers, writePlatformJson, writePlatformOrder, writePlatformOrders
 } from '@agritainment/shared'
 import { deliveryDistanceKm, resolveOrderStore, seedSupplierDataOnce, storeDirectory, storeInfoOf, supplierInfo, supplierWarehouseOf } from '../services/repository'
+import { clearSupplierTokens, readSupplierRefreshToken, saveSupplierTokens } from '../services/api-runtime'
+
+type ApiLoginProfile = { actorType: 'supplier' | 'driver'; actorId: string; supplierId: string; driverId?: string; displayName?: string }
+type ApiTokenResponse = { accessToken: string; refreshToken: string; profile: ApiLoginProfile }
+type ApiDriver = { id: string; supplierId: string; name: string; phone?: string; account: string; enabled: boolean }
+type ApiSupplier = { id: string; name: string; region?: string; category?: string; contactPhone?: string; status?: Supplier['status']; certified?: boolean; cooperationPauseReason?: string | null; profile?: { coop?: boolean; brands?: string[]; serviceRegions?: string[]; businessLicense?: Supplier['qualification']['businessLicense']; permit?: Supplier['qualification']['permit']; validUntil?: string; reviewNote?: string } }
+function driverFromApi(driver: ApiDriver): DriverAccount {
+  return { id: driver.id, supplierId: driver.supplierId, name: driver.name, phone: driver.phone || '', account: driver.account, password: '', status: driver.enabled ? 'active' : 'disabled', createdAt: '' }
+}
+function supplierFromApi(dto: ApiSupplier): Supplier {
+  const profile = dto.profile || {}
+  return {
+    id: dto.id, name: dto.name, region: dto.region || '', category: dto.category || '',
+    contactPhone: dto.contactPhone || '', status: dto.status || 'pending', certified: dto.certified === true,
+    coop: profile.coop, brands: profile.brands || [], serviceRegions: profile.serviceRegions || [], productCount: 0,
+    cooperationPauseReason: dto.cooperationPauseReason || undefined,
+    qualification: { businessLicense: profile.businessLicense || '', permit: profile.permit || '', validUntil: profile.validUntil || '', reviewNote: profile.reviewNote || '' }
+  }
+}
 
 const FULFILLMENT_STATUS_TEXT: Record<string, string> = {
   submitted: '待接单', accepted: '待发货', shipped: '待出库', delivering: '配送中', received: '已收货', cancelled: '已取消', completed: '已完成'
@@ -1071,21 +1091,47 @@ export const useSupplierStore = defineStore('supplier', {
       this.loading = true
       this.error = ''
       try {
-        initializePlatformRecoveryHandlers([...createSupplierAtomicRecoveryHandlerRegistrations(), createCatalogProductReviewRecoveryHandlerRegistration()])
-        const productReviewReconciliation = reconcilePendingPlatformTransactions({ handlerKey: CATALOG_PRODUCT_REVIEW_RECOVERY_HANDLER_KEY })
-        if (!productReviewReconciliation.ok) throw new Error(productReviewReconciliation.message)
-        const routingReconciliation = reconcilePendingPlatformTransactions({ handlerKey: SUPPLIER_ROUTING_RECOVERY_HANDLER_KEY, matches: isSupplierRoutingJournal })
-        if (!routingReconciliation.ok) throw new Error(routingReconciliation.message)
-        const reconciliation = reconcilePendingPlatformTransactions({ handlerKey: SUPPLIER_FULFILLMENT_RECOVERY_HANDLER_KEY, matches: isSupplierFulfillmentJournal })
-        if (!reconciliation.ok) throw new Error(reconciliation.message)
-        seedSupplierDataOnce()
-        const supplierDirectory = migrateLegacySupplierWarehouse(mergePlatformEntities(cloneSeed(supplierSeeds), readPlatformEntities()?.suppliers))
-        const supplierAccounts = mergePlatformSupplierAccounts(buildSupplierAccountSeeds(supplierDirectory), readPlatformSupplierAccounts())
-        const drivers = mergePlatformDrivers(cloneSeed(demoDrivers), readPlatformDrivers())
+        const apiMode = getApiClientConfig().dataMode === 'api'
+        if (!apiMode) {
+          initializePlatformRecoveryHandlers([...createSupplierAtomicRecoveryHandlerRegistrations(), createCatalogProductReviewRecoveryHandlerRegistration()])
+          const productReviewReconciliation = reconcilePendingPlatformTransactions({ handlerKey: CATALOG_PRODUCT_REVIEW_RECOVERY_HANDLER_KEY })
+          if (!productReviewReconciliation.ok) throw new Error(productReviewReconciliation.message)
+          const routingReconciliation = reconcilePendingPlatformTransactions({ handlerKey: SUPPLIER_ROUTING_RECOVERY_HANDLER_KEY, matches: isSupplierRoutingJournal })
+          if (!routingReconciliation.ok) throw new Error(routingReconciliation.message)
+          const reconciliation = reconcilePendingPlatformTransactions({ handlerKey: SUPPLIER_FULFILLMENT_RECOVERY_HANDLER_KEY, matches: isSupplierFulfillmentJournal })
+          if (!reconciliation.ok) throw new Error(reconciliation.message)
+          seedSupplierDataOnce()
+        }
+        if (apiMode && this.auth.isLoggedIn) {
+          try {
+            const profile = await apiRequest<ApiLoginProfile>('/api/v1/auth/me')
+            if (profile.actorType !== this.auth.role || profile.supplierId !== this.auth.supplierId
+                || (profile.actorType === 'driver' && profile.driverId !== this.auth.driverId)) this.logout()
+          } catch { this.logout() }
+        }
+        const supplierDirectory = apiMode
+          ? this.auth.isLoggedIn
+            ? [supplierFromApi(await apiRequest<ApiSupplier>('/api/v1/org/me/supplier'))]
+            : []
+          : migrateLegacySupplierWarehouse(mergePlatformEntities(cloneSeed(supplierSeeds), readPlatformEntities()?.suppliers))
+        if (apiMode && supplierDirectory.length && supplierDirectory[0].id !== this.auth.supplierId) throw new Error('供应商资料与登录身份不一致')
+        const supplierAccounts = apiMode ? [] : mergePlatformSupplierAccounts(buildSupplierAccountSeeds(supplierDirectory), readPlatformSupplierAccounts())
+        const drivers = apiMode
+          ? this.auth.isLoggedIn && this.auth.role === 'supplier'
+            ? (await apiRequest<ApiDriver[]>('/api/v1/auth/supplier/drivers')).map(driverFromApi)
+            : this.auth.isLoggedIn && this.auth.role === 'driver' && this.auth.driverId
+              ? [{ id: this.auth.driverId, supplierId: this.auth.supplierId, name: this.auth.name, account: this.auth.account, phone: '', password: '', status: 'active' as const, createdAt: '' }]
+              : []
+          : mergePlatformDrivers(cloneSeed(demoDrivers), readPlatformDrivers())
         const platformOrders = readPlatformOrders()
-        const orders = platformOrders
+        const localOrders = platformOrders
           ? Object.values(platformOrders).filter((order) => order.channel === 'purchase' && order.status !== 'pending-payment').map((order) => ({ ...order, supplierFulfillment: order.supplierFulfillment ? { ...order.supplierFulfillment, handovers: [...(order.supplierFulfillment.handovers || [])], shortages: [...(order.supplierFulfillment.shortages || [])] } : undefined }))
           : []
+        const remoteOrders = apiMode && this.auth.isLoggedIn
+          ? (await createFulfillmentApiClient().listOrders({ pageSize: 200 })).items : []
+        const orders = apiMode
+          ? remoteOrders.map((item) => ({ id: item.id, orderId: item.orderId, supplierId: item.supplierId, status: item.status, amount: item.amount, quantity: 0, productName: '', items: [], customer: '', createdAt: item.createdAt, channel: 'purchase' as const, supplierFulfillment: { ...item.supplierFulfillment, handovers: [], shortages: [] } } as unknown as Order))
+          : localOrders
         orders.forEach((order) => {
           if (!order.supplierFulfillment) order.supplierFulfillment = ensureSupplierFulfillment(order)
           const fulfillment = order.supplierFulfillment
@@ -1094,30 +1140,32 @@ export const useSupplierStore = defineStore('supplier', {
           }
         })
         orders.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-        await migrateLegacyDriverScopes(drivers, orders)
-        seedDemoNamedRoutes()
+        if (!apiMode) {
+          await migrateLegacyDriverScopes(drivers, orders)
+          seedDemoNamedRoutes()
+        }
         const settlements = Object.values(readPlatformSupplierSettlements() || {})
         const catalog = readCatalogState()
         const productSubmissionState = readCatalogProductSubmissionState()
         const driverScopeState = readDriverStoreScopeState()
         const dailyRouteState = readDailyDeliveryRouteState()
         this.$patch({
-          suppliers: supplierDirectory, supplierAccounts, drivers, orders, settlements,
+          suppliers: supplierDirectory, supplierAccounts, drivers, orders, settlements: apiMode ? [] : settlements,
           platformOrdersRevision: readPlatformCollectionRevision(PLATFORM_ORDERS_STORAGE_KEY),
           cOrdersRevision: readPlatformCollectionRevision(PLATFORM_C_ORDERS_STORAGE_KEY),
-          catalogProducts: catalog?.products ?? [],
+          catalogProducts: apiMode ? [] : catalog?.products ?? [],
           catalogRevision: catalog?.revision ?? 0,
-          productSubmissions: productSubmissionState?.submissions ?? [],
+          productSubmissions: apiMode ? [] : productSubmissionState?.submissions ?? [],
           productSubmissionRevision: productSubmissionState?.revision ?? 0,
-          driverScopes: driverScopeState?.scopes ?? [],
+          driverScopes: apiMode ? [] : driverScopeState?.scopes ?? [],
           driverScopeRevision: readPlatformCollectionRevision(PLATFORM_DRIVER_STORE_SCOPES_STORAGE_KEY),
-          namedRoutes: readNamedDeliveryRoutes(),
+          namedRoutes: apiMode ? [] : readNamedDeliveryRoutes(),
           namedRouteRevision: readNamedDeliveryRouteState()?.revision ?? 0,
-          dailyRoutes: dailyRouteState?.routes ?? [],
+          dailyRoutes: apiMode ? [] : dailyRouteState?.routes ?? [],
           dailyRouteRevision: readPlatformCollectionRevision(PLATFORM_DAILY_DELIVERY_ROUTES_STORAGE_KEY),
           initialized: true
         })
-        if (this.auth.isLoggedIn) {
+        if (this.auth.isLoggedIn && !apiMode) {
           const account = supplierAccounts.find((item) => item.supplierId === this.auth.supplierId)
           const supplier = supplierDirectory.find((item) => item.id === this.auth.supplierId)
           if (this.auth.role === 'supplier') {
@@ -1130,6 +1178,7 @@ export const useSupplierStore = defineStore('supplier', {
           }
         }
       } catch (error) {
+        if (getApiClientConfig().dataMode === 'api') this.logout()
         this.error = error instanceof Error ? error.message : '数据加载失败'
       } finally {
         this.loading = false
@@ -1137,6 +1186,7 @@ export const useSupplierStore = defineStore('supplier', {
     },
     async refreshSharedState() {
       await this.initialize(true)
+      if (getApiClientConfig().dataMode === 'api') return
       const reconciled = await reconcilePublishedRouteInputs(this.dailyRoutes, this.orders, this.suppliers, this.driverScopes)
       this.routeReconcileWarning = reconciled.ok ? '' : reconciled.message
       const routeState = readDailyDeliveryRouteState()
@@ -1571,6 +1621,34 @@ export const useSupplierStore = defineStore('supplier', {
       this.dailyRouteRevision = readPlatformCollectionRevision(PLATFORM_DAILY_DELIVERY_ROUTES_STORAGE_KEY)
       return { ok: true }
     },
+    async loginSupplierApi(account: string, password: string) {
+      return this.loginApi('supplier', account, password)
+    },
+    async loginDriverApi(account: string, password: string) {
+      return this.loginApi('driver', account, password)
+    },
+    async loginApi(role: 'supplier' | 'driver', account: string, password: string) {
+      try {
+        const token = await apiRequest<ApiTokenResponse>(`/api/v1/auth/${role}/login`, {
+          method: 'POST', body: { account: account.trim(), password }, retryOnUnauthorized: false
+        })
+        if (token.profile.actorType !== role || !token.profile.supplierId
+            || (role === 'driver' && !token.profile.driverId)) throw new Error('登录身份缺少供应商绑定')
+        saveSupplierTokens(token.accessToken, token.refreshToken)
+        this.auth = {
+          isLoggedIn: true, role, account: account.trim(), name: token.profile.displayName || account.trim(),
+          supplierId: token.profile.supplierId, ...(role === 'driver' ? { driverId: token.profile.driverId } : {})
+        }
+        this.loginError = ''
+        await this.initialize(true)
+        if (!this.auth.isLoggedIn || this.error) throw new Error(this.error || '登录会话校验失败')
+        return true
+      } catch (error) {
+        this.logout()
+        this.loginError = error instanceof Error ? error.message : '登录失败'
+        return false
+      }
+    },
     loginSupplier(account: string, password: string) {
       const result = authenticateSupplier(this.supplierAccounts, this.suppliers, account, password)
       if (!result.ok) {
@@ -1611,9 +1689,18 @@ export const useSupplierStore = defineStore('supplier', {
       return true
     },
     logout() {
-      this.auth = { isLoggedIn: false, role: null, account: '', name: '', supplierId: SUPPLIER_DEMO_ID }
+      const apiMode = getApiClientConfig().dataMode === 'api'
+      if (apiMode) clearSupplierTokens()
+      this.auth = { isLoggedIn: false, role: null, account: '', name: '', supplierId: apiMode ? '' : SUPPLIER_DEMO_ID }
+      if (apiMode) { this.orders = []; this.drivers = []; this.supplierAccounts = []; this.suppliers = [] }
       this.loginError = ''
       this.activeDriverRouteId = ''
+    },
+    async logoutApi() {
+      const refreshToken = readSupplierRefreshToken()
+      try {
+        if (refreshToken) await apiRequest('/api/v1/auth/logout', { method: 'POST', body: { refreshToken }, retryOnUnauthorized: false })
+      } finally { this.logout() }
     },
     async markShortageHandled(orderId: string, skuId: string) {
       if (this.auth.role !== 'supplier') return false
@@ -1764,6 +1851,19 @@ export const useSupplierStore = defineStore('supplier', {
       return true
     },
     async acceptOrder(id: string) {
+      if (getApiClientConfig().dataMode === 'api') {
+        const order = this.orders.find((item) => item.id === id)
+        if (!order) return false
+        try {
+          const updated = await apiRequest<{ id: string; status: string }>(`/api/v1/fulfillment/orders/${encodeURIComponent(id)}/accept`, { method: 'POST', idempotencyKey: createIdempotencyKey('fulfillment-accept') })
+          order.status = 'pending'
+          order.supplierFulfillment = { ...(order.supplierFulfillment || { handovers: [], shortages: [], updatedAt: new Date().toISOString() }), status: updated.status === 'ACCEPTED' ? 'accepted' : 'submitted', updatedAt: new Date().toISOString() }
+          return true
+        } catch (error) {
+          this.error = error instanceof Error ? error.message : '接单失败，请重试'
+          return false
+        }
+      }
       if (this.auth.role !== 'supplier') return false
       const order = this.orders.find((item) => item.id === id)
       return order ? await this.commitOrder(acceptSupplierOrder(order, this.auth.name || supplierInfo.name)) : false
@@ -1791,6 +1891,19 @@ export const useSupplierStore = defineStore('supplier', {
       return saved
     },
     async shipCourier(orderId: string, _trackingNo = '') {
+      if (getApiClientConfig().dataMode === 'api') {
+        const order = this.orders.find((item) => item.id === orderId)
+        if (!order) return false
+        try {
+          const updated = await apiRequest<{ id: string; ship_type?: string; tracking_no?: string; driver_id?: string }>(`/api/v1/fulfillment/orders/${encodeURIComponent(orderId)}/ship`, { method: 'POST', idempotencyKey: createIdempotencyKey('fulfillment-ship'), body: { shipType: 'courier', trackingNo: _trackingNo || undefined } })
+          order.status = 'shipping'
+          order.supplierFulfillment = { ...(order.supplierFulfillment || { handovers: [], shortages: [], updatedAt: new Date().toISOString() }), status: 'shipped', shipType: 'courier', trackingNo: updated.tracking_no, updatedAt: new Date().toISOString() }
+          return true
+        } catch (error) {
+          this.error = error instanceof Error ? error.message : '发货失败，请重试'
+          return false
+        }
+      }
       if (this.auth.role !== 'supplier') return false
       const order = this.orders.find((item) => item.id === orderId)
       if (!order) return false
@@ -2046,6 +2159,15 @@ export const useSupplierStore = defineStore('supplier', {
     },
     async addDriver(input: { name: string; phone: string; account: string; password: string }): Promise<{ ok: boolean; error?: string }> {
       if (this.auth.role !== 'supplier') return { ok: false, error: '无权管理司机' }
+      if (getApiClientConfig().dataMode === 'api') {
+        try {
+          const driver = await apiRequest<ApiDriver>('/api/v1/auth/supplier/drivers', {
+            method: 'POST', body: { name: input.name.trim(), phone: input.phone.trim(), account: input.account.trim(), password: input.password }
+          })
+          this.drivers = [...this.drivers, driverFromApi(driver)]
+          return { ok: true }
+        } catch (error) { return { ok: false, error: error instanceof Error ? error.message : '司机账号创建失败' } }
+      }
       const supplier = this.suppliers.find((item) => item.id === this.auth.supplierId)
       const supplierAccount = this.supplierAccounts.find((item) => item.supplierId === this.auth.supplierId)
       if (!supplierCanReceiveNewOrders(supplier, supplierAccount)) return { ok: false, error: '供应商已暂停合作，不能新增司机' }
@@ -2106,6 +2228,21 @@ export const useSupplierStore = defineStore('supplier', {
       this.driverScopes = readDriverStoreScopeState()?.scopes ?? []
       this.driverScopeRevision = readPlatformCollectionRevision(PLATFORM_DRIVER_STORE_SCOPES_STORAGE_KEY)
       return { ok: true }
+    },
+    async updateDriverApi(id: string, patch: { name?: string; phone?: string; password?: string; enabled?: boolean }) {
+      if (this.auth.role !== 'supplier' || !this.drivers.some((item) => item.id === id && item.supplierId === this.auth.supplierId)) return false
+      try {
+        const driver = await apiRequest<ApiDriver>(`/api/v1/auth/supplier/drivers/${encodeURIComponent(id)}`, { method: 'PATCH', body: patch })
+        this.drivers = this.drivers.map((item) => item.id === id ? driverFromApi(driver) : item)
+        return true
+      } catch (error) { this.error = error instanceof Error ? error.message : '司机账号保存失败'; return false }
+    },
+    async toggleDriverStatusApi(id: string) {
+      const driver = this.drivers.find((item) => item.id === id && item.supplierId === this.auth.supplierId)
+      return !!driver && this.updateDriverApi(id, { enabled: driver.status !== 'active' })
+    },
+    async resetDriverPasswordApi(id: string, password: string) {
+      return this.updateDriverApi(id, { password })
     },
     updateDriver(id: string, patch: { name?: string; phone?: string }) {
       if (this.auth.role !== 'supplier') return false

@@ -363,6 +363,13 @@ export async function resetAndRelaunch({ app, port, evidenceDir, log = console.l
 /** 元素与页面辅助：每次都取新的 currentPage()，避免点到隐藏页面实例。 */
 export const cur = (mp) => mp.currentPage()
 
+/** 向小程序同步存储播种值，供 OpenID 身份和其他确定性链路使用。 */
+export async function seedStorage(mp, values) {
+  await mp.evaluate((entries) => {
+    for (const [key, value] of Object.entries(entries)) wx.setStorageSync(key, value)
+  }, values)
+}
+
 export async function count(page, selector) {
   return (await page.$$(selector)).length
 }

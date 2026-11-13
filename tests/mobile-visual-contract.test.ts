@@ -22,6 +22,7 @@ describe('native mobile visual contract', () => {
     expect(supplier).toContain('pc-login-hero')
     expect(user).toContain('auth-page')
     expect(user).toContain('auth-btn')
-    expect(user).toContain('微信一键授权')
+    expect(user).toContain('身份识别失败')
+    expect(user).toContain('重新识别')
   })
 })

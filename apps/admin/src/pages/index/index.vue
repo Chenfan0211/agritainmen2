@@ -5,6 +5,7 @@ import type { ECharts } from 'echarts'
 import type { AdminAccount, AdminMenuKey, AdminPermissionCode, AdminRole, AfterSale, AfterSaleStatus, BusinessMediaValue, CatalogProduct, CatalogProductSubmission, CatalogSku, Category, CommissionRule, DictGroup, DictItem, FarmStore, MediaReference, OperationalReportDimension, Order, OrderFlowEvent, OrderItem, OrderStatus, PlatformAuditLogEntry, PlatformDictionaryState, PricePolicy, Product, ProductType, Promoter, StoreAccount, StorePriceLevel, StoreRole, Supplier, WithdrawalRequest } from '@agritainment/shared'
 import { ALL_ADMIN_ACTION_PERMISSIONS, ALL_ADMIN_MENU_KEYS, PLATFORM_ADMIN_ACCOUNTS_STORAGE_KEY, PLATFORM_ADMIN_ROLES_STORAGE_KEY, PLATFORM_AFTERSALES_STORAGE_KEY, PLATFORM_AUDIT_LOG_STORAGE_KEY, PLATFORM_CATALOG_PRODUCT_SUBMISSIONS_STORAGE_KEY, PLATFORM_CATALOG_STORAGE_KEY, PLATFORM_COMMISSION_LEDGER_STORAGE_KEY, PLATFORM_COMMISSION_RULES_STORAGE_KEY, PLATFORM_COMMISSION_SETTLEMENT_RECORDS_STORAGE_KEY, PLATFORM_DICTIONARIES_STORAGE_KEY, PLATFORM_DRIVERS_STORAGE_KEY, PLATFORM_ENTITIES_STORAGE_KEY, PLATFORM_ORDERS_STORAGE_KEY, PLATFORM_PRICING_DEFAULTS_STORAGE_KEY, PLATFORM_RECOVERY_QUEUE_STORAGE_KEY, PLATFORM_SETTLEMENTS_STORAGE_KEY, PLATFORM_SHARE_CONFIG_STORAGE_KEY, PLATFORM_SHARES_STORAGE_KEY, PLATFORM_STORE_ACCOUNTS_STORAGE_KEY, PLATFORM_SUPPLIER_ACCOUNTS_STORAGE_KEY, PLATFORM_SUPPLIER_SETTLEMENTS_STORAGE_KEY, PLATFORM_TRANSACTION_JOURNAL_STORAGE_KEY, PLATFORM_VOUCHERS_STORAGE_KEY, PLATFORM_WITHDRAWALS_STORAGE_KEY, aggregateOperationalReport, catalogChannelFlags, catalogProductStockWarnings, createId, dashboardRegionChildren, dashboardRegionPath, DEFAULT_STORE_PRICE_LEVEL_DISCOUNTS, defaultProductCategoryImage, derivePlatformMetrics, dictLabel, focusFirstInteractive, formatNumber, getDictOptions, installKeyboardButtonSupport, compareTrendWindows, money, normalizeMediaReference, pendingShareAmount, productCategoryImage, readPlatformAuditLogs, readPlatformDrivers, readPlatformRecoveryQueue, readCatalogStockLogs, readPlatformWithdrawals, readShareConfig, readShareRecords, round2, STORE_PRICE_LEVELS, subscribePlatformChanges, summarizeOperationalReport, todayString, toXlsx, validatePhone, validatePricePolicy } from '@agritainment/shared'
 import { BusinessImage, ImageUploader, UI_TYPOGRAPHY, designTokens, getMediaRuntime } from '@agritainment/ui'
+import { getApiClientConfig } from '@agritainment/shared'
 import UiIcon from '../../components/UiIcon.vue'
 import PaginationBar from '../../components/PaginationBar.vue'
 import SearchableSelect from '../../components/SearchableSelect.vue'
@@ -47,6 +48,7 @@ import { AdminMediaFinalizeError, catalogProductMediaBindings, dictionaryItemMed
 type ModuleKey = AdminMenuKey
 
 const store = useAdminStore()
+const isApiMode = () => getApiClientConfig().dataMode === 'api'
 const adminPermissionGroups = ADMIN_PERMISSION_GROUPS
 const active = ref<ModuleKey>('dashboard')
 const keyword = ref('')
@@ -58,6 +60,7 @@ const workPage = ref<WorkPage | null>(null)
 const supplierPauseId = ref('')
 const supplierPauseReason = ref('')
 const supplierAccountForm = reactive({ supplierId: '', account: '', password: '', enabled: true, freezeReason: '' })
+const supplierAccountOriginalFreezeReason = ref('')
 const supplierAccountOriginalEnabled = ref(true)
 const roleForm = reactive({ id: '', code: '', name: '', menuPermissions: [] as AdminMenuKey[], actionPermissions: [] as AdminPermissionCode[], enabled: true })
 const adminAccountForm = reactive({ id: '', account: '', password: '', name: '', roleId: '', enabled: true })
@@ -77,9 +80,16 @@ type DetailType = 'todos' | 'supplier' | 'order' | 'afterSale' | 'farm' | 'audit
 type TierFormRow = { minQty: number; maxQty: number | null | ''; price: number; discountOff: number }
 const detail = ref<{ type: DetailType; id?: string } | null>(null)
 const form = ref({ id: '', skuId: '', name: '', category: '综合品类', type: 'group' as PricePolicy['type'], scope: '全部门店', discount: 8, tiers: [] as TierFormRow[], spec: '', image: null as BusinessMediaValue | null, images: [] as BusinessMediaValue[], region: '湖南省', address: '', farmCityCode: '', farmDistrictCode: '', farmDetail: '', price: 59.9, cost: 42, stock: 100, source: 'platform' as Product['source'], supplier: '平台自营', result: 'refund' as AfterSale['type'], refundMethod: 'return' as 'return' | 'only', refundMode: 'full' as 'full' | 'ratio' | 'custom', refundRatio: 100, refundAmount: 0, rate: 10, enabled: true, contactPhone: '', brands: '', serviceRegions: '', contact: '', supplierPassword: '', businessLicenseNumber: '', businessLicense: null as BusinessMediaValue | null, permitNumber: '', permit: null as BusinessMediaValue | null, validUntil: '', reviewNote: '运营邀请入驻，等待供应商补充资质', city: '', tags: '', rating: 5, averageSpend: 0, coop: false, farmStatus: 'pending' as FarmStore['status'], categoryType: 'product' as Category['type'], categoryImage: null as BusinessMediaValue | null, level: '', promoterType: '业务员', promoterRegion: '', promoterStatus: 'active' as Promoter['status'], dictCode: '', dictLabel: '', dictSort: 0, dictTone: 'default' as NonNullable<DictItem['tone']>, dictImage: null as BusinessMediaValue | null, dictGroupName: '', dictGroupType: '', accountFarmId: '', accountName: '', accountPhone: '', accountPassword: '', accountRole: 'staff' as StoreRole, accountPromo: false, accountPriceLevel: 'C' as StorePriceLevel, initIssue: '', productType: 'goods' as ProductType, expressDelivery: false, commissionRate: 0, staffCommissionRate: 0, channels: { store: true } })
-const period = ref('本月')
+const period = ref('数据全期')
 const dashboardRange = computed(() => {
   const to = todayString()
+  if (period.value === '数据全期') {
+    const dates = store.orders
+      .map((order) => order.createdAt.slice(0, 10))
+      .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date))
+      .sort()
+    return dates.length ? { from: dates[0], to: dates[dates.length - 1] } : { from: '', to: '' }
+  }
   if (period.value === '本周') {
     const date = new Date(`${to}T12:00:00`)
     date.setDate(date.getDate() - ((date.getDay() + 6) % 7))
@@ -870,8 +880,25 @@ async function runOperation(key: string, action: () => boolean | void | Promise<
   }
 }
 
-function auditSupplier(id: string, approved: boolean) {
-  return runOperation(`supplier-${id}`, () => store.auditSupplier(id, approved), approved ? '审核通过' : '已驳回')
+function showSupplierInitialCredential() {
+  const credential = store.newSupplierCredential
+  store.newSupplierCredential = null
+  if (credential) uni.showModal({ title: '供应商初始密码（仅显示一次）', content: `登录账号：${credential.account}\n初始密码：${credential.password}\n请妥善交付供应商，并提醒首次登录后修改。`, showCancel: false })
+  else if (store.error.startsWith('账号已存在')) uni.showModal({ title: '请设置供应商密码', content: store.error, showCancel: false })
+}
+
+async function auditSupplier(id: string, approved: boolean) {
+  await runOperation(`supplier-${id}`, () => store.auditSupplier(id, approved), approved ? '审核通过' : '已驳回')
+  if (approved) showSupplierInitialCredential()
+}
+
+function supplierAccountMissing(supplier: Supplier) {
+  return supplier.certified && supplier.status === 'cooperating' && !store.supplierAccounts.some((account) => account.supplierId === supplier.id)
+}
+
+async function retrySupplierAccountProvision(supplier: Supplier) {
+  await runOperation(`supplier-${supplier.id}`, () => store.retrySupplierAccountProvision(supplier.id), '供应商账号已开通')
+  showSupplierInitialCredential()
 }
 
 function openSupplierPause(supplier: Supplier) {
@@ -891,14 +918,16 @@ function resumeSupplier(supplier: Supplier) {
 
 function openSupplierAccount(supplier: Supplier) {
   const account = store.supplierAccounts.find((item) => item.supplierId === supplier.id)
-  if (!account) return showToast('供应商尚未认证，没有可配置账号')
-  Object.assign(supplierAccountForm, { supplierId: supplier.id, account: account.account, password: '', enabled: account.enabled, freezeReason: '' })
+  if (!account) return showToast('供应商账号尚未开通，请在列表重试')
+  Object.assign(supplierAccountForm, { supplierId: supplier.id, account: account.account, password: '', enabled: account.enabled, freezeReason: account.freezeReason || '' })
   supplierAccountOriginalEnabled.value = account.enabled
+  supplierAccountOriginalFreezeReason.value = account.freezeReason || ''
   workPage.value = { type: 'supplier-account', mode: 'edit', id: supplier.id }
 }
 
 async function saveSupplierAccount() {
-  const result = await store.updateSupplierAccount(supplierAccountForm.supplierId, { account: supplierAccountForm.account, password: supplierAccountForm.password || undefined, enabled: supplierAccountForm.enabled === supplierAccountOriginalEnabled.value ? undefined : supplierAccountForm.enabled, freezeReason: supplierAccountForm.freezeReason })
+  const reasonChanged = supplierAccountForm.freezeReason.trim() !== supplierAccountOriginalFreezeReason.value
+  const result = await store.updateSupplierAccount(supplierAccountForm.supplierId, { account: supplierAccountForm.account, password: supplierAccountForm.password || undefined, enabled: supplierAccountForm.enabled === supplierAccountOriginalEnabled.value ? undefined : supplierAccountForm.enabled, freezeReason: !supplierAccountForm.enabled && (reasonChanged || supplierAccountOriginalEnabled.value) ? supplierAccountForm.freezeReason : undefined })
   if (!result.ok) return showToast(result.error || '供应商账号保存失败')
   workPage.value = null
   showToast('供应商账号已保存')
@@ -1469,7 +1498,7 @@ async function saveDialog() {
       busy.value = false
       dialog.value = null
       workPage.value = null
-      showToast('已保存到演示数据')
+      showToast(isApiMode() ? '保存成功' : '已保存到演示数据')
     } catch (error) {
       if (error instanceof AdminMediaFinalizeError) pendingCreateMediaRetry = { dialog: recovery.dialog, retryFinalize: error.retryFinalize }
       busy.value = false
@@ -1722,7 +1751,7 @@ async function saveDialog() {
   if (!saved) return showToast(errorMessage || '请检查必填项和数值范围')
   dialog.value = null
   workPage.value = null
-  showToast('已保存到演示数据')
+  showToast(isApiMode() ? '保存成功' : '已保存到演示数据')
 }
 
 function confirmAction(content: string, action: () => void) {
@@ -1999,13 +2028,15 @@ watch(keyword, () => { page.value = 1 })
 watch([productKeyword, productSupplierFilter, productSourceFilter, productCategoryFilter, productStatusFilter, productChannelFilter, productReviewFilter, productStockFilter], () => { page.value = 1 })
 watch([supplierKeyword, supplierStatusFilter, supplierCategoryFilter, orderKeyword, orderStatusFilter, orderChannelFilter, orderAfterFilter, orderStoreFilter, afterKeyword, settlementKeyword, settlementSupplierFilter, afterTypeFilter, afterStatusFilter, farmKeyword, farmStatusFilter, farmCityFilter, promoterKeyword, promoterTypeFilter, promoterLevelFilter, promoterSettleFilter, categoryKeyword, categoryTypeFilter, commissionKeyword, commissionStatusFilter, supplierSettleKeyword, supplierSettleSupplierFilter, ruleKeyword, dictKeyword, dictStatusFilter, farmAccountFilter, storeAccountKeyword, storeAccountStatusFilter, afterReasonFilter, withdrawalKeyword, withdrawalStatusFilter, roleKeyword, roleStatusFilter, accountKeyword, accountRoleFilter, accountStatusFilter, policyKeyword, logResult], () => { page.value = 1; commissionHistoryPage.value = 1 })
 watch(orderStatusFilter, () => { page.value = 1 })
-const loginAccount = ref('admin')
-const loginPassword = ref('123456')
+const loginAccount = ref(isApiMode() ? '' : 'admin')
+const loginPassword = ref(isApiMode() ? '' : '123456')
 async function submitLogin() {
   if (!await store.login(loginAccount.value, loginPassword.value)) {
-    showToast(store.error || '账号或密码错误（演示账号 admin / 123456）')
+    showToast(store.error || '账号或密码错误')
     return
   }
+  await store.initialize(true)
+  if (store.error) { showToast(store.error); return }
   showToast('登录成功，欢迎回来')
 }
 function logout() {
@@ -2069,7 +2100,7 @@ onBeforeUnmount(() => {
         <label class="login-field"><text>密码</text><input v-model="loginPassword" type="password" placeholder="请输入密码" confirm-type="done" @confirm="submitLogin" /></label>
       </view>
       <button class="login-button" @click="submitLogin">登 录</button>
-      <text class="login-hint">演示账号：admin　密码：123456</text>
+      <text v-if="!isApiMode()" class="login-hint">演示账号：admin　密码：123456</text>
     </view>
   </view>
   <view v-else class="admin-shell">
@@ -2094,7 +2125,7 @@ onBeforeUnmount(() => {
         <view class="crumb">供应链中台 / <strong>{{ titles[active].title }}</strong></view>
         <view class="top-actions">
           <view class="filter-control topbar-search"><UiIcon name="search" :size="17" /><input v-model="keyword" placeholder="搜索商品 / 供应商 / 订单号" /></view>
-          <button class="period-button" :class="{ on: period === '本月' }" @click="switchPeriod(period === '本月' ? '本周' : '本月')"><UiIcon name="calendar-days" :size="15" />{{ period }}</button>
+          <button class="period-button" :class="{ on: period !== '本周' }" @click="switchPeriod(period === '数据全期' ? '本月' : period === '本月' ? '本周' : '数据全期')"><UiIcon name="calendar-days" :size="15" />{{ period }}</button>
           <button class="icon-button" aria-label="打开待办提醒" title="待办提醒" @click="openDetail('todos')"><UiIcon name="bell" :size="19" /><span v-if="!store.notificationsRead && store.pendingTodos" class="notice-dot"></span></button>
           <view class="operator">
             <view class="avatar">{{ store.auth.name.slice(0, 1) }}</view>
@@ -2107,7 +2138,7 @@ onBeforeUnmount(() => {
       <view class="content admin-workspace" :data-admin-workspace="active">
         <template v-if="workPage">
           <section class="work-page">
-            <view class="work-page-head"><button class="page-back" aria-label="返回" @click="closeOverlay"><UiIcon name="arrow-left" :size="16" /></button><view><h1>{{ workPage.type === 'supplier' ? (workPage.mode === 'create' ? '邀请供应商' : '修改供应商资料') : workPage.type === 'supplier-account' ? '供应商账号信息' : workPage.type === 'role' ? (workPage.mode === 'create' ? '新增角色' : '修改角色') : (workPage.mode === 'create' ? '新增后台账号' : '修改后台账号') }}</h1><p>保存后立即写入共享演示数据并记录操作日志</p></view></view>
+            <view class="work-page-head"><button class="page-back" aria-label="返回" @click="closeOverlay"><UiIcon name="arrow-left" :size="16" /></button><view><h1>{{ workPage.type === 'supplier' ? (workPage.mode === 'create' ? '邀请供应商' : '修改供应商资料') : workPage.type === 'supplier-account' ? '供应商账号信息' : workPage.type === 'role' ? (workPage.mode === 'create' ? '新增角色' : '修改角色') : (workPage.mode === 'create' ? '新增后台账号' : '修改后台账号') }}</h1><p>{{ isApiMode() ? '保存后写入服务端' : '保存后立即写入共享演示数据并记录操作日志' }}</p></view></view>
             <view v-if="workPage?.type === 'supplier'" class="work-form-grid">
               <view class="form-card"><view class="form-card-title">基础信息</view><view class="form-card-grid">
               <label class="field"><text>供应商名称</text><input v-model="form.name" placeholder="请输入供应商名称" /></label>
@@ -2129,10 +2160,10 @@ onBeforeUnmount(() => {
             </view>
             <view v-else-if="workPage?.type === 'supplier-account'" class="work-form-grid">
               <view class="form-card"><view class="form-card-title">账号信息</view><view class="form-card-grid">
-              <label class="field"><text>登录账号</text><input v-model="supplierAccountForm.account" maxlength="11" :disabled="!store.can('supplier.account.update')" /></label>
-              <label class="field"><text>新密码</text><input v-model="supplierAccountForm.password" type="password" :disabled="!store.can('supplier.account.update')" placeholder="留空保留当前密码" /></label>
+              <label class="field"><text>登录账号</text><input v-model="supplierAccountForm.account" maxlength="11" :disabled="isApiMode() || !store.can('supplier.account.update')" /></label>
+              <label class="field"><text>新密码</text><input v-model="supplierAccountForm.password" type="password" maxlength="64" :disabled="!store.can('supplier.account.update')" placeholder="留空保留当前密码" /></label>
               <view class="field"><text>账号状态</text><SearchableSelect v-model="supplierAccountForm.enabled" :options="enabledOptions" :disabled="!store.can('supplier.account.freeze')" /></view>
-              <label v-if="!supplierAccountForm.enabled" class="field full"><text>冻结原因</text><input v-model="supplierAccountForm.freezeReason" placeholder="冻结后供应商及旗下司机均无法登录" /></label>
+              <label v-if="!supplierAccountForm.enabled" class="field full"><text>冻结原因</text><input v-model="supplierAccountForm.freezeReason" maxlength="500" placeholder="冻结后该供应商账号无法登录" /></label>
               </view></view>
             </view>
             <view v-else-if="workPage?.type === 'role'" class="work-form-grid">
@@ -2197,7 +2228,7 @@ onBeforeUnmount(() => {
               <view v-for="product in metrics.hotProducts" :key="product.name" class="rank-row">
                 <BusinessImage class="hot-thumb" :src="product.image" mode="aspectFit" /><view><strong>{{ product.name }}</strong><small>供应商：{{ product.supplier }}</small></view><view class="hot-right"><b>{{ money(product.amount) }}</b><small>{{ product.units }} 件</small></view>
               </view>
-              <view v-if="!metrics.hotProducts.length" class="empty-state">本月暂无动销数据</view>
+              <view v-if="!metrics.hotProducts.length" class="empty-state">{{ period }}暂无动销数据</view>
             </section>
             <section class="panel"><view class="panel-head"><h2>待办事项</h2><text>{{ store.pendingTodos }} 项待处理</text></view>
               <button v-for="todo in adminTodos" :key="todo.id" class="todo-row" @click="openTodo(todo)"><span class="todo-emoji"><UiIcon name="bell-ring" :size="18" /></span><view><strong>{{ todo.title }}</strong><small>{{ todo.count }} 项 · {{ todo.objectIds?.[0] }}</small></view><span class="todo-pill" :class="{ no: todo.priority === 'high', wait: todo.priority === 'medium' }">{{ todo.priority === 'high' ? '紧急' : todo.priority === 'medium' ? '待处理' : '提醒' }}</span></button>
@@ -2234,7 +2265,7 @@ onBeforeUnmount(() => {
           <view class="table-row table-head supplier-grid"><text>供应商</text><text>主营品类</text><text>商品数</text><text>资质与状态</text><text>操作</text></view>
           <view v-for="item in pagedSuppliers" :key="item.id" class="table-row supplier-grid">
             <view><strong>{{ item.name }}</strong><small>{{ item.region }} · {{ item.coop ? '供销社' : (item.name.includes('合作社') ? '合作社' : '供应商') }}</small><small v-if="item.cooperationPauseReason">暂停原因：{{ item.cooperationPauseReason }}</small></view><view><strong>{{ item.category }}</strong><small>{{ item.serviceRegions?.length ? item.serviceRegions.join(' / ') : item.region }}</small><small>品牌：{{ item.brands?.length ? item.brands.join(' / ') : '待补充' }}</small></view><text>{{ supplierProducts(item).length }}</text>
-             <view class="row-actions"><button @click="openDetail('supplier', item.id)">详情</button><button v-if="store.can('supplier.update')" @click="openSupplierEdit(item)">修改</button><button v-if="item.certified && (store.can('supplier.account.update') || store.can('supplier.account.freeze'))" @click="openSupplierAccount(item)">账号信息</button><button v-if="!item.certified && item.status === 'pending' && store.can('supplier.audit')" :disabled="isOperating(`supplier-${item.id}`)" @click="runOperation(`supplier-${item.id}`, () => store.auditSupplier(item.id, true), '审核通过')">{{ isOperating(`supplier-${item.id}`) ? '处理中...' : '通过' }}</button><button v-if="!item.certified && item.status === 'pending' && store.can('supplier.audit')" class="danger" :disabled="isOperating(`supplier-${item.id}`)" @click="runOperation(`supplier-${item.id}`, () => store.auditSupplier(item.id, false), '已驳回')">驳回</button><button v-if="!item.certified && item.status === 'paused' && store.can('supplier.audit')" @click="runOperation(`supplier-${item.id}`, () => store.restoreSupplierPending(item.id), '已恢复待处理')">恢复待处理</button><button v-if="item.certified && item.status === 'cooperating' && store.can('supplier.pause')" class="danger" @click="openSupplierPause(item)">暂停合作</button><button v-if="item.certified && item.status === 'paused' && store.can('supplier.pause')" @click="runOperation(`supplier-${item.id}`, () => store.resumeSupplier(item.id), '已恢复合作')">恢复合作</button></view>
+             <view class="row-actions"><button @click="openDetail('supplier', item.id)">详情</button><button v-if="store.can('supplier.update')" @click="openSupplierEdit(item)">修改</button><button v-if="supplierAccountMissing(item) && store.can('supplier.audit')" :disabled="isOperating(`supplier-${item.id}`)" @click="retrySupplierAccountProvision(item)">重试开通账号</button><button v-if="item.certified && (store.can('supplier.account.update') || store.can('supplier.account.freeze'))" @click="openSupplierAccount(item)">账号信息</button><button v-if="!item.certified && item.status === 'pending' && store.can('supplier.audit')" :disabled="isOperating(`supplier-${item.id}`)" @click="auditSupplier(item.id, true)">{{ isOperating(`supplier-${item.id}`) ? '处理中...' : '通过' }}</button><button v-if="!item.certified && item.status === 'pending' && store.can('supplier.audit')" class="danger" :disabled="isOperating(`supplier-${item.id}`)" @click="auditSupplier(item.id, false)">驳回</button><button v-if="!item.certified && item.status === 'paused' && store.can('supplier.audit')" @click="runOperation(`supplier-${item.id}`, () => store.restoreSupplierPending(item.id), '已恢复待处理')">恢复待处理</button><button v-if="item.certified && item.status === 'cooperating' && store.can('supplier.pause')" class="danger" @click="openSupplierPause(item)">暂停合作</button><button v-if="item.certified && item.status === 'paused' && store.can('supplier.pause')" @click="runOperation(`supplier-${item.id}`, () => store.resumeSupplier(item.id), '已恢复合作')">恢复合作</button></view>
           </view>
           </view>
           <view v-if="!filteredSuppliers.length" class="empty-state">没有符合条件的供应商</view>
@@ -2523,10 +2554,10 @@ onBeforeUnmount(() => {
 
      <view v-if="dialog && !workPage" class="modal-mask" :class="{ 'work-modal-mask': !['withdrawal-reject', 'supplier-pause', 'recovery-verify'].includes(dialog) }" @click.self="closeOverlay">
        <view class="modal" role="dialog" aria-modal="true" @keydown="trapFocus">
-          <view class="modal-head"><view><h2>{{ dialog === 'withdrawal-reject' ? '驳回提现申请' : dialog === 'supplier-pause' ? '暂停供应商合作' : dialog === 'recovery-verify' ? (selectedRecoveryTask?.handlerKey ? '重试恢复任务' : '人工核验恢复任务') : dialog === 'supplier' ? '邀请供应商入驻' : dialog === 'supplier-edit' ? '编辑供应商' : dialog === 'category' ? '新增品类' : dialog === 'category-edit' ? '编辑品类' : dialog === 'policy' ? '新建价格策略' : dialog === 'policy-edit' ? '编辑价格策略' : dialog === 'after-sale-init' ? '发起售后' : dialog === 'commission' ? '编辑佣金规则' : dialog === 'promoter' ? '新增业务员' : dialog === 'promoter-edit' ? '编辑业务员' : dialog === 'farm-edit' ? '编辑门店' : dialog === 'dict' ? '新增字典项' : dialog === 'dict-edit' ? '编辑字典项' : dialog === 'dict-group' ? '新增分组' : dialog === 'dict-group-edit' ? '编辑分组' : dialog === 'store-account' ? '新增门店账号' : dialog === 'store-account-edit' ? '编辑门店账号' : '新增门店' }}</h2><p>{{ dialog === 'recovery-verify' ? '只有重试成功或人工回读确认后，任务才会关闭' : dialog === 'supplier-pause' ? '暂停后供应商和司机仍可登录并处理存量订单，但不能接收新订单或新增司机' : '保存后立即写入本地演示数据' }}</p></view><button class="icon-button" aria-label="关闭弹窗" @click="closeOverlay"><UiIcon name="x" :size="18" /></button></view>
+          <view class="modal-head"><view><h2>{{ dialog === 'withdrawal-reject' ? '驳回提现申请' : dialog === 'supplier-pause' ? '暂停供应商合作' : dialog === 'recovery-verify' ? (selectedRecoveryTask?.handlerKey ? '重试恢复任务' : '人工核验恢复任务') : dialog === 'supplier' ? '邀请供应商入驻' : dialog === 'supplier-edit' ? '编辑供应商' : dialog === 'category' ? '新增品类' : dialog === 'category-edit' ? '编辑品类' : dialog === 'policy' ? '新建价格策略' : dialog === 'policy-edit' ? '编辑价格策略' : dialog === 'after-sale-init' ? '发起售后' : dialog === 'commission' ? '编辑佣金规则' : dialog === 'promoter' ? '新增业务员' : dialog === 'promoter-edit' ? '编辑业务员' : dialog === 'farm-edit' ? '编辑门店' : dialog === 'dict' ? '新增字典项' : dialog === 'dict-edit' ? '编辑字典项' : dialog === 'dict-group' ? '新增分组' : dialog === 'dict-group-edit' ? '编辑分组' : dialog === 'store-account' ? '新增门店账号' : dialog === 'store-account-edit' ? '编辑门店账号' : '新增门店' }}</h2><p>{{ dialog === 'recovery-verify' ? '只有重试成功或人工回读确认后，任务才会关闭' : dialog === 'supplier-pause' ? '暂停后供应商和司机仍可登录并处理存量订单，但不能接收新订单或新增司机' : isApiMode() ? '保存后写入服务端' : '保存后立即写入本地演示数据' }}</p></view><button class="icon-button" aria-label="关闭弹窗" @click="closeOverlay"><UiIcon name="x" :size="18" /></button></view>
         <view class="modal-body">
         <template v-if="dialog === 'withdrawal-reject'"><view class="form-card"><label class="field"><text>驳回备注（可选）</text><input v-model="withdrawalNote" placeholder="请输入驳回原因" /></label></view></template>
-        <template v-if="dialog === 'supplier-pause'"><view class="form-card"><label class="field"><text>暂停合作原因</text><input v-model="supplierPauseReason" placeholder="必填，恢复合作后仍保留在审计日志" /></label></view></template>
+        <template v-if="dialog === 'supplier-pause'"><view class="form-card"><label class="field"><text>暂停合作原因</text><input v-model="supplierPauseReason" maxlength="500" placeholder="必填，暂停期间在列表显示" /></label></view></template>
         <template v-if="dialog === 'recovery-verify'">
           <view class="form-card">
           <view class="form-card-grid">

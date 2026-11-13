@@ -1,7 +1,8 @@
 <view class="operation-page" data-visual-view="user-operations-{{type}}">
   <view class="operation-header theme-head"><button class="page-back" aria-label="返回" bindtap="back"><ui-icon name="arrow-left" size="{{21}}" /></button><text>{{title}}</text><view></view></view>
 
-  <view wx:if="{{!hasDistributor}}" class="empty no-distributor pc-empty" data-visual-state="user-operations-no-distributor"><view class="pc-state-icon"><ui-icon name="shield-check" size="{{28}}" /></view><text>当前身份暂无推广数据</text><view class="meta">成为一级/二级团长后可查看收入、下级用户和团队业绩</view><button class="primary-btn" bindtap="back">返回个人中心</button></view>
+  <view wx:if="{{identityLoading}}" class="empty no-distributor pc-empty" data-visual-state="user-operations-loading"><view class="pc-state-icon"><ui-icon name="shield-check" size="{{28}}" /></view><text>正在识别身份</text><view class="meta">角色和推广数据加载完成后自动展示</view></view>
+  <view wx:elif="{{!hasDistributor}}" class="empty no-distributor pc-empty" data-visual-state="user-operations-no-distributor"><view class="pc-state-icon"><ui-icon name="shield-check" size="{{28}}" /></view><text>当前身份暂无推广数据</text><view class="meta">成为一级/二级团长后可查看收入、下级用户和团队业绩</view><button class="primary-btn" bindtap="back">返回个人中心</button></view>
 
   <block wx:else>
     <block wx:if="{{type === 'income'}}">

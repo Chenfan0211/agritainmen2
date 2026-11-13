@@ -289,8 +289,9 @@ describe('admin supplier and RBAC page', () => {
     expect(globalSource).toContain('env(safe-area-inset-bottom)')
   })
 
-  it('shows the store login error before the demo credential fallback', () => {
-    expect(source).toContain("showToast(store.error || '账号或密码错误（演示账号 admin / 123456）')")
+  it('shows the store login error and limits demo credentials to mock mode', () => {
+    expect(source).toContain("showToast(store.error || '账号或密码错误')")
+    expect(source).toContain('v-if="!isApiMode()" class="login-hint"')
   })
 
   it('shows the store recovery error before the generic recovery fallback', () => {

@@ -1,0 +1,1965 @@
+{
+  "schemaVersion": 2,
+  "requireAllApps": true,
+  "pages": [
+    {
+      "app": "admin",
+      "page": "dashboard",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "GET",
+            "/admin/dashboard"
+          ],
+          "synthetic": true
+        },
+        {
+          "action": "queryAdminTodos",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "admin store 内部/入口动作"
+        },
+        {
+          "action": "setMockScenario",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "admin store 内部/入口动作"
+        },
+        {
+          "action": "initialize",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "admin store 内部/入口动作"
+        },
+        {
+          "action": "markNotificationsRead",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "admin store 内部/入口动作"
+        },
+        {
+          "action": "login",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "admin store 内部/入口动作"
+        },
+        {
+          "action": "logout",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "admin store 内部/入口动作"
+        },
+        {
+          "action": "currentAdminRole",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "admin store 内部/入口动作"
+        },
+        {
+          "action": "can",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "admin store 内部/入口动作"
+        },
+        {
+          "action": "canMenu",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "admin store 内部/入口动作"
+        },
+        {
+          "action": "resolveRecoveryTask",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P3",
+          "dataDomain": "admin-dashboard",
+          "api": [
+            "POST",
+            "/admin/recovery/{id}/resolve"
+          ]
+        },
+        {
+          "action": "recordExport",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P3",
+          "dataDomain": "admin-dashboard",
+          "api": [
+            "POST",
+            "/admin/audit"
+          ]
+        },
+        {
+          "action": "recordAuditExport",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P3",
+          "dataDomain": "admin-dashboard",
+          "api": [
+            "POST",
+            "/admin/audit"
+          ]
+        },
+        {
+          "action": "applyCatalogState",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        },
+        {
+          "action": "executeAdminTransaction",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        },
+        {
+          "action": "executeAdminRecoveryAction",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        },
+        {
+          "action": "dictionaryState",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        },
+        {
+          "action": "applyDictionaryState",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        },
+        {
+          "action": "publishDictionaryMutation",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        },
+        {
+          "action": "transitionAdminAfterSale",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        }
+      ]
+    },
+    {
+      "app": "admin",
+      "page": "reports",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "GET",
+            "/admin/reports"
+          ],
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "app": "admin",
+      "page": "suppliers",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "GET",
+            "/org/suppliers"
+          ],
+          "synthetic": true
+        },
+        {
+          "action": "inviteSupplier",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/org/suppliers"
+          ]
+        },
+        {
+          "action": "updateSupplier",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PUT",
+            "/org/suppliers/{id}"
+          ]
+        },
+        {
+          "action": "auditSupplier",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/org/suppliers/{id}/audit"
+          ]
+        },
+        {
+          "action": "restoreSupplierPending",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/org/suppliers/{id}/restore"
+          ]
+        },
+        {
+          "action": "pauseSupplier",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/org/suppliers/{id}/pause"
+          ]
+        },
+        {
+          "action": "resumeSupplier",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/org/suppliers/{id}/resume"
+          ]
+        },
+        {
+          "action": "retrySupplierAccountProvision",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/auth/admin/supplier-accounts"
+          ]
+        },
+        {
+          "action": "updateSupplierAccount",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PATCH",
+            "/auth/admin/supplier-accounts/{supplierId}"
+          ]
+        }
+      ]
+    },
+    {
+      "app": "admin",
+      "page": "products",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "GET",
+            "/catalog/products"
+          ],
+          "synthetic": true
+        },
+        {
+          "action": "saveCatalogProduct",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/catalog/products"
+          ]
+        },
+        {
+          "action": "toggleCatalogProduct",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PATCH",
+            "/catalog/products/{id}"
+          ]
+        },
+        {
+          "action": "approveCatalogProductSubmission",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/catalog/products/{id}/review"
+          ]
+        },
+        {
+          "action": "rejectCatalogProductSubmission",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/catalog/products/{id}/review"
+          ]
+        },
+        {
+          "action": "updatePricingDefaults",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PUT",
+            "/catalog/pricing-defaults"
+          ]
+        }
+      ]
+    },
+    {
+      "app": "admin",
+      "page": "categories",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "GET",
+            "/catalog/categories"
+          ],
+          "synthetic": true
+        },
+        {
+          "action": "addCategory",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/catalog/categories"
+          ]
+        },
+        {
+          "action": "updateCategory",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PUT",
+            "/catalog/categories/{id}"
+          ]
+        },
+        {
+          "action": "removeCategory",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "DELETE",
+            "/catalog/categories/{id}"
+          ]
+        }
+      ]
+    },
+    {
+      "app": "admin",
+      "page": "prices",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "GET",
+            "/catalog/prices"
+          ],
+          "synthetic": true
+        },
+        {
+          "action": "createPolicy",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/catalog/prices"
+          ]
+        },
+        {
+          "action": "updatePolicy",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PUT",
+            "/catalog/prices/{id}"
+          ]
+        },
+        {
+          "action": "togglePolicy",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PATCH",
+            "/catalog/prices/{id}"
+          ]
+        },
+        {
+          "action": "updateLeaderPricing",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PUT",
+            "/catalog/prices"
+          ]
+        },
+        {
+          "action": "updateLeaderShareRates",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PUT",
+            "/catalog/prices"
+          ]
+        },
+        {
+          "action": "saveShareConfig",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PUT",
+            "/commissions/share-config"
+          ]
+        }
+      ]
+    },
+    {
+      "app": "admin",
+      "page": "orders",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "GET",
+            "/orders"
+          ],
+          "synthetic": true
+        },
+        {
+          "action": "shipOrder",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P3",
+          "dataDomain": "admin-orders",
+          "api": [
+            "POST",
+            "/fulfillment/orders/{id}/ship"
+          ]
+        },
+        {
+          "action": "batchShipOrders",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P3",
+          "dataDomain": "admin-orders",
+          "api": [
+            "POST",
+            "/fulfillment/orders/batch-ship"
+          ]
+        },
+        {
+          "action": "confirmOrder",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P3",
+          "dataDomain": "admin-orders",
+          "api": [
+            "POST",
+            "/orders/{id}/confirm"
+          ]
+        }
+      ]
+    },
+    {
+      "app": "admin",
+      "page": "afterSales",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "GET",
+            "/after-sales"
+          ],
+          "synthetic": true
+        },
+        {
+          "action": "initiateAfterSale",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P3",
+          "dataDomain": "admin-afterSales",
+          "api": [
+            "POST",
+            "/after-sales"
+          ]
+        },
+        {
+          "action": "rejectAfterSale",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P3",
+          "dataDomain": "admin-afterSales",
+          "api": [
+            "POST",
+            "/after-sales/{id}/reject"
+          ]
+        },
+        {
+          "action": "approveAfterSaleRefund",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P3",
+          "dataDomain": "admin-afterSales",
+          "api": [
+            "POST",
+            "/after-sales/{id}/approve-refund"
+          ]
+        },
+        {
+          "action": "approveAfterSaleReturn",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P3",
+          "dataDomain": "admin-afterSales",
+          "api": [
+            "POST",
+            "/after-sales/{id}/approve-return"
+          ]
+        },
+        {
+          "action": "recordAfterSaleReturnTracking",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P3",
+          "dataDomain": "admin-afterSales",
+          "api": [
+            "POST",
+            "/after-sales/{id}/return-tracking"
+          ]
+        },
+        {
+          "action": "refundAfterSale",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P3",
+          "dataDomain": "admin-afterSales",
+          "api": [
+            "POST",
+            "/after-sales/{id}/refund"
+          ]
+        }
+      ]
+    },
+    {
+      "app": "admin",
+      "page": "farms",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "GET",
+            "/org/farms"
+          ],
+          "synthetic": true
+        },
+        {
+          "action": "addFarm",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/org/farms"
+          ]
+        },
+        {
+          "action": "updateFarm",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PUT",
+            "/org/farms/{id}"
+          ]
+        },
+        {
+          "action": "addStoreAccount",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/org/farm-accounts"
+          ]
+        },
+        {
+          "action": "updateStoreAccount",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PUT",
+            "/org/farm-accounts/{id}"
+          ]
+        },
+        {
+          "action": "toggleStoreAccount",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PATCH",
+            "/org/farm-accounts/{id}"
+          ]
+        }
+      ]
+    },
+    {
+      "app": "admin",
+      "page": "promoters",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "GET",
+            "/org/leaders"
+          ],
+          "synthetic": true
+        },
+        {
+          "action": "addPromoter",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/org/promoters"
+          ]
+        },
+        {
+          "action": "updatePromoter",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PUT",
+            "/org/promoters/{id}"
+          ]
+        },
+        {
+          "action": "setLeaderStatus",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PATCH",
+            "/org/leaders/{id}"
+          ]
+        }
+      ]
+    },
+    {
+      "app": "admin",
+      "page": "users",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "GET",
+            "/org/users"
+          ],
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "app": "admin",
+      "page": "leaders",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "GET",
+            "/org/leaders"
+          ],
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "app": "admin",
+      "page": "commissions",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "GET",
+            "/commissions"
+          ],
+          "synthetic": true
+        },
+        {
+          "action": "settleCommissions",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P3",
+          "dataDomain": "admin-commissions",
+          "api": [
+            "POST",
+            "/commissions/settle"
+          ]
+        },
+        {
+          "action": "settleSuppliers",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P3",
+          "dataDomain": "admin-commissions",
+          "api": [
+            "POST",
+            "/settlements/suppliers/settle"
+          ]
+        },
+        {
+          "action": "reviewWithdrawal",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P3",
+          "dataDomain": "admin-commissions",
+          "api": [
+            "POST",
+            "/withdrawals/{id}/review"
+          ]
+        },
+        {
+          "action": "updateCommissionRule",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PUT",
+            "/commissions/rules/{id}"
+          ]
+        }
+      ]
+    },
+    {
+      "app": "admin",
+      "page": "dict",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "GET",
+            "/admin/dictionaries"
+          ],
+          "synthetic": true
+        },
+        {
+          "action": "addDictGroup",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/admin/dictionaries"
+          ]
+        },
+        {
+          "action": "updateDictGroup",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PUT",
+            "/admin/dictionaries"
+          ]
+        },
+        {
+          "action": "removeDictGroup",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "DELETE",
+            "/admin/dictionaries"
+          ]
+        },
+        {
+          "action": "addDictItem",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/admin/dictionaries"
+          ]
+        },
+        {
+          "action": "updateDictItem",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PUT",
+            "/admin/dictionaries"
+          ]
+        },
+        {
+          "action": "removeDictItem",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "DELETE",
+            "/admin/dictionaries"
+          ]
+        }
+      ]
+    },
+    {
+      "app": "admin",
+      "page": "logs",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "GET",
+            "/admin/audit"
+          ],
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "app": "admin",
+      "page": "roles",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "GET",
+            "/auth/admin/roles"
+          ],
+          "synthetic": true
+        },
+        {
+          "action": "createAdminRole",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/auth/admin/roles"
+          ]
+        },
+        {
+          "action": "updateAdminRole",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PUT",
+            "/auth/admin/roles/{id}"
+          ]
+        },
+        {
+          "action": "updateAdminRolePermissions",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PUT",
+            "/auth/admin/roles/{id}/permissions"
+          ]
+        }
+      ]
+    },
+    {
+      "app": "admin",
+      "page": "accounts",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "GET",
+            "/auth/admin/accounts"
+          ],
+          "synthetic": true
+        },
+        {
+          "action": "createAdminAccount",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/auth/admin/accounts"
+          ]
+        },
+        {
+          "action": "updateAdminAccount",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PUT",
+            "/auth/admin/accounts/{id}"
+          ]
+        },
+        {
+          "action": "setAdminAccountEnabled",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PATCH",
+            "/auth/admin/accounts/{id}"
+          ]
+        }
+      ]
+    },
+    {
+      "app": "store",
+      "page": "shop",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "GET",
+            "/catalog/products"
+          ],
+          "synthetic": true
+        },
+        {
+          "action": "setMockScenario",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部/入口动作"
+        },
+        {
+          "action": "initialize",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部/入口动作"
+        },
+        {
+          "action": "logout",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部/入口动作"
+        },
+        {
+          "action": "addToCart",
+          "owner": "store",
+          "status": "frontend-only",
+          "reason": "购物车为本地会话状态"
+        },
+        {
+          "action": "changeCart",
+          "owner": "store",
+          "status": "frontend-only",
+          "reason": "购物车为本地会话状态"
+        },
+        {
+          "action": "removeLine",
+          "owner": "store",
+          "status": "frontend-only",
+          "reason": "购物车为本地会话状态"
+        },
+        {
+          "action": "setCartQuantity",
+          "owner": "store",
+          "status": "frontend-only",
+          "reason": "购物车为本地会话状态"
+        },
+        {
+          "action": "setCheckoutSelection",
+          "owner": "store",
+          "status": "frontend-only",
+          "reason": "结算勾选为本地 UI 状态"
+        },
+        {
+          "action": "toggleCheckoutSelection",
+          "owner": "store",
+          "status": "frontend-only",
+          "reason": "结算勾选为本地 UI 状态"
+        },
+        {
+          "action": "toggleAllCheckoutSelection",
+          "owner": "store",
+          "status": "frontend-only",
+          "reason": "结算勾选为本地 UI 状态"
+        },
+        {
+          "action": "isCheckoutSelected",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "本地 UI 读方法"
+        },
+        {
+          "action": "unitPriceFor",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "本地价格计算"
+        },
+        {
+          "action": "repriceCart",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "本地重算"
+        },
+        {
+          "action": "recoverCatalogTransactions",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "本地事务恢复"
+        },
+        {
+          "action": "submitOrder",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P5",
+          "dataDomain": "store-shop",
+          "api": [
+            "POST",
+            "/orders"
+          ]
+        },
+        {
+          "action": "advanceOrder",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P5",
+          "dataDomain": "store-shop",
+          "api": [
+            "POST",
+            "/orders/{id}/advance"
+          ]
+        },
+        {
+          "action": "payOrder",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P5",
+          "dataDomain": "store-shop",
+          "api": [
+            "POST",
+            "/orders/{id}/pay"
+          ]
+        },
+        {
+          "action": "cancelOrder",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P5",
+          "dataDomain": "store-shop",
+          "api": [
+            "POST",
+            "/orders/{id}/cancel"
+          ]
+        },
+        {
+          "action": "confirmReceipt",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P5",
+          "dataDomain": "store-shop",
+          "api": [
+            "POST",
+            "/orders/{id}/confirm"
+          ]
+        },
+        {
+          "action": "initiateAfterSale",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P5",
+          "dataDomain": "store-shop",
+          "api": [
+            "POST",
+            "/after-sales"
+          ]
+        },
+        {
+          "action": "completeReturn",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P5",
+          "dataDomain": "store-shop",
+          "api": [
+            "POST",
+            "/after-sales/{id}/complete-return"
+          ]
+        },
+        {
+          "action": "repeatOrder",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P5",
+          "dataDomain": "store-shop",
+          "api": [
+            "POST",
+            "/orders/{id}/repeat"
+          ]
+        },
+        {
+          "action": "sweepExpiredPaymentOrders",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "本地支付超时扫描"
+        },
+        {
+          "action": "saveCurrentTenantSession",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "本地会话保存"
+        },
+        {
+          "action": "activateStoreAccount",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "登录辅助"
+        },
+        {
+          "action": "loginWithPassword",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/auth/store/login"
+          ]
+        },
+        {
+          "action": "loginWithCode",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/auth/store/login"
+          ]
+        },
+        {
+          "action": "storeAccountRole",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "本地账号角色判断"
+        },
+        {
+          "action": "refreshSharedState",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "共享状态刷新"
+        },
+        {
+          "action": "applyCatalogState",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        },
+        {
+          "action": "refreshCatalog",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        },
+        {
+          "action": "currentStoreAccounts",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        }
+      ]
+    },
+    {
+      "app": "store",
+      "page": "checkout",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "planned",
+          "stage": "P1",
+          "dataDomain": "store-checkout",
+          "api": [
+            "POST",
+            "/orders"
+          ],
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "app": "store",
+      "page": "order-detail",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "planned",
+          "stage": "P1",
+          "dataDomain": "store-order-detail",
+          "api": [
+            "GET",
+            "/orders/{id}"
+          ],
+          "synthetic": true
+        }
+      ]
+    },
+    {
+      "app": "supplier",
+      "page": "workbench",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "GET",
+            "/fulfillment/orders"
+          ],
+          "synthetic": true
+        },
+        {
+          "action": "initialize",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "supplier 内部/入口动作"
+        },
+        {
+          "action": "logout",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "supplier 内部/入口动作"
+        },
+        {
+          "action": "statusText",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "supplier 内部/入口动作"
+        },
+        {
+          "action": "acceptOrder",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/fulfillment/orders/{id}/accept"
+          ]
+        },
+        {
+          "action": "batchAcceptOrders",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "POST",
+            "/fulfillment/orders/batch-accept"
+          ]
+        },
+        {
+          "action": "shipCourier",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/fulfillment/orders/{id}/ship"
+          ]
+        },
+        {
+          "action": "markCourierDelivered",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "POST",
+            "/fulfillment/orders/{id}/delivered"
+          ]
+        },
+        {
+          "action": "markShortageHandled",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "POST",
+            "/fulfillment/routes/{id}/shortages/handled"
+          ]
+        },
+        {
+          "action": "handoverOut",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "POST",
+            "/fulfillment/routes/{id}/handover"
+          ]
+        },
+        {
+          "action": "handoverIn",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "POST",
+            "/fulfillment/routes/{id}/handover"
+          ]
+        },
+        {
+          "action": "addDriver",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/auth/supplier/drivers"
+          ]
+        },
+        {
+          "action": "updateDriver",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "PUT",
+            "/org/drivers/{id}"
+          ]
+        },
+        {
+          "action": "resetDriverPassword",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "POST",
+            "/org/drivers/{id}/password"
+          ]
+        },
+        {
+          "action": "toggleDriverStatus",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "PATCH",
+            "/org/drivers/{id}"
+          ]
+        },
+        {
+          "action": "submitCatalogProduct",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/catalog/products"
+          ]
+        },
+        {
+          "action": "adjustCatalogProductStock",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/inventory/skus/{skuId}/adjust"
+          ]
+        },
+        {
+          "action": "toggleCatalogProduct",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "PATCH",
+            "/catalog/products/{id}"
+          ]
+        },
+        {
+          "action": "ensureTodayRoutes",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "POST",
+            "/fulfillment/routes/ensure-today"
+          ]
+        },
+        {
+          "action": "saveNamedRoute",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "POST",
+            "/fulfillment/routes"
+          ]
+        },
+        {
+          "action": "optimizeNamedRoute",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "POST",
+            "/fulfillment/routes/optimize"
+          ]
+        },
+        {
+          "action": "optimizeDriverRoute",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "POST",
+            "/fulfillment/routes/optimize"
+          ]
+        },
+        {
+          "action": "moveRouteStop",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "PATCH",
+            "/fulfillment/routes/{id}/stops"
+          ]
+        },
+        {
+          "action": "publishRoute",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "POST",
+            "/fulfillment/routes/{id}/publish"
+          ]
+        },
+        {
+          "action": "checkInWarehouse",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "POST",
+            "/fulfillment/routes/{id}/warehouse-check-in"
+          ]
+        },
+        {
+          "action": "checkInWarehouseAbnormal",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "POST",
+            "/fulfillment/routes/{id}/warehouse-check-in/abnormal"
+          ]
+        },
+        {
+          "action": "submitRouteOutbound",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "POST",
+            "/fulfillment/routes/{id}/outbound"
+          ]
+        },
+        {
+          "action": "reviewRouteOutbound",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "POST",
+            "/fulfillment/routes/{id}/outbound/review"
+          ]
+        },
+        {
+          "action": "markRouteShortages",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "POST",
+            "/fulfillment/routes/{id}/shortages"
+          ]
+        },
+        {
+          "action": "reorderRouteStops",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "PATCH",
+            "/fulfillment/routes/{id}/stops"
+          ]
+        },
+        {
+          "action": "dispatchRoute",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "POST",
+            "/fulfillment/routes/{id}/dispatch"
+          ]
+        },
+        {
+          "action": "handoverRouteStop",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "POST",
+            "/fulfillment/routes/{id}/handover"
+          ]
+        },
+        {
+          "action": "checkInStop",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "POST",
+            "/fulfillment/routes/{id}/stops/{storeId}/check-in"
+          ]
+        },
+        {
+          "action": "updateWarehouse",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P4",
+          "dataDomain": "supplier-workbench",
+          "api": [
+            "PUT",
+            "/org/suppliers/{id}/warehouse"
+          ]
+        },
+        {
+          "action": "selectDriverRoute",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "本地选择"
+        },
+        {
+          "action": "invalidateRoutePreview",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "本地预览"
+        },
+        {
+          "action": "assignableDriversForOrder",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "本地计算"
+        },
+        {
+          "action": "driverAssignableStoreIds",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "本地计算"
+        },
+        {
+          "action": "commitOrder",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "本地事务辅助"
+        },
+        {
+          "action": "commitRouteOrdersAndRoute",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "本地事务辅助"
+        },
+        {
+          "action": "loginSupplier",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "Mock 模式本地登录"
+        },
+        {
+          "action": "loginDriver",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "Mock 模式本地登录"
+        },
+        {
+          "action": "loginSupplierApi",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "POST",
+            "/auth/supplier/login"
+          ]
+        },
+        {
+          "action": "loginDriverApi",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "POST",
+            "/auth/driver/login"
+          ]
+        },
+        {
+          "action": "logoutApi",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "POST",
+            "/auth/logout"
+          ]
+        },
+        {
+          "action": "updateDriverApi",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "PATCH",
+            "/auth/supplier/drivers/{id}"
+          ]
+        },
+        {
+          "action": "resetDriverPasswordApi",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "PATCH",
+            "/auth/supplier/drivers/{id}"
+          ]
+        },
+        {
+          "action": "toggleDriverStatusApi",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "PATCH",
+            "/auth/supplier/drivers/{id}"
+          ]
+        },
+        {
+          "action": "loginApi",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "供应商与司机登录共用实现"
+        },
+        {
+          "action": "resetDemoData",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "演示数据重置"
+        },
+        {
+          "action": "updateDriverScope",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        },
+        {
+          "action": "assignDriver",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        },
+        {
+          "action": "reassignDriver",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        }
+      ]
+    },
+    {
+      "app": "user",
+      "page": "mall",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "GET",
+            "/catalog/products"
+          ],
+          "synthetic": true
+        },
+        {
+          "action": "initialize",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "user 内部/入口动作"
+        },
+        {
+          "action": "submitOrder",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/orders"
+          ]
+        },
+        {
+          "action": "payOrder",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P5",
+          "dataDomain": "user-mall",
+          "api": [
+            "POST",
+            "/orders/{id}/pay"
+          ]
+        },
+        {
+          "action": "cancelOrder",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P5",
+          "dataDomain": "user-mall",
+          "api": [
+            "POST",
+            "/orders/{id}/cancel"
+          ]
+        },
+        {
+          "action": "confirmSubOrderReceipt",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P5",
+          "dataDomain": "user-mall",
+          "api": [
+            "POST",
+            "/orders/{id}/sub-orders/{subOrderId}/confirm"
+          ]
+        },
+        {
+          "action": "requestSubOrderAfterSale",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P5",
+          "dataDomain": "user-mall",
+          "api": [
+            "POST",
+            "/after-sales"
+          ]
+        },
+        {
+          "action": "buyLivePackage",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P5",
+          "dataDomain": "user-mall",
+          "api": [
+            "POST",
+            "/vouchers/{id}/redeem"
+          ]
+        },
+        {
+          "action": "addToCart",
+          "owner": "store",
+          "status": "frontend-only",
+          "reason": "购物车为本地会话状态"
+        },
+        {
+          "action": "changeCart",
+          "owner": "store",
+          "status": "frontend-only",
+          "reason": "购物车为本地会话状态"
+        },
+        {
+          "action": "removeFromCart",
+          "owner": "store",
+          "status": "frontend-only",
+          "reason": "购物车为本地会话状态"
+        },
+        {
+          "action": "setAddress",
+          "owner": "store",
+          "status": "frontend-only",
+          "reason": "地址为本地会话状态"
+        },
+        {
+          "action": "setDefaultAddress",
+          "owner": "store",
+          "status": "frontend-only",
+          "reason": "地址为本地会话状态"
+        },
+        {
+          "action": "removeAddress",
+          "owner": "store",
+          "status": "frontend-only",
+          "reason": "地址为本地会话状态"
+        },
+        {
+          "action": "persistSession",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "本地会话持久化"
+        },
+        {
+          "action": "restoreSession",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "本地会话恢复"
+        },
+        {
+          "action": "authenticate",
+          "owner": "store",
+          "status": "done",
+          "api": [
+            "POST",
+            "/auth/wechat/exchange"
+          ]
+        },
+        {
+          "action": "applyLaunch",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "本地启动参数"
+        },
+        {
+          "action": "seedDemoData",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "演示数据"
+        },
+        {
+          "action": "paymentAttemptForOrder",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "本地支付记录"
+        },
+        {
+          "action": "priceForSku",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "本地价格计算"
+        },
+        {
+          "action": "recoverConfirmedPaymentAttempt",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        },
+        {
+          "action": "reconcilePaymentAttempts",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        },
+        {
+          "action": "applyCatalogState",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        },
+        {
+          "action": "refreshCatalog",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        },
+        {
+          "action": "failStockConflict",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        },
+        {
+          "action": "refreshFulfillment",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        },
+        {
+          "action": "syncFulfillmentProjection",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        },
+        {
+          "action": "setReferral",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        },
+        {
+          "action": "shipSubOrder",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        },
+        {
+          "action": "syncWithdrawals",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "store 内部事务/派生计算辅助"
+        },
+        {
+          "action": "refreshCommissionSummary",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P1",
+          "dataDomain": "user-commission",
+          "api": [
+            "GET",
+            "/commissions/me"
+          ]
+        }
+      ]
+    },
+    {
+      "app": "user",
+      "page": "operations",
+      "actions": [
+        {
+          "action": "refreshSharedState",
+          "owner": "page",
+          "status": "done",
+          "api": [
+            "GET",
+            "/commissions/me"
+          ],
+          "synthetic": true
+        },
+        {
+          "action": "withdrawCommission",
+          "owner": "store",
+          "status": "planned",
+          "stage": "P5",
+          "dataDomain": "user-operations",
+          "api": [
+            "POST",
+            "/withdrawals"
+          ]
+        }
+      ]
+    }
+  ]
+}

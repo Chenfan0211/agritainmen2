@@ -1,37 +1,18 @@
 <view class="{{appShellClass}}">
   <view wx:if="{{loading}}" class="loading-state pc-loading">正在准备商城...</view>
 
-  <view wx:elif="{{entryRestricted}}" class="auth-page">
+  <view wx:elif="{{identityFailed}}" class="auth-page">
     <view class="auth-deco auth-deco1"></view>
     <view class="auth-deco auth-deco2"></view>
     <view class="auth-brand">
       <view class="auth-mark"><ui-icon name="shield-check" size="{{30}}" /></view>
-      <text class="auth-brand-name">该入口暂不可访问</text>
-      <text class="auth-brand-sub">请通过有效团长分享链接进入商城</text>
+      <text class="auth-brand-name">身份识别失败</text>
+      <text class="auth-brand-sub">{{identityError}}</text>
     </view>
     <view class="auth-card">
       <view class="auth-wxbadge"><ui-icon name="message-circle" size="{{26}}" /></view>
-      <button wx:if="{{!isLoggedIn}}" class="auth-btn" disabled="{{authorizing}}" bindtap="onAuthorize"><ui-icon name="door-open" size="{{18}}" />{{authorizing ? '身份识别中...' : '已绑定用户登录'}}</button>
-    </view>
-  </view>
-
-  <view wx:elif="{{!isLoggedIn}}" class="auth-page">
-    <view class="auth-deco auth-deco1"></view>
-    <view class="auth-deco auth-deco2"></view>
-    <view class="auth-brand">
-      <view class="auth-mark"><ui-icon name="shopping-bag" size="{{30}}" /></view>
-      <text class="auth-brand-name">商城</text>
-      <text class="auth-brand-sub">产地好物，快递直发到家</text>
-    </view>
-    <view class="auth-card">
-      <view class="auth-wxbadge"><ui-icon name="message-circle" size="{{26}}" /></view>
-      <view class="auth-roles" role="radiogroup" aria-label="登录身份">
-        <button class="{{loginLevel === 'normal' ? 'active' : ''}}" role="radio" aria-checked="{{loginLevel === 'normal'}}" data-level="normal" bindtap="onSelectLoginLevel">普通用户</button>
-        <button class="{{loginLevel === 'level1' ? 'active' : ''}}" role="radio" aria-checked="{{loginLevel === 'level1'}}" data-level="level1" bindtap="onSelectLoginLevel">一级团长</button>
-        <button class="{{loginLevel === 'level2' ? 'active' : ''}}" role="radio" aria-checked="{{loginLevel === 'level2'}}" data-level="level2" bindtap="onSelectLoginLevel">二级团长</button>
-      </view>
-      <button class="auth-btn" disabled="{{authorizing}}" bindtap="onAuthorize"><ui-icon name="door-open" size="{{18}}" />{{authorizing ? '授权中...' : '微信一键授权'}}</button>
-      <text class="auth-tip">当前身份：{{loginLevelLabel}} · 演示环境，授权后可查看商品与订单</text>
+      <button class="auth-btn" bindtap="retryIdentity"><ui-icon name="door-open" size="{{18}}" />重新识别</button>
+      <text class="auth-tip">身份资料仅由 OpenID 自动识别，不提供手动身份切换</text>
     </view>
   </view>
 
@@ -140,12 +121,8 @@
 
       <view wx:else class="page-content me-page" data-visual-view="user-me">
         <view class="page-heading theme-head"><text class="page-title">我的</text><text class="page-sub">团长与订单都在这里管理</text></view>
-        <view class="profile-panel"><view class="avatar">{{userInitial}}</view><view class="profile-main"><text class="profile-role">{{roleLabel}}</text><text class="profile-id">用户 {{userIdText}}</text></view><text class="profile-state">已登录</text></view>
-        <view class="role-switch">
-          <button class="{{isNormalLevel ? 'active' : ''}}" data-level="normal" bindtap="onSelectRole">普通用户</button>
-          <button class="{{isLevel1 ? 'active' : ''}}" data-level="level1" bindtap="onSelectRole">一级团长</button>
-          <button class="{{isLevel2 ? 'active' : ''}}" data-level="level2" bindtap="onSelectRole">二级团长</button>
-        </view>
+        <view class="profile-panel"><view wx:if="{{userAvatarUrl}}" class="avatar avatar-image"><business-image class="avatar-image-content" src="{{userAvatarUrl}}" mode="aspectFill" /></view><view wx:else class="avatar">{{userInitial}}</view><view class="profile-main"><text class="profile-role">{{roleLabel}}</text><text class="profile-id">用户 {{userIdText}}</text></view><text class="profile-state">身份已识别</text></view>
+
         <view wx:if="{{hasDistributor}}" class="operations-hero commission-summary"><text>销售统计</text><view><view><view class="val">¥{{pendingCommissionText}}</view><view class="meta">待结算收入</view></view><view><view class="val">¥{{availableCommissionText}}</view><view class="meta">可提现收入</view></view><view><view class="val">¥{{personalPerformanceText}}</view><view class="meta">个人业绩</view></view><view><view class="val">¥{{teamPerformanceText}}</view><view class="meta">团队业绩</view></view></view></view>
         <view wx:if="{{hasDistributor}}" class="operations-grid pc-tile-grid"><button class="pc-tile pc-tile--coral" data-type="income" bindtap="onOpenOperations"><view class="pc-tile-icon"><ui-icon name="badge-dollar-sign" size="{{26}}" /></view><text class="pc-tile-label">我的收入</text></button><button class="pc-tile pc-tile--blue" data-type="fans" bindtap="onOpenOperations"><view class="pc-tile-icon"><ui-icon name="user-round-check" size="{{26}}" /><text wx:if="{{directFanCount}}" class="pc-tile-badge">{{directFanCount}}</text></view><text class="pc-tile-label">下级用户</text></button><button class="pc-tile pc-tile--green" data-type="orders" bindtap="onOpenOperations"><view class="pc-tile-icon"><ui-icon name="package-check" size="{{26}}" /><text wx:if="{{teamOrderCount}}" class="pc-tile-badge">{{teamOrderCount}}</text></view><text class="pc-tile-label">团队订单</text></button><button class="pc-tile pc-tile--amber" data-type="performance" bindtap="onOpenOperations"><view class="pc-tile-icon"><ui-icon name="chart-no-axes-combined" size="{{26}}" /></view><text class="pc-tile-label">团队业绩</text></button></view>
         <view wx:else class="normal-summary"><ui-icon name="shield-check" size="{{19}}" /><view><text>安心购物</text><view class="meta">订单、地址与售后服务都在这里</view></view></view>
@@ -158,7 +135,7 @@
           <view wx:if="{{hasWithdrawalRequests}}" class="withdrawal-history"><view class="section-line"><text>提现申请</text><view class="meta-text meta">{{withdrawalRequests.length}} 笔</view></view><view wx:for="{{withdrawalRequests}}" wx:for-item="request" wx:key="id" class="commission-row"><view><text>{{request.title}}</text><view class="meta-text meta">{{request.createdAtText}}<text wx:if="{{request.hasReviewedNote}}"> · {{request.reviewedNote}}</text></view></view><view class="strong-text val">¥{{request.amountText}}</view></view></view>
         </block>
         <view class="settings-list"><view data-return="false" bindtap="onOpenAddressManager"><ui-icon name="map-pin" size="{{17}}" /><text>收货地址</text><view class="meta-text meta">{{defaultAddress ? defaultAddress.regionText : '未设置'}}</view><ui-icon name="chevron-right" size="{{15}}" /></view><view class="package-entry" bindtap="onOpenPackages"><ui-icon name="store" size="{{17}}" /><text>到店套餐</text><view class="meta-text meta">门店自提 · 到店核销</view><ui-icon name="chevron-right" size="{{15}}" /></view></view>
-        <button class="logout-button logout-danger" bindtap="onLogout">退出登录</button>
+
       </view>
 
       <view wx:if="{{hasCartBar}}" class="cart-bar" data-tab="cart" bindtap="onSwitchTab"><view class="cart-bar-icon"><ui-icon name="shopping-cart" size="{{19}}" /><view class="meta">{{cartCount}}</view></view><view class="cart-bar-total"><text>购物车合计</text><view class="val">¥{{cartTotalText}}</view></view><button data-tab="cart" catchtap="onSwitchTab">去购物车</button></view>

@@ -1,6 +1,8 @@
 {
   "sharedConstants": [],
   "functionReasons": {
+    "parseStoreActions": "页面 API 门禁的源码解析辅助函数，由门禁自身测试覆盖",
+    "parsePageActions": "页面 API 门禁的源码解析辅助函数，由门禁自身测试覆盖",
     "enableKeyboardButtons": "H5 键盘可点击性运行时辅助，由页面运行时与 audit:buttons 门禁覆盖，无独立业务语义",
     "focusFirstInteractive": "H5 弹层焦点运行时辅助，由页面契约测试覆盖，无独立业务语义",
     "installKeyboardButtonSupport": "H5 键盘事件安装辅助，由页面运行时覆盖，无独立业务语义",
@@ -8,9 +10,9 @@
   },
   "storeNoNegativePath": {
     "persistSession": "会话写入无失败分支（本地存储直写），失败路径由写事务接口覆盖",
-    "wechatLogin": "微信登录入口无失败分支（演示态 mock openid），异常由共享 simulateWechatLogin 覆盖",
     "removeFromCart": "购物车删除无校验分支，幂等删除由成功路径断言覆盖",
-    "recoverCatalogTransactions": "恢复入口无失败返回（逐条尝试、失败跳过），异常由事务恢复用例覆盖"
+    "recoverCatalogTransactions": "恢复入口无失败返回（逐条尝试、失败跳过），异常由事务恢复用例覆盖",
+    "refreshCommissionSummary": "只读佣金汇总请求，失败时仅设置错误提示；无服务端写事务可断言"
   },
   "storeGetterExempt": {}
 }

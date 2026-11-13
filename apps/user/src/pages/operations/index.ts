@@ -85,17 +85,21 @@ function buildViewModel(type: OperationType) {
 
 Page({
   data: {
-    ...buildViewModel('income')
+    ...buildViewModel('income'),
+    identityLoading: true
   },
 
   render(this: any) {
-    this.setData(buildViewModel(this.data.type))
+    this.setData({ ...buildViewModel(this.data.type), identityLoading: !store.identityProfile && store.identityStatus !== 'error' })
   },
 
   onLoad(this: any, query: Record<string, string>) {
     const type = OPERATION_TYPES.includes((query?.type || '') as OperationType) ? (query.type as OperationType) : 'income'
     this.setData(buildViewModel(type))
     this.unsubscribeStore = store.$subscribe(() => this.render())
+    if (!store.identityProfile) {
+      void store.authenticate().then(() => this.render(), () => this.render())
+    }
   },
 
   onShow(this: any) {

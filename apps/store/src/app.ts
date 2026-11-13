@@ -1,5 +1,6 @@
 import { configureMediaRuntime, initializePlatformRecoveryHandlers, migratePersistedState, persistedEnvelope, purgeRetiredAllianceData, reconcilePendingPlatformTransactions } from '@agritainment/shared'
 import { createStoreMediaRuntime } from './media/runtime'
+import { configureStoreApiRuntime } from './services/api-runtime'
 import { createStoreAtomicRecoveryHandlerRegistrations, useStoreStore } from './stores/store'
 
 const persistedKeys = ['info', 'products', 'cart', 'checkoutLineKeys', 'orders', 'auth'] as const
@@ -15,6 +16,7 @@ function configureStorePersistence() {
 
 App({
   onLaunch() {
+    configureStoreApiRuntime()
     configureMediaRuntime(createStoreMediaRuntime())
     purgeRetiredAllianceData()
     const recoveryHandlers = createStoreAtomicRecoveryHandlerRegistrations()

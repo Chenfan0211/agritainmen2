@@ -16,13 +16,16 @@ const MODES = ['dev', 'build']
 const LOCKED_DIRECTORY_CODES = ['EPERM', 'EBUSY', 'ENOTEMPTY', 'EACCES']
 
 export function parseNativeBuildArgs(argv) {
-  const parsed = { app: '', mode: 'dev', watch: false, errors: [] }
+  const parsed = { app: '', mode: 'dev', watch: false, apiBase: '', dataMode: '', appId: '', errors: [] }
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index]
     if (token === '--mode') {
       parsed.mode = String(argv[index + 1] || '')
       index += 1
     } else if (token === '--watch') parsed.watch = true
+    else if (token === '--api-base') { parsed.apiBase = String(argv[index + 1] || ''); index += 1 }
+    else if (token === '--data-mode') { parsed.dataMode = String(argv[index + 1] || ''); index += 1 }
+    else if (token === '--app-id') { parsed.appId = String(argv[index + 1] || ''); index += 1 }
     else if (token.startsWith('-')) parsed.errors.push(`未知参数: ${token}`)
     else if (!parsed.app) parsed.app = token
     else parsed.errors.push(`只允许指定一个端: ${token}`)
@@ -110,7 +113,7 @@ function stripPlatformConditionals(source, mode) {
     .replace(/\/\/ #endif/g, '')
 }
 
-function transpile(file, source, mode) {
+function transpile(file, source, mode, defines = {}) {
   const result = ts.transpileModule(stripPlatformConditionals(source, mode), {
     fileName: file,
     compilerOptions: {
@@ -131,6 +134,7 @@ function transpile(file, source, mode) {
     format: 'cjs',
     target: 'es2020',
     minify: true,
+    define: defines,
     legalComments: 'none'
   }).code
 }
@@ -140,7 +144,7 @@ function sharedRequirePrefix(outputFile, outputDir) {
   return depth === 0 ? './shared/' : '../'.repeat(depth) + 'shared/'
 }
 
-function writeCompiledTs(sourceDir, outputDir, sharedModule, mode) {
+function writeCompiledTs(sourceDir, outputDir, sharedModule, mode, defines = {}) {
   for (const file of walkFiles(sourceDir)) {
     const extension = extname(file).toLowerCase()
     if (extension !== '.ts') continue
@@ -148,7 +152,7 @@ function writeCompiledTs(sourceDir, outputDir, sharedModule, mode) {
     const target = resolve(outputDir, relative(sourceDir, file)).replace(/\.ts$/, '.js')
     mkdirSync(dirname(target), { recursive: true })
     const prefix = sharedModule ? './' : sharedRequirePrefix(target, outputDir)
-    writeFileSync(target, rewriteCommonJsImports(transpile(file, readFileSync(file, 'utf8'), mode), prefix), 'utf8')
+    writeFileSync(target, rewriteCommonJsImports(transpile(file, readFileSync(file, 'utf8'), mode, defines), prefix), 'utf8')
   }
 }
 
@@ -183,7 +187,7 @@ export function compileStyles(sourceDir, outputDir, mode, root) {
   }
 }
 
-export function buildNativeApp({ root = ROOT, app, mode = 'dev' } = {}) {
+export function buildNativeApp({ root = ROOT, app, mode = 'dev', apiBase = '', dataMode = '', appId = '' } = {}) {
   const sourceDir = resolve(root, 'apps', app, 'src')
   const outputDir = resolveNativeOutput(root, app, mode)
   if (!existsSync(sourceDir)) throw new Error(`缺少原生源码目录: ${sourceDir}`)
@@ -192,8 +196,13 @@ export function buildNativeApp({ root = ROOT, app, mode = 'dev' } = {}) {
   mkdirSync(stagingDir, { recursive: true })
   try {
     const sharedSource = resolve(root, 'packages/shared/src')
-    writeCompiledTs(sharedSource, resolve(stagingDir, 'shared'), true, mode)
-    writeCompiledTs(sourceDir, stagingDir, false, mode)
+    const runtimeDefines = {
+      __AGRITAINMEN_API_BASE_URL__: JSON.stringify(apiBase || process.env.AGRITAINMEN_API_BASE_URL || ''),
+      __AGRITAINMEN_DATA_MODE__: JSON.stringify(dataMode || process.env.AGRITAINMEN_DATA_MODE || 'mock'),
+      __AGRITAINMEN_CLIENT_APP__: JSON.stringify(appId || process.env.AGRITAINMEN_CLIENT_APP || process.env[`WECHAT_APP_ID_${app.toUpperCase()}`] || app),
+    }
+    writeCompiledTs(sharedSource, resolve(stagingDir, 'shared'), true, mode, runtimeDefines)
+    writeCompiledTs(sourceDir, stagingDir, false, mode, runtimeDefines)
     compileStyles(sourceDir, stagingDir, mode, root)
     copyAssets(sourceDir, stagingDir)
 
@@ -241,7 +250,7 @@ if (isCli) {
   const options = parseNativeBuildArgs(process.argv.slice(2))
   if (options.errors.length) {
     for (const error of options.errors) console.error(error)
-    console.error('用法: node scripts/build-native-mp.mjs <store|supplier|user> --mode dev|build [--watch]')
+    console.error('用法: node scripts/build-native-mp.mjs <store|supplier|user> --mode dev|build [--watch] [--api-base URL] [--data-mode mock|api] [--app-id APP]')
     process.exit(2)
   }
   if (options.watch) await watchNativeApp(options)

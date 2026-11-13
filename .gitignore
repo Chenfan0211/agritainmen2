@@ -26,3 +26,7 @@ artifacts/
 qa-*.png
 before-*.png
 target-*.png
+
+# Backend build output and local secrets
+backend/**/target/
+deploy/compose/.env

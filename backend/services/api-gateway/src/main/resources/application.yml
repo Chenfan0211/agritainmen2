@@ -1,0 +1,74 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    nacos:
+      discovery:
+        enabled: ${NACOS_DISCOVERY_ENABLED:false}
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:agritainmen-staging}
+        group: ${NACOS_GROUP:AGRITAINMEN_STAGING}
+      config:
+        enabled: ${NACOS_CONFIG_ENABLED:false}
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:agritainmen-staging}
+        group: ${NACOS_GROUP:AGRITAINMEN_STAGING}
+    gateway:
+      server:
+        webflux:
+          routes:
+          - id: auth-service
+            uri: lb://auth-service
+            predicates:
+            - Path=/api/v1/auth/**
+          - id: org-service
+            uri: lb://org-service
+            predicates:
+            - Path=/api/v1/org/**
+          - id: catalog-service
+            uri: lb://catalog-service
+            predicates:
+            - Path=/api/v1/catalog/**
+          - id: inventory-service
+            uri: lb://inventory-service
+            predicates:
+            - Path=/api/v1/inventory/**
+          - id: order-service
+            uri: lb://order-service
+            predicates:
+            - Path=/api/v1/orders/**
+            - /api/v1/after-sales/**
+          - id: payment-service
+            uri: lb://payment-service
+            predicates:
+            - Path=/api/v1/payments/**
+          - id: fulfillment-service
+            uri: lb://fulfillment-service
+            predicates:
+            - Path=/api/v1/fulfillment/**
+          - id: settlement-service
+            uri: lb://settlement-service
+            predicates:
+            - Path=/api/v1/commissions/**
+            - /api/v1/withdrawals/**
+            - /api/v1/settlements/**
+          - id: platform-admin-service
+            uri: lb://platform-admin-service
+            predicates:
+            - Path=/api/v1/admin/**
+          - id: notification-service
+            uri: lb://notification-service
+            predicates:
+            - Path=/api/v1/notifications/**
+  config:
+    import: optional:nacos:${spring.application.name}.yml?group=${NACOS_GROUP:AGRITAINMEN_STAGING}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+agritainmen:
+  demo:
+    seed-enabled: ${AGRITAINMEN_DEMO_SEED_ENABLED:false}
