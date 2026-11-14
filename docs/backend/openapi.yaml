@@ -852,6 +852,33 @@ paths:
       responses:
         "200":
           description: OK
+  /fulfillment/orders/batch-accept:
+    post:
+      summary: 供应商批量接单
+      description: 一批 1–100 个不同的履约单 ID，全部须属于当前供应商且处于 PENDING。任一单不符则整批不更新；成功返回 accepted 数量。成功后重复提交返回 409，须刷新列表核对。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  uniqueItems: true
+                  items: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: 返回 accepted 数量
+        "400":
+          $ref: '#/components/responses/BadRequest'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          description: 至少一单状态已变化，整批回滚
   /fulfillment/orders/{id}/accept:
     post:
       summary: 供应商接单

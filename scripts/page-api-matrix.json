@@ -1256,9 +1256,7 @@
         {
           "action": "batchAcceptOrders",
           "owner": "store",
-          "status": "planned",
-          "stage": "P4",
-          "dataDomain": "supplier-workbench",
+          "status": "done",
           "api": [
             "POST",
             "/fulfillment/orders/batch-accept"

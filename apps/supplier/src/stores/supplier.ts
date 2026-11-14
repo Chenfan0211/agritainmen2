@@ -1882,6 +1882,20 @@ export const useSupplierStore = defineStore('supplier', {
     },
     async batchAcceptOrders(ids: string[]) {
       if (this.auth.role !== 'supplier') return 0
+      if (getApiClientConfig().dataMode === 'api') {
+        this.error = ''
+        if (!ids.length || ids.length > 100 || new Set(ids).size !== ids.length) { this.error = '请选择1到100个不同的履约单'; return 0 }
+        try {
+          const result = await apiRequest<{ accepted: number }>('/api/v1/fulfillment/orders/batch-accept', { method: 'POST', idempotencyKey: createIdempotencyKey('fulfillment-batch-accept'), body: { ids } })
+          if (result.accepted !== ids.length) { this.error = '批量接单结果不完整，请刷新后核对'; return 0 }
+          const selected = new Set(ids)
+          for (const order of this.orders) if (selected.has(order.id)) {
+            order.status = 'pending'
+            order.supplierFulfillment = { ...(order.supplierFulfillment || { handovers: [], shortages: [] }), status: 'accepted', updatedAt: new Date().toISOString() }
+          }
+          return result.accepted
+        } catch (error) { this.error = error instanceof Error ? error.message : '批量接单失败'; return 0 }
+      }
       let count = 0
       for (const id of ids) if (await this.acceptOrder(id)) count += 1
       return count

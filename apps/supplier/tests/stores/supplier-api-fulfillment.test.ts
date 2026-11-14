@@ -64,4 +64,30 @@ describe('supplier api fulfillment actions', () => {
     expect(calls.findLast((call) => call.url.endsWith('/ship'))?.body).toEqual({ shipType: 'driver', driverId: 'D2' })
     expect(store.orders[0].supplierFulfillment).toMatchObject({ status: 'shipped', shipType: 'driver', driverId: 'D2' })
   })
+
+  it('batch accepts once and leaves local orders unchanged when the server rejects the batch', async () => {
+    const calls: Array<{ url: string; body?: unknown }> = []
+    let reject = false
+    configureApiClient({ dataMode: 'api', baseUrl: 'https://api.example.com', transport: async (request) => {
+      calls.push(request)
+      if (request.url.endsWith('/auth/me')) return { status: 200, body: { code: 'OK', data: { actorType: 'supplier', supplierId: 'S1' } } }
+      if (request.url.endsWith('/org/me/supplier')) return { status: 200, body: { code: 'OK', data: { id: 'S1', name: '测试供应商', status: 'cooperating', certified: true } } }
+      if (request.url.endsWith('/auth/supplier/drivers')) return { status: 200, body: { code: 'OK', data: [] } }
+      if (request.url.includes('/fulfillment/orders?')) return { status: 200, body: { code: 'OK', data: { items: ['F1', 'F2', 'F3'].map((id) => ({ id, order_id: id, supplier_id: 'S1', status: 'PENDING' })), page: 1, pageSize: 200, total: 3 } } }
+      if (request.url.endsWith('/batch-accept')) return reject
+        ? { status: 409, body: { code: 'CONFLICT', message: '履约单状态已变化，请刷新后重试' } }
+        : { status: 200, body: { code: 'OK', data: { accepted: 2 } } }
+      throw new Error(request.url)
+    } })
+    const store = useSupplierStore()
+    store.auth = { ...store.auth, isLoggedIn: true, role: 'supplier', supplierId: 'S1' }
+    await store.initialize()
+    expect(await store.batchAcceptOrders(['F1', 'F2'])).toBe(2)
+    expect(calls.filter((call) => call.url.endsWith('/batch-accept')).map((call) => call.body)).toEqual([{ ids: ['F1', 'F2'] }])
+    expect(store.orders.filter((order) => order.supplierFulfillment?.status === 'accepted')).toHaveLength(2)
+    reject = true
+    expect(await store.batchAcceptOrders(['F3'])).toBe(0)
+    expect(store.orders.find((order) => order.id === 'F3')?.supplierFulfillment?.status).toBe('submitted')
+    expect(store.error).toContain('履约单状态已变化')
+  })
 })

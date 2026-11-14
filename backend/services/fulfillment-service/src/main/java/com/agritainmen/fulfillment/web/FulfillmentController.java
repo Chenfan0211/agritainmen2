@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Collections;
+import java.util.HashSet;
 
 @RestController
 @RequestMapping("/api/v1/fulfillment")
@@ -27,6 +29,8 @@ public class FulfillmentController {
     public record CreateRequest(@NotBlank String orderId, @NotBlank String supplierId) {}
     public record ShipRequest(@NotBlank String shipType, String trackingNo, String driverId) {}
     public record AssignDriverRequest(@NotBlank String driverId, String expectedDriverId) {}
+    public record BatchAcceptRequest(List<String> ids) {}
+    public record BatchAcceptResult(int accepted) {}
     public record PageView(List<Map<String, Object>> items, int page, int pageSize, long total) {}
 
     @PostMapping("/orders")
@@ -72,6 +76,29 @@ public class FulfillmentController {
         find(id, identity);
         transition(id, identity.supplierId(), "PENDING", "ACCEPTED");
         return ApiResponse.ok(find(id, identity));
+    }
+
+    @PostMapping("/orders/batch-accept")
+    @Transactional
+    public ApiResponse<BatchAcceptResult> batchAccept(@RequestBody BatchAcceptRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        FulfillmentAccessVerifier.Identity identity = supplierIdentity(authorization);
+        if (request.ids() == null || request.ids().isEmpty() || request.ids().size() > 100
+                || request.ids().stream().anyMatch(id -> id == null || id.isBlank()))
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "请选择1到100个履约单");
+        List<String> ids = request.ids().stream().map(String::trim).toList();
+        if (new HashSet<>(ids).size() != ids.size()) throw new BusinessException(ErrorCode.BAD_REQUEST, "履约单编号不能重复");
+        String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
+        Object[] args = new Object[ids.size() + 1];
+        args[0] = identity.supplierId();
+        for (int index = 0; index < ids.size(); index++) args[index + 1] = ids.get(index);
+        List<Map<String, Object>> rows = jdbc.queryForList("select id,status from fulfillment_order where supplier_id=? and deleted=false and id in (" + placeholders + ")", args);
+        if (rows.size() != ids.size()) throw new BusinessException(ErrorCode.NOT_FOUND, "履约单不存在");
+        if (rows.stream().anyMatch(row -> !"PENDING".equals(row.get("status"))))
+            throw new BusinessException(ErrorCode.CONFLICT, "所选履约单包含不可接单状态");
+        int updated = jdbc.update("update fulfillment_order set status='ACCEPTED', updated_at=current_timestamp, version=version+1 where supplier_id=? and status='PENDING' and deleted=false and id in (" + placeholders + ")", args);
+        if (updated != ids.size()) throw new BusinessException(ErrorCode.CONFLICT, "履约单状态已变化，请刷新后重试");
+        return ApiResponse.ok(new BatchAcceptResult(updated));
     }
 
     @PostMapping("/orders/{id}/assign-driver")

@@ -1187,6 +1187,7 @@ function toggleSelect(id: string) {
 async function batchAccept() {
   await runBusy('batch-accept', async () => {
     const count = await store.batchAcceptOrders([...selectedOrderIds.value])
+    if (getApiClientConfig().dataMode === 'api' && store.error) { toast(store.error); return }
     selectedOrderIds.value = []
     toast(`已批量接单 ${count} 单`)
   })

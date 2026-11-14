@@ -23,6 +23,7 @@ import tools.jackson.databind.JsonNode;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -96,6 +97,36 @@ class FulfillmentScopeAuditTest {
         assertEquals("PENDING", jdbc.queryForObject("select status from fulfillment_order where id='F-S2'", String.class));
         assertEquals("ACCEPTED", client.post().uri("/api/v1/fulfillment/orders/F-S1/accept")
                 .header("Authorization", "Bearer s1").retrieve().body(JsonNode.class).path("data").path("status").asText());
+    }
+
+    @Test void batchAcceptanceIsScopedAndAtomic() {
+        jdbc.update("insert into fulfillment_order(id,tenant_id,order_id,supplier_id,status,created_at,updated_at,version,deleted) values ('F-S1-B','PLATFORM','O-S1-B','S1','PENDING',current_timestamp,current_timestamp,0,false)");
+        assertEquals(401, assertThrows(RestClientResponseException.class,
+                () -> batch(null, List.of("F-S1", "F-S1-B"))).getStatusCode().value());
+        assertEquals(403, assertThrows(RestClientResponseException.class,
+                () -> batch("Bearer d1", List.of("F-S1", "F-S1-B"))).getStatusCode().value());
+        assertEquals(404, assertThrows(RestClientResponseException.class,
+                () -> batch("Bearer s1", List.of("F-S1", "F-S2"))).getStatusCode().value());
+        assertEquals("PENDING", jdbc.queryForObject("select status from fulfillment_order where id='F-S1'", String.class));
+        assertEquals(400, assertThrows(RestClientResponseException.class,
+                () -> batch("Bearer s1", List.of("F-S1", "F-S1"))).getStatusCode().value());
+        assertEquals(400, assertThrows(RestClientResponseException.class,
+                () -> batch("Bearer s1", List.of())).getStatusCode().value());
+        jdbc.update("update fulfillment_order set status='ACCEPTED' where id='F-S1-B'");
+        assertEquals(409, assertThrows(RestClientResponseException.class,
+                () -> batch("Bearer s1", List.of("F-S1", "F-S1-B"))).getStatusCode().value());
+        assertEquals("PENDING", jdbc.queryForObject("select status from fulfillment_order where id='F-S1'", String.class));
+        jdbc.update("update fulfillment_order set status='PENDING' where id='F-S1-B'");
+        assertEquals(2, batch("Bearer s1", List.of("F-S1", "F-S1-B")).path("data").path("accepted").asInt());
+        assertEquals(2, jdbc.queryForObject("select count(*) from fulfillment_order where supplier_id='S1' and status='ACCEPTED'", Integer.class));
+        assertEquals(409, assertThrows(RestClientResponseException.class,
+                () -> batch("Bearer s1", List.of("F-S1", "F-S1-B"))).getStatusCode().value());
+    }
+
+    private JsonNode batch(String token, List<String> ids) {
+        var request = client.post().uri("/api/v1/fulfillment/orders/batch-accept").contentType(MediaType.APPLICATION_JSON);
+        if (token != null) request.header("Authorization", token);
+        return request.body(Map.of("ids", ids)).retrieve().body(JsonNode.class);
     }
 
     @Test void onlyPlatformCanCreateOrderAndSupplierCannotReadOthersTracking() {
