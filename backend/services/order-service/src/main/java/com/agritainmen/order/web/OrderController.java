@@ -13,28 +13,37 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/orders")
 public class OrderController {
     private final OrderService orderService;
+    private final OrderAccessVerifier accessVerifier;
 
-    public OrderController(OrderService orderService) {
+    public OrderController(OrderService orderService, OrderAccessVerifier accessVerifier) {
         this.orderService = orderService;
+        this.accessVerifier = accessVerifier;
     }
 
     @PostMapping
     public ApiResponse<OrderView> create(@Valid @RequestBody CreateOrderRequest request,
-                                         @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+                                         @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+                                         @RequestHeader(value = "Authorization", required = false) String authorization) {
+        accessVerifier.requireBuyer(authorization, request.buyerId());
         return ApiResponse.ok(orderService.create(idempotencyKey, request));
     }
 
     @GetMapping
     public ApiResponse<OrderPage> list(@RequestParam(required = false) String buyerId,
                                        @RequestParam(defaultValue = "1") int page,
-                                       @RequestParam(defaultValue = "20") int pageSize) {
+                                       @RequestParam(defaultValue = "20") int pageSize,
+                                       @RequestHeader(value = "Authorization", required = false) String authorization) {
         if (page < 1 || pageSize < 1 || pageSize > 200) throw new BusinessException(ErrorCode.BAD_REQUEST, "page 必须大于 0，pageSize 必须在 1-200 之间");
-        return ApiResponse.ok(orderService.list(buyerId, page, pageSize));
+        return ApiResponse.ok(orderService.list(accessVerifier.visibleBuyer(authorization, buyerId), page, pageSize));
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<OrderView> find(@PathVariable String id) {
-        return ApiResponse.ok(orderService.find(id));
+    public ApiResponse<OrderView> find(@PathVariable String id,
+                                      @RequestHeader(value = "Authorization", required = false) String authorization) {
+        OrderAccessVerifier.Identity identity = accessVerifier.verify(authorization);
+        OrderView order = orderService.find(id);
+        accessVerifier.requireReadable(identity, order.buyerId());
+        return ApiResponse.ok(order);
     }
 
     public record OrderPage(java.util.List<OrderView> items, int page, int pageSize, long total) {}

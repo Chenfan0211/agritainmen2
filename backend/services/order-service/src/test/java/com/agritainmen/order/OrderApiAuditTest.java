@@ -3,6 +3,7 @@ package com.agritainmen.order;
 import com.agritainmen.order.client.CatalogClient;
 import com.agritainmen.order.client.InventoryClient;
 import com.agritainmen.order.web.OrderDtos.PriceQuote;
+import com.agritainmen.order.web.OrderAccessVerifier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -19,6 +20,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.client.RestClient;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -35,6 +37,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "spring.profiles.active=test")
 @Import({OrderApiAuditTest.FakeCrossServiceClients.class, OrderApiAuditTest.PermitAllApiAuditSecurity.class})
 class OrderApiAuditTest {
+    @MockitoBean
+    private OrderAccessVerifier accessVerifier;
     @Value("${local.server.port}")
     private int port;
 

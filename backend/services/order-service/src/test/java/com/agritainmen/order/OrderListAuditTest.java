@@ -1,5 +1,6 @@
 package com.agritainmen.order;
 
+import com.agritainmen.order.web.OrderAccessVerifier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -13,14 +14,17 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.web.client.RestClient;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import tools.jackson.databind.JsonNode;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.when;
 
 @Tag("api-audit")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "spring.profiles.active=test")
 @Import(OrderListAuditTest.PermitAllApiAuditSecurity.class)
 class OrderListAuditTest {
+    @MockitoBean OrderAccessVerifier accessVerifier;
     @LocalServerPort int port;
     @Autowired JdbcTemplate jdbc;
     RestClient client;
@@ -28,6 +32,7 @@ class OrderListAuditTest {
     @BeforeEach
     void setUp() {
         client = RestClient.builder().baseUrl("http://localhost:" + port).build();
+        when(accessVerifier.visibleBuyer(null, "F1")).thenReturn("F1");
         jdbc.update("delete from trade_order_item");
         jdbc.update("delete from trade_order");
         for (int i = 1; i <= 3; i++) {
