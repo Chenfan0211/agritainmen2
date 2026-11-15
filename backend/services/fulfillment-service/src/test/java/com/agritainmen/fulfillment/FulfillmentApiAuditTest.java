@@ -8,14 +8,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.client.RestClient;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import tools.jackson.databind.JsonNode;
@@ -34,7 +29,6 @@ import static org.mockito.ArgumentMatchers.eq;
 
 @Tag("api-audit")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "spring.profiles.active=test")
-@Import(FulfillmentApiAuditTest.PermitAllApiAuditSecurity.class)
 class FulfillmentApiAuditTest {
     @Value("${local.server.port}")
     private int port;
@@ -183,14 +177,4 @@ class FulfillmentApiAuditTest {
         return prefix + "-" + UUID.randomUUID();
     }
 
-    @TestConfiguration(proxyBeanMethods = false)
-    static class PermitAllApiAuditSecurity {
-        @Bean
-        SecurityFilterChain apiAuditFilterChain(HttpSecurity http) throws Exception {
-            return http
-                    .csrf(csrf -> csrf.disable())
-                    .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                    .build();
-        }
-    }
 }

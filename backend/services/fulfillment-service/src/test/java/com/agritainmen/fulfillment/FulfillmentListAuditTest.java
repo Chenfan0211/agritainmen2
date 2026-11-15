@@ -6,12 +6,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.web.client.RestClient;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -22,7 +17,6 @@ import static org.mockito.Mockito.when;
 
 @Tag("api-audit")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "spring.profiles.active=test")
-@Import(FulfillmentListAuditTest.PermitAllApiAuditSecurity.class)
 class FulfillmentListAuditTest {
     @LocalServerPort int port;
     @Autowired JdbcTemplate jdbc;
@@ -56,11 +50,4 @@ class FulfillmentListAuditTest {
         assertEquals(400, exception.getStatusCode().value());
     }
 
-    @TestConfiguration(proxyBeanMethods = false)
-    static class PermitAllApiAuditSecurity {
-        @Bean
-        SecurityFilterChain apiAuditFilterChain(HttpSecurity http) throws Exception {
-            return http.csrf(csrf -> csrf.disable()).authorizeHttpRequests(auth -> auth.anyRequest().permitAll()).build();
-        }
-    }
 }

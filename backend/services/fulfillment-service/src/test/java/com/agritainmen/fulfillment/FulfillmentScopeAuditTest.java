@@ -7,13 +7,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.web.client.RestClient;
@@ -29,14 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @Tag("api-audit")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "spring.profiles.active=test")
-@Import(FulfillmentScopeAuditTest.PermitAll.class)
 class FulfillmentScopeAuditTest {
-    @TestConfiguration(proxyBeanMethods = false)
-    static class PermitAll {
-        @Bean SecurityFilterChain filter(HttpSecurity http) throws Exception {
-            return http.csrf(csrf -> csrf.disable()).authorizeHttpRequests(auth -> auth.anyRequest().permitAll()).build();
-        }
-    }
     static final HttpServer auth = startAuth();
     @DynamicPropertySource
     static void authUrl(DynamicPropertyRegistry registry) {
@@ -112,6 +100,12 @@ class FulfillmentScopeAuditTest {
         assertEquals("PENDING", jdbc.queryForObject("select status from fulfillment_order where id='F-S2'", String.class));
         assertEquals("ACCEPTED", client.post().uri("/api/v1/fulfillment/orders/F-S1/accept")
                 .header("Authorization", "Bearer s1").retrieve().body(JsonNode.class).path("data").path("status").asText());
+    }
+
+    @Test void unrelatedServicePathsRemainClosed() {
+        int status = client.get().uri("/v3/api-docs")
+                .exchange((request, response) -> response.getStatusCode().value());
+        assertEquals(403, status);
     }
 
     @Test void batchAcceptanceIsScopedAndAtomic() {
