@@ -49,7 +49,7 @@ class AuthApiAuditTest {
         assertTrue(setCookie.contains("HttpOnly"));
         assertTrue(setCookie.contains("Path=/api/v1/auth"));
 
-        assertTokenResponse(login("/api/v1/auth/store/login", "13800000000", "123456"), "store");
+        assertEquals(401, login("/api/v1/auth/store/login", "13800000000", "123456").status());
         HttpResult supplier = login("/api/v1/auth/supplier/login", "13787366688", "13787366688");
         assertTokenResponse(supplier, "supplier");
         assertFalse(assertOkEnvelope(supplier).path("profile").path("permissions").toString().contains("\"*\""));
@@ -97,7 +97,7 @@ class AuthApiAuditTest {
 
     @Test
     void logoutRevokesRefreshToken() {
-        JsonNode login = assertOkEnvelope(login("/api/v1/auth/store/login", "13800000000", "123456"));
+        JsonNode login = assertOkEnvelope(login("/api/v1/auth/supplier/login", "13787366688", "13787366688"));
         String refreshToken = login.path("refreshToken").asText();
 
         HttpResult logout = post("/api/v1/auth/logout",

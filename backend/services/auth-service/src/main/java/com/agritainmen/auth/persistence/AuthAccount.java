@@ -7,6 +7,8 @@ import com.baomidou.mybatisplus.annotation.TableName;
 public class AuthAccount extends BaseEntity {
     private String actorType;
     private String supplierId;
+    private String storeAccountId;
+    private String farmId;
     private String driverSupplierId;
     private String driverPhone;
     private String account;
@@ -17,6 +19,10 @@ public class AuthAccount extends BaseEntity {
     public void setActorType(String actorType) { this.actorType = actorType; }
     public String getSupplierId() { return supplierId; }
     public void setSupplierId(String supplierId) { this.supplierId = supplierId; }
+    public String getStoreAccountId() { return storeAccountId; }
+    public void setStoreAccountId(String storeAccountId) { this.storeAccountId = storeAccountId; }
+    public String getFarmId() { return farmId; }
+    public void setFarmId(String farmId) { this.farmId = farmId; }
     public String getDriverSupplierId() { return driverSupplierId; }
     public void setDriverSupplierId(String driverSupplierId) { this.driverSupplierId = driverSupplierId; }
     public String getDriverPhone() { return driverPhone; }

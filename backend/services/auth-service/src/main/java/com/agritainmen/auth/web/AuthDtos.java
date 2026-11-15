@@ -14,5 +14,5 @@ public final class AuthDtos {
     public record TokenResponse(String accessToken, String refreshToken, String tokenType, long expiresInSeconds, Profile profile) {}
     public record Profile(String actorType, String actorId, String tenantId, String displayName, String userId,
                           String level, String leaderId, String parentLeaderId, List<String> roles, List<String> permissions,
-                          String supplierId, String driverId) {}
+                          String supplierId, String driverId, String farmId) {}
 }

@@ -73,8 +73,10 @@ public class AuthController {
         if (authorization == null || !authorization.startsWith("Bearer ")) throw new BusinessException(ErrorCode.UNAUTHORIZED);
         TokenClaims claims = authService.verifyAccessToken(authorization.substring(7));
         return ApiResponse.ok(new Profile(claims.actorType(), claims.actorId(), claims.tenantId(), null,
-                claims.subject(), null, null, null, claims.roles(), claims.permissions(), claims.supplierId(),
-                "driver".equals(claims.actorType()) ? claims.actorId() : null));
+                "user".equals(claims.actorType()) ? claims.subject() : null,
+                null, null, null, claims.roles(), claims.permissions(), claims.supplierId(),
+                "driver".equals(claims.actorType()) ? claims.actorId() : null,
+                "store".equals(claims.actorType()) ? claims.subject() : null));
     }
 
     private ResponseCookie refreshCookie(HttpServletRequest request, String refreshToken) {

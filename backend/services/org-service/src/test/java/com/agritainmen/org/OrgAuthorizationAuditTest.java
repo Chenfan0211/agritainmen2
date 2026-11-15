@@ -57,6 +57,14 @@ class OrgAuthorizationAuditTest {
     }
 
     @Test
+    void authServiceCanInspectOnlyFarmAccountBinding() {
+        String service = jwt.createAccessToken(new TokenClaims("auth-service", "service", "auth-service",
+                "PLATFORM", List.of("service"), List.of("farm-account.inspect")));
+        assertEquals(404, status(HttpMethod.GET, "/api/v1/org/farm-accounts/MISSING", service, false));
+        assertEquals(403, status(HttpMethod.POST, "/api/v1/org/farm-accounts", service, false));
+    }
+
+    @Test
     void mediaReadPermissionFollowsStoredPurpose() {
         jdbc.update("delete from org_media where id in ('SEC-SUPPLIER', 'SEC-FARM')");
         jdbc.update("insert into org_media(id,tenant_id,purpose,mime_type,content,size_bytes,created_at) values ('SEC-SUPPLIER','PLATFORM','supplier-business-license','image/png',?,1,current_timestamp)", new byte[]{1});

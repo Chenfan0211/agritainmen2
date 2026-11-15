@@ -309,6 +309,27 @@ paths:
         "404": { $ref: '#/components/responses/NotFound' }
         "409": { $ref: '#/components/responses/Conflict' }
         "500": { description: 组织服务暂不可用或响应无效，未创建账号 }
+  /auth/admin/store-accounts:
+    post:
+      summary: 核验组织服务门店账号后开通真实登录
+      description: 需要 PLATFORM 管理员的 farm.manage 权限；重复请求不重置密码。组织服务停用账号后，登录、访问令牌校验和刷新均拒绝。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [storeAccountId, password]
+              properties:
+                storeAccountId: { type: string }
+                password: { type: string, format: password }
+      responses:
+        "200": { description: 返回绑定的门店账号及 farmId，不含密码 }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { $ref: '#/components/responses/Forbidden' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "409": { $ref: '#/components/responses/Conflict' }
+        "500": { description: 组织服务暂不可用或响应无效，未创建账号 }
   /auth/admin/supplier-accounts/{supplierId}:
     get:
       summary: 按供应商 ID 查询登录账号

@@ -109,6 +109,8 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
                     || permissions.contains("supplier.account.freeze");
             return method == HttpMethod.PUT && permissions.contains("supplier.account.update");
         }
+        if (path.equals("/api/v1/auth/admin/store-accounts"))
+            return method == HttpMethod.POST && permissions.contains("farm.manage");
         if (path.startsWith("/api/v1/auth/admin/roles")) {
             if (method == HttpMethod.GET) return permissions.stream().anyMatch(value -> value instanceof String code && code.startsWith("admin.role."));
             if (method == HttpMethod.POST) return permissions.contains("admin.role.create");

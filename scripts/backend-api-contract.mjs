@@ -85,6 +85,7 @@ const expected = [
   ['PATCH', '/api/v1/auth/admin/accounts/{id}'],
   ['GET', '/api/v1/auth/admin/supplier-accounts'],
   ['POST', '/api/v1/auth/admin/supplier-accounts'],
+  ['POST', '/api/v1/auth/admin/store-accounts'],
   ['GET', '/api/v1/auth/admin/supplier-accounts/{supplierId}'],
   ['PATCH', '/api/v1/auth/admin/supplier-accounts/{supplierId}'],
   ['POST', '/api/v1/org/suppliers'],

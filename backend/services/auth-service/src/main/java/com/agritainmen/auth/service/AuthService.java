@@ -39,11 +39,13 @@ public class AuthService {
     private final JwtService jwtService;
     private final JwtProperties jwtProperties;
     private final WechatExchangeClient wechatExchangeClient;
+    private final StoreAccountBindingClient storeAccountBindingClient;
     private final JsonMapper objectMapper;
 
     public AuthService(AuthAccountMapper accountMapper, AuthIdentityMapper identityMapper, AuthSessionMapper sessionMapper,
                        PasswordEncoder passwordEncoder, JwtService jwtService, JwtProperties jwtProperties,
-                       WechatExchangeClient wechatExchangeClient, JsonMapper objectMapper) {
+                       WechatExchangeClient wechatExchangeClient, StoreAccountBindingClient storeAccountBindingClient,
+                       JsonMapper objectMapper) {
         this.accountMapper = accountMapper;
         this.identityMapper = identityMapper;
         this.sessionMapper = sessionMapper;
@@ -51,6 +53,7 @@ public class AuthService {
         this.jwtService = jwtService;
         this.jwtProperties = jwtProperties;
         this.wechatExchangeClient = wechatExchangeClient;
+        this.storeAccountBindingClient = storeAccountBindingClient;
         this.objectMapper = objectMapper;
     }
 
@@ -66,6 +69,10 @@ public class AuthService {
         }
         if ("supplier".equals(actorType) && (found.getSupplierId() == null || found.getSupplierId().isBlank())) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "供应商账号未绑定，请联系平台管理员");
+        }
+        if ("store".equals(actorType) && (found.getStoreAccountId() == null || found.getStoreAccountId().isBlank()
+                || found.getFarmId() == null || found.getFarmId().isBlank())) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "门店账号未绑定，请联系平台管理员");
         }
         if ("driver".equals(actorType)) activeDriver(found, found.getDriverSupplierId());
         return issue(accountClaims(found), found.getDisplayName(), null);
@@ -103,9 +110,11 @@ public class AuthService {
         if (session.getExpiresAt().isBefore(Instant.now())) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "刷新令牌无效或已过期");
         }
-        if ("supplier".equals(claims.actorType()) || "driver".equals(claims.actorType())) {
+        if ("supplier".equals(claims.actorType()) || "driver".equals(claims.actorType()) || "store".equals(claims.actorType())) {
             AuthAccount account = "supplier".equals(claims.actorType()) ? activeSupplier(claims)
-                    : activeDriver(accountMapper.selectById(claims.actorId()), claims.supplierId());
+                    : "driver".equals(claims.actorType())
+                    ? activeDriver(accountMapper.selectById(claims.actorId()), claims.supplierId())
+                    : accountMapper.selectById(claims.actorId());
             claims = accountClaims(account);
         }
         if (sessionMapper.revokeIfActive(session.getId(), "ROTATED") != 1)
@@ -131,9 +140,15 @@ public class AuthService {
         try {
             if (jwtService.isRefreshToken(token)) throw new BusinessException(ErrorCode.UNAUTHORIZED);
             TokenClaims claims = jwtService.parse(token);
-            if ("supplier".equals(claims.actorType()) || "driver".equals(claims.actorType())) {
+            if ("supplier".equals(claims.actorType()) || "driver".equals(claims.actorType()) || "store".equals(claims.actorType())) {
                 if ("supplier".equals(claims.actorType())) activeSupplier(claims);
-                else activeDriver(accountMapper.selectById(claims.actorId()), claims.supplierId());
+                else if ("driver".equals(claims.actorType())) activeDriver(accountMapper.selectById(claims.actorId()), claims.supplierId());
+                else {
+                    AuthAccount account = accountMapper.selectById(claims.actorId());
+                    StoreAccountBindingClient.Binding binding = storeAccountBindingClient.requireActive(account);
+                    if (!account.getFarmId().equals(claims.subject()) || !claims.roles().contains(binding.role()))
+                        throw new BusinessException(ErrorCode.UNAUTHORIZED, "门店账号已失效");
+                }
                 AuthSession session = sessionMapper.selectOne(new LambdaQueryWrapper<AuthSession>()
                         .eq(AuthSession::getAccessTokenHash, hash(token)).last("limit 1"));
                 if (session == null || session.getRevokedAt() != null || session.getExpiresAt().isBefore(Instant.now())
@@ -188,7 +203,13 @@ public class AuthService {
     }
 
     private TokenClaims accountClaims(AuthAccount account) {
+        if (account == null) throw new BusinessException(ErrorCode.UNAUTHORIZED, "账号已失效");
         String actorType = account.getActorType();
+        if ("store".equals(actorType)) {
+            StoreAccountBindingClient.Binding binding = storeAccountBindingClient.requireActive(account);
+            return new TokenClaims(account.getFarmId(), actorType, account.getId(), account.getTenantId(),
+                    List.of("store", binding.role()), List.of("order.read", "order.write"));
+        }
         if ("supplier".equals(actorType)) {
             return new TokenClaims(account.getId(), actorType, account.getId(), account.getTenantId(),
                     List.of("supplier"), List.of("fulfillment.read", "fulfillment.write", "driver.manage"), account.getSupplierId());
@@ -229,7 +250,8 @@ public class AuthService {
                 identity == null ? null : ("disabled".equalsIgnoreCase(identity.getStatus()) ? "normal" : identity.getLevel()),
                 identity == null ? null : identity.getLeaderId(), identity == null ? null : identity.getParentLeaderId(),
                 claims.roles(), claims.permissions(), claims.supplierId(),
-                "driver".equals(claims.actorType()) ? claims.actorId() : null);
+                "driver".equals(claims.actorType()) ? claims.actorId() : null,
+                "store".equals(claims.actorType()) ? claims.subject() : null);
         return new TokenResponse(access, refresh, "Bearer", jwtProperties.getAccessTokenTtl().toSeconds(), profile);
     }
 
