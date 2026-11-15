@@ -5,6 +5,7 @@ import com.agritainmen.common.core.BusinessException;
 import com.agritainmen.common.core.ErrorCode;
 import com.agritainmen.common.core.Ids;
 import com.agritainmen.fulfillment.provider.LogisticsProvider;
+import com.agritainmen.fulfillment.client.OrderSourceClient;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -23,8 +24,11 @@ public class FulfillmentController {
     private final JdbcTemplate jdbc;
     private final LogisticsProvider logisticsProvider;
     private final FulfillmentAccessVerifier accessVerifier;
-    public FulfillmentController(JdbcTemplate jdbc, LogisticsProvider logisticsProvider, FulfillmentAccessVerifier accessVerifier) {
+    private final OrderSourceClient orderSourceClient;
+    public FulfillmentController(JdbcTemplate jdbc, LogisticsProvider logisticsProvider, FulfillmentAccessVerifier accessVerifier,
+                                 OrderSourceClient orderSourceClient) {
         this.jdbc = jdbc; this.logisticsProvider = logisticsProvider; this.accessVerifier = accessVerifier;
+        this.orderSourceClient = orderSourceClient;
     }
     public record CreateRequest(@NotBlank String orderId, @NotBlank String supplierId) {}
     public record ShipRequest(@NotBlank String shipType, String trackingNo, String driverId) {}
@@ -38,10 +42,16 @@ public class FulfillmentController {
     public ApiResponse<String> create(@Valid @RequestBody CreateRequest request,
                                       @RequestHeader(value = "Authorization", required = false) String authorization) {
         if (!"admin".equals(accessVerifier.verify(authorization).actorType())) throw new BusinessException(ErrorCode.FORBIDDEN);
-        var found = jdbc.queryForList("select id from fulfillment_order where order_id=? and deleted=false", request.orderId());
-        if (!found.isEmpty()) return ApiResponse.ok(String.valueOf(found.get(0).get("id")));
+        var found = jdbc.queryForList("select id, supplier_id from fulfillment_order where order_id=? and deleted=false", request.orderId());
+        if (!found.isEmpty()) {
+            if (!request.supplierId().equals(found.get(0).get("supplier_id")))
+                throw new BusinessException(ErrorCode.CONFLICT, "订单已分配给其他供应商");
+            return ApiResponse.ok(String.valueOf(found.get(0).get("id")));
+        }
+        OrderSourceClient.Source source = orderSourceClient.load(request.orderId(), request.supplierId(), authorization);
         String id = Ids.uuid("FUL");
-        jdbc.update("insert into fulfillment_order(id,tenant_id,order_id,supplier_id,status,created_at,updated_at,version,deleted) values (?, 'PLATFORM', ?, ?, 'PENDING', current_timestamp, current_timestamp, 0, false)", id, request.orderId(), request.supplierId());
+        jdbc.update("insert into fulfillment_order(id,tenant_id,order_id,supplier_id,buyer_id,receiver,receiver_phone,address,status,created_at,updated_at,version,deleted) values (?, 'PLATFORM', ?, ?, ?, ?, ?, ?, 'PENDING', current_timestamp, current_timestamp, 0, false)",
+                id, request.orderId(), request.supplierId(), source.buyerId(), source.receiver(), source.receiverPhone(), source.address());
         return ApiResponse.ok(id);
     }
 
@@ -65,7 +75,7 @@ public class FulfillmentController {
         System.arraycopy(queryArgs, 0, pageArgs, 0, queryArgs.length);
         pageArgs[queryArgs.length] = pageSize;
         pageArgs[queryArgs.length + 1] = (page - 1) * pageSize;
-        List<Map<String, Object>> items = jdbc.queryForList("select id, order_id, supplier_id, status, ship_type, tracking_no, driver_id from fulfillment_order" + where + " order by created_at, id limit ? offset ?", pageArgs);
+        List<Map<String, Object>> items = jdbc.queryForList("select id, order_id, supplier_id, buyer_id, receiver, receiver_phone, address, status, ship_type, tracking_no, driver_id from fulfillment_order" + where + " order by created_at, id limit ? offset ?", pageArgs);
         return ApiResponse.ok(new PageView(items, page, pageSize, total == null ? 0 : total));
     }
 
@@ -167,7 +177,7 @@ public class FulfillmentController {
         if (updated != 1) throw new BusinessException(ErrorCode.CONFLICT, "当前履约状态不允许该操作");
     }
     private Map<String, Object> find(String id, FulfillmentAccessVerifier.Identity identity) {
-        var rows = jdbc.queryForList("select id, order_id, supplier_id, status, ship_type, tracking_no, driver_id from fulfillment_order where id=? and supplier_id=? and deleted=false", id, identity.supplierId());
+        var rows = jdbc.queryForList("select id, order_id, supplier_id, buyer_id, receiver, receiver_phone, address, status, ship_type, tracking_no, driver_id from fulfillment_order where id=? and supplier_id=? and deleted=false", id, identity.supplierId());
         if (rows.isEmpty()) throw new BusinessException(ErrorCode.NOT_FOUND, "履约单不存在");
         return rows.get(0);
     }

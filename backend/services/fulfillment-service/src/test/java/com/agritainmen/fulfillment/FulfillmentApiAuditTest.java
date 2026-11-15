@@ -1,6 +1,7 @@
 package com.agritainmen.fulfillment;
 
 import com.agritainmen.fulfillment.web.FulfillmentAccessVerifier;
+import com.agritainmen.fulfillment.client.OrderSourceClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 
 @Tag("api-audit")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "spring.profiles.active=test")
@@ -42,14 +45,17 @@ class FulfillmentApiAuditTest {
     @Autowired
     private JdbcTemplate jdbc;
     @MockitoBean FulfillmentAccessVerifier accessVerifier;
+    @MockitoBean OrderSourceClient orderSourceClient;
 
     private RestClient client;
 
     @BeforeEach
     void setUp() {
         client = RestClient.builder().baseUrl("http://127.0.0.1:" + port).build();
-        when(accessVerifier.verify(null)).thenReturn(new FulfillmentAccessVerifier.Identity("admin", "", ""));
+        when(accessVerifier.verify("Bearer admin")).thenReturn(new FulfillmentAccessVerifier.Identity("admin", "", ""));
         when(accessVerifier.verify("Bearer supplier")).thenReturn(new FulfillmentAccessVerifier.Identity("supplier", "SUPPLIER-AUDIT", ""));
+        when(orderSourceClient.load(anyString(), eq("SUPPLIER-AUDIT"), eq("Bearer admin")))
+                .thenReturn(new OrderSourceClient.Source("F-AUDIT", "收货人", "13800000000", "长沙市测试路 1 号"));
     }
 
     @Test
@@ -61,6 +67,15 @@ class FulfillmentApiAuditTest {
         assertFalse(fulfillmentId.asText().isBlank());
         assertEquals(orderId, jdbc.queryForObject(
                 "select order_id from fulfillment_order where id=?", String.class, fulfillmentId.asText()));
+        Map<String, Object> snapshot = jdbc.queryForMap("select buyer_id, receiver, receiver_phone, address from fulfillment_order where id=?", fulfillmentId.asText());
+        assertEquals("F-AUDIT", snapshot.get("buyer_id"));
+        assertEquals("长沙市测试路 1 号", snapshot.get("address"));
+        JsonNode listed = assertEnvelope(get("/api/v1/fulfillment/orders"), 200, "OK").path("data").path("items").get(0);
+        assertEquals("F-AUDIT", listed.path("buyer_id").asText());
+        assertEquals("长沙市测试路 1 号", listed.path("address").asText());
+        assertEquals(fulfillmentId.asText(), assertEnvelope(create(orderId), 200, "OK").path("data").asText());
+        assertEquals(409, post("/api/v1/fulfillment/orders", Map.of("orderId", orderId, "supplierId", "OTHER"))
+                .getStatusCode().value());
     }
 
     @Test
@@ -135,7 +150,7 @@ class FulfillmentApiAuditTest {
 
     private ResponseEntity<JsonNode> post(String path, Object body) {
         RestClient.RequestBodySpec request = client.post().uri(path).contentType(MediaType.APPLICATION_JSON);
-        if (!path.equals("/api/v1/fulfillment/orders")) request.header("Authorization", "Bearer supplier");
+        request.header("Authorization", path.equals("/api/v1/fulfillment/orders") ? "Bearer admin" : "Bearer supplier");
         return exchange(body == null ? request : request.body(body));
     }
 

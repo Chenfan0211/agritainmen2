@@ -22,3 +22,8 @@ spring:
     locations: classpath:db/migration
   main:
     allow-bean-definition-overriding: true
+
+agritainmen:
+  security:
+    order-source:
+      enabled: false

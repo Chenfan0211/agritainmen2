@@ -44,6 +44,8 @@ agritainmen:
   clients:
     auth:
       base-url: ${AUTH_SERVICE_BASE_URL:http://127.0.0.1:8081}
+    order:
+      base-url: ${ORDER_SERVICE_BASE_URL:http://127.0.0.1:8085}
   security:
     jwt:
       secret: ${JWT_SECRET:change-me-at-least-32-bytes-long-secret}

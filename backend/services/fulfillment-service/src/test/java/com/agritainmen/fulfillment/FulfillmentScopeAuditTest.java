@@ -41,6 +41,7 @@ class FulfillmentScopeAuditTest {
     @DynamicPropertySource
     static void authUrl(DynamicPropertyRegistry registry) {
         registry.add("agritainmen.clients.auth.base-url", () -> "http://127.0.0.1:" + auth.getAddress().getPort());
+        registry.add("agritainmen.clients.order.base-url", () -> "http://127.0.0.1:" + auth.getAddress().getPort());
     }
     static HttpServer startAuth() {
         try {
@@ -67,6 +68,17 @@ class FulfillmentScopeAuditTest {
                 byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
                 exchange.sendResponseHeaders(200, bytes.length);
+                try (var out = exchange.getResponseBody()) { out.write(bytes); }
+            });
+            server.createContext("/api/v1/orders/", exchange -> {
+                assertTrue(exchange.getRequestURI().getPath().endsWith("/fulfillment-source"));
+                boolean found = exchange.getRequestURI().getPath().equals("/api/v1/orders/O3/fulfillment-source");
+                String body = found ? "{\"code\":\"OK\",\"data\":{\"id\":\"O3\",\"buyerId\":\"F1\","
+                        + "\"receiver\":\"店长\",\"receiverPhone\":\"13800000000\",\"address\":\"长沙市\","
+                        + "\"items\":[{\"supplierId\":\"S2\"}]}}" : "{\"code\":\"NOT_FOUND\",\"data\":null}";
+                byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().set("Content-Type", "application/json");
+                exchange.sendResponseHeaders(found ? 200 : 404, bytes.length);
                 try (var out = exchange.getResponseBody()) { out.write(bytes); }
             });
             server.start();
@@ -134,10 +146,19 @@ class FulfillmentScopeAuditTest {
                 () -> client.post().uri("/api/v1/fulfillment/orders").header("Authorization", "Bearer s1")
                         .contentType(MediaType.APPLICATION_JSON).body(Map.of("orderId", "O3", "supplierId", "S2"))
                         .retrieve().body(JsonNode.class)).getStatusCode().value());
+        assertEquals(403, assertThrows(RestClientResponseException.class,
+                () -> client.post().uri("/api/v1/fulfillment/orders").header("Authorization", "Bearer admin")
+                        .contentType(MediaType.APPLICATION_JSON).body(Map.of("orderId", "O3", "supplierId", "S1"))
+                        .retrieve().body(JsonNode.class)).getStatusCode().value());
         JsonNode created = client.post().uri("/api/v1/fulfillment/orders").header("Authorization", "Bearer admin")
                 .contentType(MediaType.APPLICATION_JSON).body(Map.of("orderId", "O3", "supplierId", "S2"))
                 .retrieve().body(JsonNode.class);
         assertFalse(created.path("data").asText().isBlank());
+        assertEquals(404, assertThrows(RestClientResponseException.class,
+                () -> client.post().uri("/api/v1/fulfillment/orders").header("Authorization", "Bearer admin")
+                        .contentType(MediaType.APPLICATION_JSON).body(Map.of("orderId", "MISSING", "supplierId", "S2"))
+                        .retrieve().body(JsonNode.class)).getStatusCode().value());
+        assertEquals(0, jdbc.queryForObject("select count(*) from fulfillment_order where order_id='MISSING'", Integer.class));
     }
 
     @Test void driverSeesOnlyAssignedOrdersAndCannotAccept() {

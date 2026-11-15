@@ -2,6 +2,7 @@ package com.agritainmen.fulfillment;
 
 import com.agritainmen.fulfillment.web.FulfillmentController;
 import com.agritainmen.fulfillment.web.FulfillmentAccessVerifier;
+import com.agritainmen.fulfillment.client.OrderSourceClient;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -16,11 +17,14 @@ class FulfillmentControllerTest {
     @Autowired
     private FulfillmentController controller;
     @MockitoBean private FulfillmentAccessVerifier accessVerifier;
+    @MockitoBean private OrderSourceClient orderSourceClient;
 
     @Test
     void fulfillmentMustAcceptBeforeSandboxShipment() {
         when(accessVerifier.verify("Bearer admin")).thenReturn(new FulfillmentAccessVerifier.Identity("admin", "", ""));
         when(accessVerifier.verify("Bearer supplier")).thenReturn(new FulfillmentAccessVerifier.Identity("supplier", "S-1", ""));
+        when(orderSourceClient.load("ORDER-1", "S-1", "Bearer admin"))
+                .thenReturn(new OrderSourceClient.Source("F1", "张三", "13800000000", "长沙市"));
         String id = controller.create(new FulfillmentController.CreateRequest("ORDER-1", "S-1"), "Bearer admin").data();
         controller.accept(id, "Bearer supplier");
         var shipped = controller.ship(id, new FulfillmentController.ShipRequest("courier", null, null), "Bearer supplier").data();
