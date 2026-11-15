@@ -31,13 +31,10 @@ public class OrderSourceClient {
                     || data.path("address").asText().isBlank() || !data.path("items").isArray())
                 throw new BusinessException(ErrorCode.INTERNAL_ERROR, "订单服务返回无效数据");
             boolean owned = false;
-            boolean otherSupplier = false;
             for (JsonNode item : data.path("items")) {
                 if (supplierId.equals(item.path("supplierId").asText())) owned = true;
-                else otherSupplier = true;
             }
             if (!owned) throw new BusinessException(ErrorCode.FORBIDDEN, "订单不属于指定供应商");
-            if (otherSupplier) throw new BusinessException(ErrorCode.CONFLICT, "跨供应商订单暂不支持整单履约");
             return new Source(data.path("buyerId").asText(), data.path("receiver").asText(),
                     data.path("receiverPhone").asText(), data.path("address").asText());
         } catch (BusinessException exception) {

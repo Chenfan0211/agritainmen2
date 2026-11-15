@@ -72,10 +72,13 @@ class FulfillmentScopeAuditTest {
             });
             server.createContext("/api/v1/orders/", exchange -> {
                 assertTrue(exchange.getRequestURI().getPath().endsWith("/fulfillment-source"));
-                boolean found = exchange.getRequestURI().getPath().equals("/api/v1/orders/O3/fulfillment-source");
-                String body = found ? "{\"code\":\"OK\",\"data\":{\"id\":\"O3\",\"buyerId\":\"F1\","
+                String path = exchange.getRequestURI().getPath();
+                boolean mixed = path.equals("/api/v1/orders/O-MIX/fulfillment-source");
+                boolean found = mixed || path.equals("/api/v1/orders/O3/fulfillment-source");
+                String body = found ? "{\"code\":\"OK\",\"data\":{\"id\":\"" + (mixed ? "O-MIX" : "O3") + "\",\"buyerId\":\"F1\","
                         + "\"receiver\":\"店长\",\"receiverPhone\":\"13800000000\",\"address\":\"长沙市\","
-                        + "\"items\":[{\"supplierId\":\"S2\"}]}}" : "{\"code\":\"NOT_FOUND\",\"data\":null}";
+                        + "\"items\":[{\"supplierId\":\"S2\"}" + (mixed ? ",{\"supplierId\":\"S1\"}" : "") + "]}}"
+                        : "{\"code\":\"NOT_FOUND\",\"data\":null}";
                 byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
                 exchange.sendResponseHeaders(found ? 200 : 404, bytes.length);
@@ -159,6 +162,37 @@ class FulfillmentScopeAuditTest {
                         .contentType(MediaType.APPLICATION_JSON).body(Map.of("orderId", "MISSING", "supplierId", "S2"))
                         .retrieve().body(JsonNode.class)).getStatusCode().value());
         assertEquals(0, jdbc.queryForObject("select count(*) from fulfillment_order where order_id='MISSING'", Integer.class));
+    }
+
+    @Test void suppliersSeeSeparateFulfillmentsForOneMixedOrder() {
+        String first = createFor("O-MIX", "S1");
+        String second = createFor("O-MIX", "S2");
+        assertNotEquals(first, second);
+        assertEquals(first, createFor("O-MIX", "S1"));
+        for (String supplier : List.of("S1", "S2")) {
+            String token = supplier.equals("S1") ? "Bearer s1" : "Bearer s2";
+            String ownId = supplier.equals("S1") ? first : second;
+            String otherId = supplier.equals("S1") ? second : first;
+            JsonNode items = client.get().uri("/api/v1/fulfillment/orders").header("Authorization", token)
+                    .retrieve().body(JsonNode.class).path("data").path("items");
+            int mixedCount = 0;
+            for (JsonNode item : items) {
+                if ("O-MIX".equals(item.path("order_id").asText())) {
+                    mixedCount++;
+                    assertEquals(ownId, item.path("id").asText());
+                }
+            }
+            assertEquals(1, mixedCount);
+            assertEquals(404, assertThrows(RestClientResponseException.class,
+                    () -> client.post().uri("/api/v1/fulfillment/orders/" + otherId + "/accept")
+                            .header("Authorization", token).retrieve().body(JsonNode.class)).getStatusCode().value());
+        }
+    }
+
+    private String createFor(String orderId, String supplierId) {
+        return client.post().uri("/api/v1/fulfillment/orders").header("Authorization", "Bearer admin")
+                .contentType(MediaType.APPLICATION_JSON).body(Map.of("orderId", orderId, "supplierId", supplierId))
+                .retrieve().body(JsonNode.class).path("data").asText();
     }
 
     @Test void driverSeesOnlyAssignedOrdersAndCannotAccept() {

@@ -42,12 +42,9 @@ public class FulfillmentController {
     public ApiResponse<String> create(@Valid @RequestBody CreateRequest request,
                                       @RequestHeader(value = "Authorization", required = false) String authorization) {
         if (!"admin".equals(accessVerifier.verify(authorization).actorType())) throw new BusinessException(ErrorCode.FORBIDDEN);
-        var found = jdbc.queryForList("select id, supplier_id from fulfillment_order where order_id=? and deleted=false", request.orderId());
-        if (!found.isEmpty()) {
-            if (!request.supplierId().equals(found.get(0).get("supplier_id")))
-                throw new BusinessException(ErrorCode.CONFLICT, "订单已分配给其他供应商");
-            return ApiResponse.ok(String.valueOf(found.get(0).get("id")));
-        }
+        var found = jdbc.queryForList("select id from fulfillment_order where tenant_id='PLATFORM' and order_id=? and supplier_id=? and deleted=false",
+                request.orderId(), request.supplierId());
+        if (!found.isEmpty()) return ApiResponse.ok(String.valueOf(found.get(0).get("id")));
         OrderSourceClient.Source source = orderSourceClient.load(request.orderId(), request.supplierId(), authorization);
         String id = Ids.uuid("FUL");
         jdbc.update("insert into fulfillment_order(id,tenant_id,order_id,supplier_id,buyer_id,receiver,receiver_phone,address,status,created_at,updated_at,version,deleted) values (?, 'PLATFORM', ?, ?, ?, ?, ?, ?, 'PENDING', current_timestamp, current_timestamp, 0, false)",

@@ -61,8 +61,10 @@ class OrderSourceClientTest {
                 () -> client.load("broken", "S1", "Bearer admin")).errorCode());
     }
 
-    @Test void mixedSupplierOrderCannotBeClaimedAsOneFulfillment() {
-        assertEquals(ErrorCode.CONFLICT, assertThrows(BusinessException.class,
-                () -> client.load("mixed", "S1", "Bearer admin")).errorCode());
+    @Test void mixedSupplierOrderCanBeSplitBySupplier() {
+        assertEquals("F1", client.load("mixed", "S1", "Bearer admin").buyerId());
+        assertEquals("F1", client.load("mixed", "S2", "Bearer admin").buyerId());
+        assertEquals(ErrorCode.FORBIDDEN, assertThrows(BusinessException.class,
+                () -> client.load("mixed", "S3", "Bearer admin")).errorCode());
     }
 }

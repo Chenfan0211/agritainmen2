@@ -56,6 +56,8 @@ class FulfillmentApiAuditTest {
         when(accessVerifier.verify("Bearer supplier")).thenReturn(new FulfillmentAccessVerifier.Identity("supplier", "SUPPLIER-AUDIT", ""));
         when(orderSourceClient.load(anyString(), eq("SUPPLIER-AUDIT"), eq("Bearer admin")))
                 .thenReturn(new OrderSourceClient.Source("F-AUDIT", "收货人", "13800000000", "长沙市测试路 1 号"));
+        when(orderSourceClient.load(anyString(), eq("OTHER"), eq("Bearer admin")))
+                .thenReturn(new OrderSourceClient.Source("F-AUDIT", "收货人", "13800000000", "长沙市测试路 1 号"));
     }
 
     @Test
@@ -74,8 +76,10 @@ class FulfillmentApiAuditTest {
         assertEquals("F-AUDIT", listed.path("buyer_id").asText());
         assertEquals("长沙市测试路 1 号", listed.path("address").asText());
         assertEquals(fulfillmentId.asText(), assertEnvelope(create(orderId), 200, "OK").path("data").asText());
-        assertEquals(409, post("/api/v1/fulfillment/orders", Map.of("orderId", orderId, "supplierId", "OTHER"))
-                .getStatusCode().value());
+        String otherId = assertEnvelope(post("/api/v1/fulfillment/orders", Map.of("orderId", orderId, "supplierId", "OTHER")),
+                200, "OK").path("data").asText();
+        assertFalse(fulfillmentId.asText().equals(otherId));
+        assertEquals(2, jdbc.queryForObject("select count(*) from fulfillment_order where order_id=?", Integer.class, orderId));
     }
 
     @Test
