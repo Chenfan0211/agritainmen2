@@ -94,7 +94,8 @@ public class OrderService {
 
     public com.agritainmen.order.web.OrderController.OrderPage list(String buyerId, int page, int pageSize) {
         String normalized = buyerId == null ? "" : buyerId.trim();
-        String where = normalized.isBlank() ? " where deleted=false" : " where deleted=false and buyer_id=?";
+        String where = normalized.isBlank() ? " where tenant_id='PLATFORM' and deleted=false"
+                : " where tenant_id='PLATFORM' and deleted=false and buyer_id=?";
         Object[] args = normalized.isBlank() ? new Object[0] : new Object[]{normalized};
         Long total = jdbc.queryForObject("select count(*) from trade_order" + where, Long.class, args);
         Object[] pageArgs = new Object[args.length + 2];

@@ -1,12 +1,12 @@
 <view class="store-subpage order-detail-page">
   <view class="subpage-hero">
     <button class="hero-back" aria-label="返回" bindtap="goBack"><ui-icon name="arrow-left" size="{{20}}"></ui-icon></button>
-    <view class="hero-copy"><text class="hero-title">订单详情</text><text class="hero-sub">订单号 {{orderId || '--'}}</text></view>
+    <view class="hero-copy"><text class="hero-title">订单详情</text><text class="hero-sub">订单号 {{orderNo || orderId || '--'}}</text></view>
     <text wx:if="{{order}}" class="hero-status">{{displayStatus}}</text>
   </view>
 
   <view wx:if="{{order}}" class="page-body">
-    <view wx:if="{{order.status === 'pending-payment'}}" class="detail-card payment-countdown">
+    <view wx:if="{{order.status === 'pending-payment' && order.paymentDeadlineAt}}" class="detail-card payment-countdown">
       <text class="countdown-title">等待付款</text>
       <strong class="countdown-time val">{{countdownText}}</strong>
       <text class="countdown-tip">请在 15 分钟内完成支付，超时订单将自动取消并释放库存</text>
@@ -30,12 +30,15 @@
       <view wx:if="{{order.saved}}" class="amount-row"><text>较零售节省</text><strong class="saving val">-{{order.savedText}}</strong></view>
       <view wx:if="{{order.remark}}" class="amount-row remark-row"><text>订单备注</text><strong class="val">{{order.remark}}</strong></view>
       <view wx:if="{{order.trackingNo}}" class="amount-row"><text>运单号</text><strong class="val">{{order.trackingNo}}</strong></view>
+      <view wx:if="{{order.receiver}}" class="amount-row"><text>收货人</text><strong class="val">{{order.receiver}} {{order.receiverPhone}}</strong></view>
+      <view wx:if="{{order.address}}" class="amount-row"><text>收货地址</text><strong class="val">{{order.address}}</strong></view>
     </view>
 
     <view class="detail-card">
       <view class="section-head"><text class="card-title">订单进度</text><text class="section-meta">{{displayStatus}}</text></view>
       <view class="logistics">
         <view wx:for="{{order.logistics}}" wx:key="key" class="log-event"><view class="log-dot"></view><view><text>{{item.title}}</text><small class="meta">{{item.time}} · {{item.detail}}</small></view></view>
+        <small wx:if="{{!order.logistics.length}}" class="meta">暂无配送进度</small>
       </view>
     </view>
 

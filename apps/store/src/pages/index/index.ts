@@ -125,6 +125,7 @@ function orderView(order: any) {
   return {
     ...order,
     key: order.id,
+    orderNo: order.orderNo || order.id,
     statusLabel: storeOrderStatusLabel(order.status),
     amountText: money(order.amount),
     savedText: money(order.saved),
@@ -278,9 +279,10 @@ Page({
     })
     const scenario = wx.getLaunchOptionsSync().query?.mock
     if (scenario === 'empty' || scenario === 'failure') store.setMockScenario(scenario)
-    if (getApiClientConfig().dataMode === 'api' && store.auth.isLoggedIn) await store.refreshSharedState()
-    else await store.initialize()
-    if (store.auth.isLoggedIn) {
+    if (getApiClientConfig().dataMode === 'api') {
+      if (!await store.restoreApiSession()) await store.initialize()
+    } else await store.initialize()
+    if (store.auth.isLoggedIn && getApiClientConfig().dataMode !== 'api') {
       store.cart = seedDemoStoreCart(store.cart, store.products, store.mockScenario)
       store.repriceCart()
       if (!store.checkoutLineKeys.length) store.toggleAllCheckoutSelection()

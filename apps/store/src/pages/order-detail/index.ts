@@ -1,4 +1,4 @@
-import { money, readPlatformAfterSaleStatus } from '@agritainment/shared'
+import { getApiClientConfig, money, readPlatformAfterSaleStatus } from '@agritainment/shared'
 import type { PurchaseStatus } from '@agritainment/shared'
 import { canCancelStoreOrder, storeOrderStatusLabel } from '../../order-status'
 import type { StoreOrderStatus } from '../../stores/store'
@@ -10,6 +10,7 @@ const purchaseSteps: PurchaseStatus[] = ['submitted', 'accepted', 'shipped', 'de
 function initialData() {
   return {
     orderId: '',
+    orderNo: '',
     order: null as any,
     displayStatus: '',
     countdownText: '00:00',
@@ -33,6 +34,11 @@ Page({
     this.setData({ orderId: typeof query?.id === 'string' ? decodeURIComponent(query.id) : '' })
     this.disposeStore = store.$subscribe(() => this.syncFromStore())
     this.syncFromStore()
+    if (getApiClientConfig().dataMode === 'api') void (async () => {
+      if (!store.auth.isLoggedIn && !await store.restoreApiSession()) return
+      await store.loadApiOrderDetail(this.data.orderId)
+      this.syncFromStore()
+    })()
   },
 
   onReady() {
@@ -64,7 +70,7 @@ Page({
   syncFromStore() {
     const rawOrder = store.orders.find((item) => item.id === this.data.orderId) || null
     if (!rawOrder) {
-      this.setData({ order: null, displayStatus: '', afterSaleStatus: null })
+      this.setData({ order: null, orderNo: this.data.orderId, displayStatus: '', afterSaleStatus: null })
       return
     }
     const displayStatus = storeOrderStatusLabel(rawOrder.status)
@@ -86,6 +92,7 @@ Page({
         })),
         logistics: rawOrder.logistics.map((event) => ({ ...event, key: `${event.time}-${event.title}` }))
       },
+      orderNo: rawOrder.orderNo || rawOrder.id,
       displayStatus,
       fulfillmentStatus,
       purchaseSteps: purchaseSteps.map((step, index) => ({
@@ -96,12 +103,12 @@ Page({
         current: step === fulfillmentStatus
       })),
       countdownText: `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`,
-      afterSaleStatus: this.data.orderId ? readPlatformAfterSaleStatus(this.data.orderId) : null,
-      canCancel: canCancelStoreOrder(rawOrder.status),
-      canReceipt: rawOrder.status === 'delivering',
-      canAfterSale: rawOrder.status === 'received' || rawOrder.status === 'completed',
-      canPay: rawOrder.status === 'pending-payment',
-      canAdvance: ['submitted', 'accepted', 'shipped', 'delivering', 'received'].includes(rawOrder.status)
+      afterSaleStatus: getApiClientConfig().dataMode === 'api' ? null : this.data.orderId ? readPlatformAfterSaleStatus(this.data.orderId) : null,
+      canCancel: getApiClientConfig().dataMode !== 'api' && canCancelStoreOrder(rawOrder.status),
+      canReceipt: getApiClientConfig().dataMode !== 'api' && rawOrder.status === 'delivering',
+      canAfterSale: getApiClientConfig().dataMode !== 'api' && (rawOrder.status === 'received' || rawOrder.status === 'completed'),
+      canPay: getApiClientConfig().dataMode !== 'api' && rawOrder.status === 'pending-payment',
+      canAdvance: getApiClientConfig().dataMode !== 'api' && ['submitted', 'accepted', 'shipped', 'delivering', 'received'].includes(rawOrder.status)
     })
   },
 

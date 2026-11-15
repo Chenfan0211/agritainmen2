@@ -4,6 +4,7 @@ import type { AfterSale, BusinessMediaValue, CatalogState, MockScenario, Order, 
 import { abortCatalogTransaction, applyCatalogStockOperation, applyPlatformMedia, buildSupplierAccountSeeds, buildSupplierPlatformOrders, calcCartTotal, catalogProductToProduct, catalogProductsForAudience, cProducts, cloneSeed, commitCatalogTransaction, createId, createStrictSnapshotRecoveryHandlerRegistration, enqueuePlatformRecovery, ensureCatalogState, initializePlatformRecoveryHandlers, initialCatalogOrderQuantity, markCatalogTransactionStockApplied, mediaValueToImage, mergeEntitySeeds, mergePersistedDefaults, mergePlatformEntities, mergePlatformStoreAccounts, mergePlatformSupplierAccounts, nextPurchaseStatus, normalizeMinimumOrderQuantity, PLATFORM_AFTERSALES_STORAGE_KEY, PLATFORM_CATALOG_STORAGE_KEY, PLATFORM_ENTITIES_STORAGE_KEY, PLATFORM_ORDERS_STORAGE_KEY, PLATFORM_RECOVERY_QUEUE_STORAGE_KEY, PLATFORM_TRANSACTION_JOURNAL_STORAGE_KEY, prepareCatalogTransaction, pricePolicies, purchaseSteps, readCatalogState, readCatalogTransactionJournal, readPendingCatalogTransactions, readPlatformAfterSales, readPlatformCollectionRevision, readPlatformEntities, readPlatformMedia, readPlatformOrders, readPlatformRecoveryQueue, readPlatformStoreAccounts, readPlatformSupplierAccounts, reconcilePendingPlatformTransactions, resolvePlatformJournal, round2, runLockedPlatformTransaction, storeAccounts, supplierCanReceiveNewOrders, suppliers as supplierSeeds, tieredUnitPrice, validateCatalogSkuOrderQuantity, validateSmsCode, writeCatalogState, writePlatformAfterSale, writePlatformAfterSales, writePlatformOrder, writePlatformOrders } from '@agritainment/shared'
 import { storeInfo, storeInfoForFarm, storeRepository } from '../services/repository'
 import { clearStoreTokens, getStoreRefreshToken, saveStoreTokens } from '../services/api-runtime'
+import { getStoreOrder, listStoreOrders } from '../services/store-order-api'
 import { businessPriceLevelDiscount, businessPriceLevelLabel, isBusinessPriceLevel, resolveBusinessPriceLevel, type BusinessPriceLevel } from '../price-level'
 
 interface CartLine {
@@ -65,6 +66,10 @@ export interface StoreOrder {
   afterSaleType?: 'refund' | 'return'
   platformOrderIds?: string[]
   farmId?: string
+  orderNo?: string
+  receiver?: string
+  receiverPhone?: string
+  address?: string
 }
 
 interface StoreAuthState {
@@ -525,12 +530,12 @@ export const useStoreStore = defineStore('store', {
     loading: false,
     error: '',
     mockScenario: 'normal',
-    info: cloneSeed(storeInfo),
+    info: getApiClientConfig().dataMode === 'api' ? { ...emptyApiStoreInfo } : cloneSeed(storeInfo),
     products: [],
     catalogRevision: 0,
     cart: [],
     checkoutLineKeys: [],
-    orders: seedOrders(),
+    orders: getApiClientConfig().dataMode === 'api' ? [] : seedOrders(),
     checkoutError: '',
     auth: { isLoggedIn: false, phone: '', principal: null, accountId: '', farmId: '', tenantId: '', role: null, priceLevel: null },
     tenantSessions: {}
@@ -586,11 +591,13 @@ export const useStoreStore = defineStore('store', {
           ? { info: this.auth.isLoggedIn ? this.info : emptyApiStoreInfo, products: (await createCatalogApiClient().listProducts({ channel: 'store', pageSize: 200 })).items }
           : await storeRepository.loadStore(this.mockScenario, farmId, account)
         const catalog = apiMode ? null : ensureCatalogState(data.products, cProducts)
+        const products = apiMode ? data.products : catalogProductsForAudience(catalog!, 'ordering').map(catalogProductToProduct)
+        const orders = apiMode ? this.auth.isLoggedIn ? await listStoreOrders(farmId, products) : [] : mergeStoreOrders(farmId, this.orders)
         this.$patch({
           info: hasPersistedData && !apiMode ? mergePersistedDefaults(data.info, this.info) : data.info,
-          products: apiMode ? data.products : catalogProductsForAudience(catalog!, 'ordering').map(catalogProductToProduct),
+          products,
           catalogRevision: catalog?.revision ?? 0,
-          orders: apiMode ? this.auth.isLoggedIn ? this.orders.filter((order) => order.farmId === farmId) : [] : mergeStoreOrders(farmId, this.orders),
+          orders,
           initialized: true
         })
         applyPlatformMedia(null, this.products)
@@ -611,9 +618,22 @@ export const useStoreStore = defineStore('store', {
         this.checkoutLineKeys = this.checkoutLineKeys.length ? this.checkoutLineKeys.filter((key) => availableCartKeys.has(key)) : cartKeys
         await this.sweepExpiredPaymentOrders()
       } catch (error) {
+        if (getApiClientConfig().dataMode === 'api') this.orders = []
         this.error = error instanceof Error ? error.message : '数据加载失败'
       } finally {
         this.loading = false
+      }
+    },
+    async loadApiOrderDetail(id: string): Promise<boolean> {
+      if (getApiClientConfig().dataMode !== 'api' || !this.auth.isLoggedIn || !this.auth.farmId) return false
+      try {
+        const order = await getStoreOrder(id, this.auth.farmId, this.products)
+        this.orders = [order, ...this.orders.filter((item) => item.id !== id)]
+        return true
+      } catch (error) {
+        this.orders = this.orders.filter((item) => item.id !== id)
+        this.error = error instanceof Error ? error.message : '订单详情加载失败'
+        return false
       }
     },
     setMockScenario(scenario: MockScenario) {
@@ -927,6 +947,7 @@ export const useStoreStore = defineStore('store', {
       return order.id
     },
     async advanceOrder(id: string) {
+      if (getApiClientConfig().dataMode === 'api') return false
       const order = this.orders.find((item) => item.id === id)
       if (!order || !['submitted', 'accepted', 'shipped', 'delivering', 'received'].includes(order.status)) return false
       const nextOrder = cloneSeed(order)
@@ -943,6 +964,7 @@ export const useStoreStore = defineStore('store', {
       return true
     },
     async confirmReceipt(id: string) {
+      if (getApiClientConfig().dataMode === 'api') return false
       const order = this.orders.find((item) => item.id === id)
       if (!order || order.status !== 'delivering') return false
       const nextOrder = cloneSeed(order)
@@ -959,6 +981,7 @@ export const useStoreStore = defineStore('store', {
       return true
     },
     async payOrder(id: string) {
+      if (getApiClientConfig().dataMode === 'api') return false
       const order = this.orders.find((item) => item.id === id)
       if (!order || order.status !== 'pending-payment') return false
       if (order.paymentDeadlineAt && Date.parse(order.paymentDeadlineAt) <= Date.now()) {
@@ -984,6 +1007,7 @@ export const useStoreStore = defineStore('store', {
       return true
     },
     async cancelOrder(id: string, reason: 'manual' | 'timeout' = 'manual') {
+      if (getApiClientConfig().dataMode === 'api') return false
       const order = this.orders.find((item) => item.id === id)
       if (!order || !['pending-payment', 'submitted', 'accepted'].includes(order.status)) return false
       if (order.inventoryReleased) return false
@@ -1020,6 +1044,7 @@ export const useStoreStore = defineStore('store', {
       return true
     },
     async sweepExpiredPaymentOrders() {
+      if (getApiClientConfig().dataMode === 'api') return 0
       const now = Date.now()
       const expired = this.orders.filter((order) => order.status === 'pending-payment' && !!order.paymentDeadlineAt && Date.parse(order.paymentDeadlineAt) <= now)
       let count = 0
@@ -1029,6 +1054,7 @@ export const useStoreStore = defineStore('store', {
       return count
     },
     initiateAfterSale(orderId: string, type: 'refund' | 'return' = 'refund') {
+      if (getApiClientConfig().dataMode === 'api') return false
       const order = this.orders.find((item) => item.id === orderId)
       if (!order || (order.status !== 'received' && order.status !== 'completed')) return false
       if (Object.values(readPlatformAfterSales() || {}).some((work) => work.orderId === orderId)) return false
@@ -1043,6 +1069,7 @@ export const useStoreStore = defineStore('store', {
       return true
     },
     async completeReturn(orderId: string) {
+      if (getApiClientConfig().dataMode === 'api') return false
       const order = this.orders.find((item) => item.id === orderId)
       const stable = readStableStoreReturnSnapshot()
       const work = Object.values(stable?.snapshot.afterSales || {}).find((item) => item.orderId === orderId && item.type === 'return')
@@ -1184,16 +1211,15 @@ export const useStoreStore = defineStore('store', {
         saveStoreTokens(token.accessToken, token.refreshToken)
         savedNewTokens = true
         const farm = await loadApiFarm(profile.farmId, actualRole)
-        if (this.auth.farmId && this.auth.farmId !== profile.farmId) this.saveCurrentTenantSession()
-        const session = this.tenantSessions[profile.farmId]
-        this.cart = session ? cloneSeed(session.cart) : []
-        this.orders = session ? cloneSeed(session.orders) : []
+        this.cart = []
+        this.orders = []
         this.checkoutLineKeys = this.cart.map(cartLineKey)
         const principal: PlatformPrincipal = { actorType: 'store', actorId: profile.actorId, tenantId: 'PLATFORM', status: 'active' }
         this.auth = { isLoggedIn: true, phone: phone.trim(), principal, accountId: profile.actorId,
           farmId: profile.farmId, tenantId: 'PLATFORM', role: actualRole, priceLevel: farm.priceLevel }
         this.info = farm.info
         this.repriceCart()
+        await this.initialize(true)
         return true
       } catch (error) {
         this.error = error instanceof Error ? error.message : '登录失败'
@@ -1223,26 +1249,38 @@ export const useStoreStore = defineStore('store', {
       const normalized = phone.trim()
       return this.currentStoreAccounts().find((item: StoreAccount) => item.account === normalized && item.enabled)?.role || null
     },
-    async refreshSharedState() {
-      if (!this.auth.accountId) return
-      if (getApiClientConfig().dataMode === 'api') {
-        try {
-          const profile = await apiRequest<StoreApiProfile>('/api/v1/auth/me')
-          const role = profile.roles?.includes('owner') ? 'owner' : profile.roles?.includes('staff') ? 'staff' : null
-          if (profile.actorType !== 'store' || profile.actorId !== this.auth.accountId || profile.farmId !== this.auth.farmId || !role) {
-            await this.logout()
-            return
-          }
-          const farm = await loadApiFarm(profile.farmId, role)
-          this.auth.role = role
-          this.auth.priceLevel = farm.priceLevel
-          this.info = farm.info
-          await this.initialize(true)
-        } catch {
-          await this.logout()
+    async restoreApiSession(): Promise<boolean> {
+      if (getApiClientConfig().dataMode !== 'api') return false
+      if (!getStoreRefreshToken()) { await this.logout(); return false }
+      try {
+        const profile = await apiRequest<StoreApiProfile>('/api/v1/auth/me')
+        const role = profile?.roles?.includes('owner') ? 'owner' : profile?.roles?.includes('staff') ? 'staff' : null
+        if (profile?.actorType !== 'store' || profile.tenantId !== 'PLATFORM' || !profile.actorId || !profile.farmId || !role)
+          throw new Error('门店账号身份已失效')
+        const farm = await loadApiFarm(profile.farmId, role)
+        const sameAccount = this.auth.accountId === profile.actorId && this.auth.farmId === profile.farmId
+        if (!sameAccount) {
+          this.cart = []
+          this.checkoutLineKeys = []
         }
+        this.orders = []
+        this.auth = { isLoggedIn: true, phone: sameAccount ? this.auth.phone : '',
+          principal: { actorType: 'store', actorId: profile.actorId, tenantId: 'PLATFORM', status: 'active' },
+          accountId: profile.actorId, farmId: profile.farmId, tenantId: 'PLATFORM', role, priceLevel: farm.priceLevel }
+        this.info = farm.info
+        await this.initialize(true)
+        return true
+      } catch {
+        await this.logout()
+        return false
+      }
+    },
+    async refreshSharedState() {
+      if (getApiClientConfig().dataMode === 'api') {
+        await this.restoreApiSession()
         return
       }
+      if (!this.auth.accountId) return
       const account = this.currentStoreAccounts().find((item: StoreAccount) => item.id === this.auth.accountId)
       if (!account?.enabled) {
         this.logout()
@@ -1254,7 +1292,7 @@ export const useStoreStore = defineStore('store', {
       const apiMode = getApiClientConfig().dataMode === 'api'
       const refreshToken = apiMode ? getStoreRefreshToken() : ''
       if (apiMode) clearStoreTokens()
-      this.saveCurrentTenantSession()
+      if (!apiMode) this.saveCurrentTenantSession()
       this.checkoutLineKeys = []
       this.auth = { isLoggedIn: false, phone: '', principal: null, accountId: '', farmId: '', tenantId: '', role: null, priceLevel: null }
       if (apiMode) {

@@ -57,6 +57,15 @@ class OrderListAuditTest {
         assertEquals(400, exception.getStatusCode().value());
     }
 
+    @Test
+    void listExcludesAnotherTenantWithTheSameBuyerId() {
+        jdbc.update("insert into trade_order(id,tenant_id,order_no,buyer_id,status,amount_cents,receiver,receiver_phone,address,created_at,updated_at,version,deleted) values ('O-OTHER','OTHER','NO-OTHER','F1','PAID',100,'张三','138','湖南',current_timestamp,current_timestamp,0,false)");
+        JsonNode page = client.get().uri("/api/v1/orders?buyerId=F1&page=1&pageSize=20")
+                .retrieve().body(JsonNode.class).path("data");
+        assertEquals(3, page.path("total").asInt());
+        for (JsonNode item : page.path("items")) assertNotEquals("O-OTHER", item.path("id").asText());
+    }
+
     @TestConfiguration(proxyBeanMethods = false)
     static class PermitAllApiAuditSecurity {
         @Bean

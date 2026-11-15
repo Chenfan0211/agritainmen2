@@ -28,6 +28,8 @@ describe('store API authentication', () => {
       calls.push(request)
       if (request.url.endsWith('/api/v1/auth/store/login')) return envelope({ accessToken: 'access-a', refreshToken: 'refresh-a', profile: { actorType: 'store', actorId: 'AUTH-1', tenantId: 'PLATFORM', displayName: '王店长', farmId: 'F001', roles: ['store', 'owner'] } })
       if (request.url.endsWith('/api/v1/auth/store/farm')) return envelope({ farmId: 'F001', name: '石板溪', contact: '王店长', contactPhone: '13900000111', address: '湖南省门店1号', priceLevel: null })
+      if (request.url.includes('/api/v1/catalog/products')) return envelope({ items: [], page: 1, pageSize: 200, total: 0 })
+      if (request.url.includes('/api/v1/orders?')) return envelope({ items: [], page: 1, pageSize: 200, total: 0 })
       if (request.url.endsWith('/api/v1/auth/logout')) return envelope(true)
       throw new Error('unexpected ' + request.url)
     } })
@@ -41,7 +43,7 @@ describe('store API authentication', () => {
     store.orders = [{ id: 'O1', farmId: 'F001' } as (typeof store.orders)[number]]
     await store.logout()
     expect(calls[1].url).toContain('/api/v1/auth/store/farm')
-    expect(calls[2].body).toEqual({ refreshToken: 'refresh-a' })
+    expect(calls.find((call) => call.url.endsWith('/api/v1/auth/logout'))?.body).toEqual({ refreshToken: 'refresh-a' })
     expect(tokens.size).toBe(0)
     expect(store.auth.isLoggedIn).toBe(false)
     expect(store.orders).toHaveLength(0)
@@ -63,6 +65,8 @@ describe('store API authentication', () => {
     configureApiClient({ dataMode: 'api', baseUrl: 'https://api.example.com', transport: async (request) => {
       if (request.url.endsWith('/api/v1/auth/store/login')) return envelope({ accessToken: 'access-b', refreshToken: 'refresh-b', profile: { actorType: 'store', actorId: 'AUTH-2', tenantId: 'PLATFORM', farmId: 'F002', roles: ['store', 'staff'] } })
       if (request.url.endsWith('/api/v1/auth/store/farm')) return envelope({ farmId: 'F002', name: '茶园店', contact: '李店员', contactPhone: '13900000222', address: '湖南省门店2号', priceLevel: 'B' })
+      if (request.url.includes('/api/v1/catalog/products')) return envelope({ items: [], page: 1, pageSize: 200, total: 0 })
+      if (request.url.includes('/api/v1/orders?')) return envelope({ items: [], page: 1, pageSize: 200, total: 0 })
       throw new Error('unexpected ' + request.url)
     } })
     const store = useStoreStore()
@@ -93,5 +97,34 @@ describe('store API authentication', () => {
     expect(await store.loginWithPassword('13900000003', 'secret', 'staff')).toBe(false)
     expect(store.auth.isLoggedIn).toBe(false)
     expect(tokens.size).toBe(0)
+  })
+
+  it('restores a saved API token through Auth and reloads that farm history', async () => {
+    tokens.set('agritainmen-store-access-token', 'saved-access')
+    tokens.set('agritainmen-store-refresh-token', 'saved-refresh')
+    configureApiClient({ dataMode: 'api', baseUrl: 'https://api.example.com', getAccessToken: () => tokens.get('agritainmen-store-access-token'), transport: async (request) => {
+      if (request.url.endsWith('/auth/me')) {
+        expect(request.headers.Authorization).toBe('Bearer saved-access')
+        return envelope({ actorType: 'store', actorId: 'AUTH-1', tenantId: 'PLATFORM', farmId: 'F001', roles: ['store', 'owner'] })
+      }
+      if (request.url.endsWith('/auth/store/farm')) return envelope({ farmId: 'F001', name: '石板溪', contact: '王店长', contactPhone: '13900000111', address: '湖南省门店1号', priceLevel: null })
+      if (request.url.includes('/catalog/products')) return envelope({ items: [], page: 1, pageSize: 200, total: 0 })
+      if (request.url.includes('/api/v1/orders?')) return envelope({ items: [{ id: 'O-RESTORED', orderNo: 'NO-1', buyerId: 'F001', status: 'PAID', amountCents: 100, receiver: '王店长', receiverPhone: '13900000111', address: '湖南省门店1号', createdAt: '2026-11-15T10:00:00Z', items: [{ skuId: 'SKU1', productId: 'P1', name: '腊肉', unitPriceCents: 100, quantity: 1 }] }], page: 1, pageSize: 200, total: 1 })
+      throw new Error(`unexpected ${request.url}`)
+    } })
+    const store = useStoreStore()
+    expect(await store.restoreApiSession()).toBe(true)
+    expect(store.auth).toMatchObject({ isLoggedIn: true, accountId: 'AUTH-1', farmId: 'F001' })
+    expect(store.orders.map((item) => item.id)).toEqual(['O-RESTORED'])
+  })
+
+  it('rejects a stored identity when no server token remains', async () => {
+    configureApiClient({ dataMode: 'api', baseUrl: 'https://api.example.com' })
+    const store = useStoreStore()
+    store.auth = { ...store.auth, isLoggedIn: true, accountId: 'OLD', farmId: 'F001', tenantId: 'PLATFORM', role: 'owner' }
+    store.orders = [{ id: 'OLD' } as (typeof store.orders)[number]]
+    expect(await store.restoreApiSession()).toBe(false)
+    expect(store.auth.isLoggedIn).toBe(false)
+    expect(store.orders).toHaveLength(0)
   })
 })

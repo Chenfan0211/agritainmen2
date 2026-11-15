@@ -1,4 +1,4 @@
-import { configureMediaRuntime, initializePlatformRecoveryHandlers, migratePersistedState, persistedEnvelope, purgeRetiredAllianceData, reconcilePendingPlatformTransactions } from '@agritainment/shared'
+import { configureMediaRuntime, getApiClientConfig, initializePlatformRecoveryHandlers, migratePersistedState, persistedEnvelope, purgeRetiredAllianceData, reconcilePendingPlatformTransactions } from '@agritainment/shared'
 import { createStoreMediaRuntime } from './media/runtime'
 import { configureStoreApiRuntime } from './services/api-runtime'
 import { createStoreAtomicRecoveryHandlerRegistrations, useStoreStore } from './stores/store'
@@ -6,6 +6,7 @@ import { createStoreAtomicRecoveryHandlerRegistrations, useStoreStore } from './
 const persistedKeys = ['info', 'products', 'cart', 'checkoutLineKeys', 'orders', 'auth'] as const
 
 function configureStorePersistence() {
+  if (getApiClientConfig().dataMode === 'api') return
   const store = useStoreStore()
   const saved = wx.getStorageSync('agritainment-store-store')
   if (saved) store.$patch(migratePersistedState(saved, store.$state))
