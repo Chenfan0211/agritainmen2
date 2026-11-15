@@ -43,6 +43,8 @@ class OrgAuthorizationAuditTest {
         assertEquals(403, status(HttpMethod.PUT, "/api/v1/org/suppliers/S1/account",
                 token("admin", "PLATFORM", List.of("supplier.account.update")), false));
         assertEquals(200, status(HttpMethod.GET, "/api/v1/org/farms", token("admin", "PLATFORM", List.of("farm.manage")), false));
+        assertEquals(200, status(HttpMethod.GET, "/api/v1/org/farm-accounts", token("admin", "PLATFORM", List.of("farm.manage")), false));
+        assertEquals(403, status(HttpMethod.GET, "/api/v1/org/farm-accounts", token("admin", "PLATFORM", List.of("supplier.audit")), false));
     }
 
     @Test
@@ -62,6 +64,15 @@ class OrgAuthorizationAuditTest {
                 "PLATFORM", List.of("service"), List.of("farm-account.inspect")));
         assertEquals(404, status(HttpMethod.GET, "/api/v1/org/farm-accounts/MISSING", service, false));
         assertEquals(403, status(HttpMethod.POST, "/api/v1/org/farm-accounts", service, false));
+    }
+
+    @Test
+    void authServiceCanReadOnlyAnExactFarmProfile() {
+        String service = jwt.createAccessToken(new TokenClaims("auth-service", "service", "auth-service", "PLATFORM",
+                List.of("service"), List.of("farm.inspect")));
+        assertEquals(404, status(HttpMethod.GET, "/api/v1/org/farms/MISSING", service, false));
+        assertEquals(403, status(HttpMethod.POST, "/api/v1/org/farms", service, Map.of()));
+        assertEquals(403, status(HttpMethod.GET, "/api/v1/org/farm-accounts", service, false));
     }
 
     @Test

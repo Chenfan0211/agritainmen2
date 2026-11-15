@@ -1397,6 +1397,7 @@ export interface StoreAccount {
   password: string
   role: StoreRole
   enabled: boolean
+  provisioned?: boolean
   promoEnabled?: boolean
   priceLevel?: StorePriceLevel
   createdAt?: string

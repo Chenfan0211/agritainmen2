@@ -76,7 +76,7 @@ final class AdminTokenFilter extends OncePerRequestFilter {
         List<String> permissions = claims.permissions() == null ? List.of() : claims.permissions();
         if (permissions.contains("*")) return true;
         if (path.equals("/api/v1/auth/admin/store-accounts")) {
-            return "POST".equals(method) && permissions.contains("farm.manage");
+            return ("POST".equals(method) || "GET".equals(method)) && permissions.contains("farm.manage");
         }
         if (path.startsWith("/api/v1/auth/admin/supplier-accounts")) {
             return switch (method) {

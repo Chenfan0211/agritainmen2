@@ -137,6 +137,14 @@ public class OrgWriteController {
         return ApiResponse.ok(farm(id));
     }
 
+    @GetMapping("/farm-accounts")
+    public ApiResponse<List<Map<String, Object>>> farmAccounts() {
+        return ApiResponse.ok(jdbc.queryForList("""
+                select id, farm_id, account, display_name, role, price_level, enabled
+                from org_farm_account where tenant_id='PLATFORM' and deleted=false order by account
+                """));
+    }
+
     @PostMapping("/farm-accounts")
     public ApiResponse<Map<String, Object>> createFarmAccount(@Valid @RequestBody FarmAccountRequest request) {
         String id = Ids.uuid("FACC");

@@ -164,6 +164,13 @@ public class AuthService {
         }
     }
 
+    public StoreAccountBindingClient.StoreFarm storeFarm(String token) {
+        TokenClaims claims = verifyAccessToken(token);
+        if (!"store".equals(claims.actorType())) throw new BusinessException(ErrorCode.FORBIDDEN);
+        AuthAccount account = accountMapper.selectById(claims.actorId());
+        return storeAccountBindingClient.farm(storeAccountBindingClient.requireActive(account));
+    }
+
     private TokenClaims parseRefresh(String refreshToken) {
         try {
             if (!jwtService.isRefreshToken(refreshToken)) throw new BusinessException(ErrorCode.UNAUTHORIZED);

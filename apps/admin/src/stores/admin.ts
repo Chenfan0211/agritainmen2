@@ -942,6 +942,11 @@ export const useAdminStore = defineStore('operations', {
           : await adminRepository.loadDashboard(this.mockScenario)
         const serverSupplierAccounts = apiMode && this.canMenu('suppliers')
           ? await apiRequest<SupplierAccountDto[]>('/api/v1/auth/admin/supplier-accounts') : []
+        const serverFarmAccounts = apiMode && this.canMenu('farms')
+          ? await apiRequest<Array<{ id: string; farm_id: string; account: string; display_name: string; role: StoreAccount['role']; price_level?: StoreAccount['priceLevel']; enabled: boolean }>>('/api/v1/org/farm-accounts') : []
+        const serverStoreBindings = apiMode && this.canMenu('farms')
+          ? await apiRequest<Array<{ storeAccountId: string; enabled: boolean }>>('/api/v1/auth/admin/store-accounts') : []
+        const bindingsByOrgId = new Map(serverStoreBindings.map((binding) => [binding.storeAccountId, binding]))
         const legacyProducts = hasPersistedData ? mergeEntitySeeds(data.products, this.products) : data.products
         const cInventory = readCInventoryState()
         const catalog = apiMode ? null : readCatalogState() ?? ensureCatalogState(legacyProducts, normalizeCProducts(cInventory?.products || []))
@@ -988,7 +993,11 @@ export const useAdminStore = defineStore('operations', {
           dictItems: dictionaries.items,
           dictionaryRevision: dictionaries.revision,
           dictionaryUpdatedAt: dictionaries.updatedAt,
-          storeAccounts: mergePlatformStoreAccounts(data.storeAccounts, readPlatformStoreAccounts()),
+          storeAccounts: apiMode ? serverFarmAccounts.map((account) => ({
+            id: account.id, farmId: account.farm_id, name: account.display_name, account: account.account,
+            password: '', role: account.role, priceLevel: account.price_level, enabled: account.enabled && bindingsByOrgId.get(account.id)?.enabled !== false,
+            provisioned: bindingsByOrgId.has(account.id)
+          })) : mergePlatformStoreAccounts(data.storeAccounts, readPlatformStoreAccounts()),
           adminUsers: apiMode && this.canMenu('users') ? (await createAdminQueryClient().users()).items : [],
           adminRoles: apiMode ? (this.canMenu('roles') ? (await createAdminQueryClient().roles()).map((item) => ({ id: item.id, code: item.code, name: item.name, menuPermissions: [], actionPermissions: [], enabled: item.enabled }) as never) : []) : adminRoles,
           adminAccounts: apiMode ? (this.canMenu('accounts') ? (await createAdminQueryClient().accounts()).map((item) => ({ id: item.id, account: item.account, name: item.displayName, roleId: item.roleCode || '', enabled: item.enabled }) as never) : []) : adminAccounts,
@@ -1687,11 +1696,35 @@ export const useAdminStore = defineStore('operations', {
     },
     async addStoreAccount(payload: { farmId: string; name: string; account: string; password: string; role: StoreAccount['role']; promoEnabled?: boolean; priceLevel?: StoreAccount['priceLevel'] }) {
       if (getApiClientConfig().dataMode === 'api') {
+        if (!payload.farmId || !payload.name.trim() || !payload.account.trim() || !payload.password.trim()) {
+          this.error = '门店账号信息不完整'
+          return false
+        }
+        const existing = this.storeAccounts.find((item) => item.account === payload.account.trim())
+        if (existing?.provisioned !== false && existing) {
+          this.error = '门店账号已存在'
+          return false
+        }
+        if (existing && existing.farmId !== payload.farmId) {
+          this.error = '门店账号所属门店不一致'
+          return false
+        }
+        let accountId = existing?.id
         try {
-          const created = await apiRequest<{ id: string; farm_id: string; account: string; display_name: string }>('/api/v1/org/farm-accounts', { method: 'POST', idempotencyKey: createIdempotencyKey('store-account'), body: { farmId: payload.farmId, account: payload.account.trim(), displayName: payload.name.trim(), role: payload.role, priceLevel: payload.priceLevel } })
-          this.storeAccounts = [{ id: created.id, farmId: created.farm_id, name: created.display_name, account: created.account, password: payload.password, role: payload.role, enabled: true, promoEnabled: payload.promoEnabled ?? false, priceLevel: payload.priceLevel } as never, ...this.storeAccounts]
+          if (!accountId) {
+            const created = await apiRequest<{ id: string; farm_id: string; account: string; display_name: string }>('/api/v1/org/farm-accounts', { method: 'POST', idempotencyKey: createIdempotencyKey('store-account'), body: { farmId: payload.farmId, account: payload.account.trim(), displayName: payload.name.trim(), role: payload.role, priceLevel: payload.priceLevel } })
+            accountId = created.id
+            this.storeAccounts = [{ id: created.id, farmId: created.farm_id, name: created.display_name, account: created.account, password: '', role: payload.role, enabled: true, provisioned: false, priceLevel: payload.priceLevel }, ...this.storeAccounts]
+          }
+          await apiRequest('/api/v1/auth/admin/store-accounts', { method: 'POST', body: { storeAccountId: accountId, password: payload.password } })
+          this.storeAccounts = this.storeAccounts.map((item) => item.id === accountId ? { ...item, provisioned: true } : item)
+          this.error = ''
           return true
-        } catch (error) { this.error = error instanceof Error ? error.message : '新增门店账号失败'; return false }
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : '服务暂不可用'
+          this.error = accountId ? `组织账号已创建，登录开通失败：${reason}；请保持当前表单并再次保存重试` : reason
+          return false
+        }
       }
       const valid = !!payload.farmId && !!payload.name.trim() && !!payload.account.trim() && !!payload.password.trim() && !this.storeAccounts.some((item) => item.farmId === payload.farmId && item.account === payload.account)
       const revision = readPlatformCollectionRevision(PLATFORM_STORE_ACCOUNTS_STORAGE_KEY)
@@ -1710,9 +1743,18 @@ export const useAdminStore = defineStore('operations', {
     },
     async updateStoreAccount(id: string, payload: { name?: string; account?: string; password?: string; role?: StoreAccount['role']; enabled?: boolean; promoEnabled?: boolean; priceLevel?: StoreAccount['priceLevel'] }) {
       if (getApiClientConfig().dataMode === 'api') {
+        const current = this.storeAccounts.find((candidate) => candidate.id === id)
+        if (!current) { this.error = '门店账号不存在'; return false }
+        if ((payload.account !== undefined && payload.account !== current.account) || payload.password?.trim()
+          || (payload.role !== undefined && payload.role !== current.role)
+          || payload.promoEnabled === true) {
+          this.error = '当前服务端不支持修改登录账号、密码、角色或推广权限'
+          return false
+        }
         try {
-          await apiRequest('/api/v1/org/farm-accounts/' + encodeURIComponent(id), { method: 'PUT', idempotencyKey: createIdempotencyKey('store-account'), body: { displayName: payload.name, priceLevel: payload.priceLevel, enabled: payload.enabled } })
-          this.storeAccounts = this.storeAccounts.map((candidate) => candidate.id === id ? { ...candidate, ...payload } as never : candidate)
+          const updated = await apiRequest<{ display_name: string; price_level: StoreAccount['priceLevel']; enabled: boolean }>('/api/v1/org/farm-accounts/' + encodeURIComponent(id), { method: 'PUT', idempotencyKey: createIdempotencyKey('store-account'), body: { displayName: payload.name, priceLevel: payload.priceLevel, enabled: payload.enabled } })
+          this.storeAccounts = this.storeAccounts.map((candidate) => candidate.id === id ? { ...candidate, name: updated.display_name, priceLevel: updated.price_level, enabled: updated.enabled } : candidate)
+          this.error = ''
           return true
         } catch (error) { this.error = error instanceof Error ? error.message : '修改门店账号失败'; return false }
       }

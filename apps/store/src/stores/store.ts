@@ -3,7 +3,8 @@ import { defineStore } from './native-store'
 import type { AfterSale, BusinessMediaValue, CatalogState, MockScenario, Order, OrderItem, OrderStatus, PlatformJournalEntry, PlatformRecoveryHandlerKey, PlatformPrincipal, Product, PurchaseStatus, StoreAccount, StoreRole } from '@agritainment/shared'
 import { abortCatalogTransaction, applyCatalogStockOperation, applyPlatformMedia, buildSupplierAccountSeeds, buildSupplierPlatformOrders, calcCartTotal, catalogProductToProduct, catalogProductsForAudience, cProducts, cloneSeed, commitCatalogTransaction, createId, createStrictSnapshotRecoveryHandlerRegistration, enqueuePlatformRecovery, ensureCatalogState, initializePlatformRecoveryHandlers, initialCatalogOrderQuantity, markCatalogTransactionStockApplied, mediaValueToImage, mergeEntitySeeds, mergePersistedDefaults, mergePlatformEntities, mergePlatformStoreAccounts, mergePlatformSupplierAccounts, nextPurchaseStatus, normalizeMinimumOrderQuantity, PLATFORM_AFTERSALES_STORAGE_KEY, PLATFORM_CATALOG_STORAGE_KEY, PLATFORM_ENTITIES_STORAGE_KEY, PLATFORM_ORDERS_STORAGE_KEY, PLATFORM_RECOVERY_QUEUE_STORAGE_KEY, PLATFORM_TRANSACTION_JOURNAL_STORAGE_KEY, prepareCatalogTransaction, pricePolicies, purchaseSteps, readCatalogState, readCatalogTransactionJournal, readPendingCatalogTransactions, readPlatformAfterSales, readPlatformCollectionRevision, readPlatformEntities, readPlatformMedia, readPlatformOrders, readPlatformRecoveryQueue, readPlatformStoreAccounts, readPlatformSupplierAccounts, reconcilePendingPlatformTransactions, resolvePlatformJournal, round2, runLockedPlatformTransaction, storeAccounts, supplierCanReceiveNewOrders, suppliers as supplierSeeds, tieredUnitPrice, validateCatalogSkuOrderQuantity, validateSmsCode, writeCatalogState, writePlatformAfterSale, writePlatformAfterSales, writePlatformOrder, writePlatformOrders } from '@agritainment/shared'
 import { storeInfo, storeInfoForFarm, storeRepository } from '../services/repository'
-import { businessPriceLevelDiscount, businessPriceLevelLabel, resolveBusinessPriceLevel, type BusinessPriceLevel } from '../price-level'
+import { clearStoreTokens, getStoreRefreshToken, saveStoreTokens } from '../services/api-runtime'
+import { businessPriceLevelDiscount, businessPriceLevelLabel, isBusinessPriceLevel, resolveBusinessPriceLevel, type BusinessPriceLevel } from '../price-level'
 
 interface CartLine {
   productId: string
@@ -78,9 +79,47 @@ interface StoreAuthState {
   priceLevel: BusinessPriceLevel | null
 }
 
+interface StoreApiProfile {
+  actorType: string
+  actorId: string
+  tenantId: string
+  displayName?: string
+  farmId?: string
+  roles?: string[]
+}
+
+interface StoreApiFarm {
+  farmId: string
+  name: string
+  contact: string
+  contactPhone: string
+  address: string
+  priceLevel: string | null
+}
+
+async function loadApiFarm(farmId: string, role: StoreRole) {
+  const farm = await apiRequest<StoreApiFarm>('/api/v1/auth/store/farm')
+  if (farm.farmId !== farmId || !farm.name?.trim() || (role === 'staff' && !isBusinessPriceLevel(farm.priceLevel))) {
+    throw new Error('门店资料与登录账号不匹配')
+  }
+  return {
+    info: {
+      name: `${farm.name}·门店`, image: '', shortName: farm.name.slice(0, 6), region: '', city: '',
+      address: farm.address || '', phone: farm.contactPhone || '', contact: farm.contact || '',
+      hours: '', accountNo: farmId, account: ''
+    } as typeof storeInfo,
+    priceLevel: role === 'staff' && isBusinessPriceLevel(farm.priceLevel) ? farm.priceLevel : null
+  }
+}
+
 interface StoreTenantSession {
   cart: CartLine[]
   orders: StoreOrder[]
+}
+
+const emptyApiStoreInfo: typeof storeInfo = {
+  name: '', image: '', shortName: '', region: '', city: '', address: '', phone: '',
+  contact: '', hours: '', accountNo: '', account: ''
 }
 
 interface StoreState {
@@ -539,24 +578,24 @@ export const useStoreStore = defineStore('store', {
           if (!reconciliation.ok) throw new Error(reconciliation.message)
         }
         const farmId = this.auth.farmId || 'F001'
-        const account = this.currentStoreAccounts().find((item: StoreAccount) => item.id === this.auth.accountId)
-        // 运营后台可能调整了业务员档位，登录期间刷新时同步到当前会话
-        if (this.auth.isLoggedIn) this.auth.priceLevel = resolveBusinessPriceLevel(account)
         const apiMode = getApiClientConfig().dataMode === 'api'
+        const account = apiMode ? undefined : this.currentStoreAccounts().find((item: StoreAccount) => item.id === this.auth.accountId)
+        // 运营后台可能调整了业务员档位，登录期间刷新时同步到当前会话
+        if (this.auth.isLoggedIn && !apiMode) this.auth.priceLevel = resolveBusinessPriceLevel(account)
         const data = apiMode
-          ? { info: storeInfoForFarm(farmId, account), products: (await createCatalogApiClient().listProducts({ channel: 'store', pageSize: 200 })).items }
+          ? { info: this.auth.isLoggedIn ? this.info : emptyApiStoreInfo, products: (await createCatalogApiClient().listProducts({ channel: 'store', pageSize: 200 })).items }
           : await storeRepository.loadStore(this.mockScenario, farmId, account)
         const catalog = apiMode ? null : ensureCatalogState(data.products, cProducts)
         this.$patch({
-          info: hasPersistedData ? mergePersistedDefaults(data.info, this.info) : data.info,
+          info: hasPersistedData && !apiMode ? mergePersistedDefaults(data.info, this.info) : data.info,
           products: apiMode ? data.products : catalogProductsForAudience(catalog!, 'ordering').map(catalogProductToProduct),
           catalogRevision: catalog?.revision ?? 0,
-          orders: mergeStoreOrders(farmId, this.orders),
+          orders: apiMode ? this.auth.isLoggedIn ? this.orders.filter((order) => order.farmId === farmId) : [] : mergeStoreOrders(farmId, this.orders),
           initialized: true
         })
         applyPlatformMedia(null, this.products)
         const storeMedia = readPlatformMedia()
-        if (storeMedia?.farms[farmId]) this.info.image = storeMedia.farms[farmId]
+        if (!apiMode && storeMedia?.farms[farmId]) this.info.image = storeMedia.farms[farmId]
         this.cart.forEach((line) => {
           const product = this.products.find((item) => item.id === line.productId)
           const sku = product?.skus.find((item) => item.id === line.skuId) || product?.skus[0]
@@ -762,6 +801,14 @@ export const useStoreStore = defineStore('store', {
         return null
       }
       if (getApiClientConfig().dataMode === 'api') {
+        if (!this.auth.isLoggedIn || !this.auth.farmId) {
+          this.checkoutError = '请先登录门店账号'
+          return null
+        }
+        if (!this.info.contact.trim() || !this.info.phone.trim() || !this.info.address.trim()) {
+          this.checkoutError = '请完善门店收货人、电话和地址后下单'
+          return null
+        }
         const amount = calcCartTotal(selectedLines.map(({ price, quantity }) => ({ price, quantity })))
         const itemCount = selectedLines.reduce((sum, line) => sum + line.quantity, 0)
         const nowDate = new Date()
@@ -771,15 +818,15 @@ export const useStoreStore = defineStore('store', {
             method: 'POST',
             idempotencyKey: createIdempotencyKey('order'),
             body: {
-              buyerId: this.auth.farmId || 'F001',
+              buyerId: this.auth.farmId,
               items: selectedLines.map((line) => ({ skuId: line.skuId, quantity: line.quantity })),
-              receiver: this.info.contact || this.info.name,
-              receiverPhone: this.info.phone || '00000000000',
+              receiver: this.info.contact,
+              receiverPhone: this.info.phone,
               address: this.info.address,
             }
           })
           const order: StoreOrder = {
-            id: created.id, farmId: this.auth.farmId || 'F001', amount: created.amountCents / 100, saved: 0, itemCount,
+            id: created.id, farmId: this.auth.farmId, amount: created.amountCents / 100, saved: 0, itemCount,
             items: selectedLines.map((line) => ({ productId: line.productId, skuId: line.skuId, skuName: line.skuName, name: line.name, image: mediaValueToImage(line.image), quantity: line.quantity, price: line.price, minimumOrderQuantity: normalizeMinimumOrderQuantity(line.minimumOrderQuantity) })),
             status: 'pending-payment', createdAt: now, paymentDeadlineAt: new Date(nowDate.getTime() + 15 * 60 * 1000).toISOString(),
             logistics: [{ time: now, title: '订单待付款', detail: '请在 15 分钟内完成支付，支付后进入待接单' }], remark: remark.trim() || undefined
@@ -1116,11 +1163,55 @@ export const useStoreStore = defineStore('store', {
     },
     /** 门店/业务员两类角色登录：传入 role 时只接受对应角色的账号 */
     loginWithPassword(phone: string, password: string, role?: StoreRole) {
+      if (getApiClientConfig().dataMode === 'api') return this.loginWithApiPassword(phone, password, role)
       const normalized = phone.trim()
       const account = this.currentStoreAccounts().find((item: StoreAccount) => item.account === normalized && item.password === password && item.enabled && (!role || item.role === role))
       return account ? this.activateStoreAccount(account) : false
     },
+    async loginWithApiPassword(phone: string, password: string, role?: StoreRole): Promise<boolean> {
+      this.error = ''
+      let savedNewTokens = false
+      try {
+        const token = await apiRequest<{ accessToken: string; refreshToken: string; profile: StoreApiProfile }>(
+          '/api/v1/auth/store/login', { method: 'POST', body: { account: phone.trim(), password }, retryOnUnauthorized: false })
+        const profile = token.profile
+        const actualRole = profile?.roles?.includes('owner') ? 'owner' : profile?.roles?.includes('staff') ? 'staff' : null
+        if (profile?.actorType !== 'store' || profile.tenantId !== 'PLATFORM' || !profile.actorId || !profile.farmId || !actualRole || (role && role !== actualRole)
+          || !token.accessToken || !token.refreshToken) {
+          this.error = '账号角色或门店绑定不匹配'
+          return false
+        }
+        saveStoreTokens(token.accessToken, token.refreshToken)
+        savedNewTokens = true
+        const farm = await loadApiFarm(profile.farmId, actualRole)
+        if (this.auth.farmId && this.auth.farmId !== profile.farmId) this.saveCurrentTenantSession()
+        const session = this.tenantSessions[profile.farmId]
+        this.cart = session ? cloneSeed(session.cart) : []
+        this.orders = session ? cloneSeed(session.orders) : []
+        this.checkoutLineKeys = this.cart.map(cartLineKey)
+        const principal: PlatformPrincipal = { actorType: 'store', actorId: profile.actorId, tenantId: 'PLATFORM', status: 'active' }
+        this.auth = { isLoggedIn: true, phone: phone.trim(), principal, accountId: profile.actorId,
+          farmId: profile.farmId, tenantId: 'PLATFORM', role: actualRole, priceLevel: farm.priceLevel }
+        this.info = farm.info
+        this.repriceCart()
+        return true
+      } catch (error) {
+        this.error = error instanceof Error ? error.message : '登录失败'
+        if (savedNewTokens) {
+          clearStoreTokens()
+          this.auth = { isLoggedIn: false, phone: '', principal: null, accountId: '', farmId: '', tenantId: '', role: null, priceLevel: null }
+          this.cart = []
+          this.orders = []
+          this.info = { ...emptyApiStoreInfo }
+        }
+        return false
+      }
+    },
     loginWithCode(phone: string, code: string, role?: StoreRole) {
+      if (getApiClientConfig().dataMode === 'api') {
+        this.error = '当前环境暂不支持验证码登录，请使用密码登录'
+        return false
+      }
       if (!validateSmsCode(code)) return false
       const normalized = phone.trim()
       const account = this.currentStoreAccounts().find((item: StoreAccount) => item.account === normalized && item.enabled && (!role || item.role === role))
@@ -1128,11 +1219,30 @@ export const useStoreStore = defineStore('store', {
     },
     /** 登录页身份校验：手机号已存在但角色不符时给出明确提示 */
     storeAccountRole(phone: string): StoreRole | null {
+      if (getApiClientConfig().dataMode === 'api') return null
       const normalized = phone.trim()
       return this.currentStoreAccounts().find((item: StoreAccount) => item.account === normalized && item.enabled)?.role || null
     },
     async refreshSharedState() {
       if (!this.auth.accountId) return
+      if (getApiClientConfig().dataMode === 'api') {
+        try {
+          const profile = await apiRequest<StoreApiProfile>('/api/v1/auth/me')
+          const role = profile.roles?.includes('owner') ? 'owner' : profile.roles?.includes('staff') ? 'staff' : null
+          if (profile.actorType !== 'store' || profile.actorId !== this.auth.accountId || profile.farmId !== this.auth.farmId || !role) {
+            await this.logout()
+            return
+          }
+          const farm = await loadApiFarm(profile.farmId, role)
+          this.auth.role = role
+          this.auth.priceLevel = farm.priceLevel
+          this.info = farm.info
+          await this.initialize(true)
+        } catch {
+          await this.logout()
+        }
+        return
+      }
       const account = this.currentStoreAccounts().find((item: StoreAccount) => item.id === this.auth.accountId)
       if (!account?.enabled) {
         this.logout()
@@ -1140,10 +1250,21 @@ export const useStoreStore = defineStore('store', {
       }
       await this.initialize(true)
     },
-    logout() {
+    async logout() {
+      const apiMode = getApiClientConfig().dataMode === 'api'
+      const refreshToken = apiMode ? getStoreRefreshToken() : ''
+      if (apiMode) clearStoreTokens()
       this.saveCurrentTenantSession()
       this.checkoutLineKeys = []
       this.auth = { isLoggedIn: false, phone: '', principal: null, accountId: '', farmId: '', tenantId: '', role: null, priceLevel: null }
+      if (apiMode) {
+        this.cart = []
+        this.orders = []
+        this.info = { ...emptyApiStoreInfo }
+      }
+      if (refreshToken) {
+        try { await apiRequest('/api/v1/auth/logout', { method: 'POST', body: { refreshToken }, retryOnUnauthorized: false }) } catch { /* 本地令牌已清理 */ }
+      }
     }
   }
 })

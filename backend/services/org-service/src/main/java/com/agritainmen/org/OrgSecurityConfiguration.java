@@ -141,6 +141,10 @@ public class OrgSecurityConfiguration {
                     && "service".equals(claims.actorType()) && "auth-service".equals(claims.actorId())
                     && "PLATFORM".equals(claims.tenantId()) && claims.permissions() != null
                     && claims.permissions().contains("farm-account.inspect")) return true;
+            if ("GET".equals(method) && path.matches("/api/v1/org/farms/[^/]+")
+                    && "service".equals(claims.actorType()) && "auth-service".equals(claims.actorId())
+                    && "PLATFORM".equals(claims.tenantId()) && claims.permissions() != null
+                    && claims.permissions().contains("farm.inspect")) return true;
             if (!"admin".equals(claims.actorType()) || !"PLATFORM".equals(claims.tenantId())) return false;
             List<String> permissions = claims.permissions();
             if (permissions == null) return false;

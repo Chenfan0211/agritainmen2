@@ -27,6 +27,9 @@ describe('store api order submit', () => {
     configureApiClient({ dataMode: 'api', baseUrl: 'https://api.example.com', transport })
     const store = useStoreStore()
     await store.initialize()
+    expect(store.orders).toHaveLength(0)
+    store.auth = { ...store.auth, isLoggedIn: true, accountId: 'AUTH-1', farmId: 'F1', tenantId: 'PLATFORM', role: 'owner' }
+    store.info = { ...store.info, contact: '王店长', phone: '13900000001', address: '湖南省长沙市门店1号' }
     store.addToCart(store.products[0], undefined, 2)
     const before = cloneSeed(store.cart)
     const order = await store.submitOrder()
@@ -46,10 +49,32 @@ describe('store api order submit', () => {
     configureApiClient({ dataMode: 'api', baseUrl: 'https://api.example.com', transport })
     const store = useStoreStore()
     await store.initialize()
+    store.auth = { ...store.auth, isLoggedIn: true, accountId: 'AUTH-1', farmId: 'F1', tenantId: 'PLATFORM', role: 'owner' }
+    store.info = { ...store.info, contact: '王店长', phone: '13900000001', address: '湖南省长沙市门店1号' }
     store.addToCart(store.products[0], undefined, 2)
     const order = await store.submitOrder()
     expect(order).toBe(null)
     expect(store.cart).toHaveLength(1)
     expect(store.checkoutError).toContain('下单失败')
+  })
+
+  it('does not post with an anonymous account or a missing delivery address', async () => {
+    const calls: string[] = []
+    configureApiClient({ dataMode: 'api', baseUrl: 'https://api.example.com', transport: async (request) => {
+      calls.push(request.url)
+      if (request.url.includes('/inventory/available')) return { status: 200, body: { code: 'OK', data: { SKU1: 20 } } }
+      if (request.url.includes('/catalog/products')) return catalogResponse()
+      throw new Error('unexpected order request')
+    } })
+    const store = useStoreStore()
+    await store.initialize()
+    store.addToCart(store.products[0], undefined, 2)
+    expect(await store.submitOrder()).toBe(null)
+    expect(store.checkoutError).toContain('登录')
+    store.auth = { ...store.auth, isLoggedIn: true, accountId: 'AUTH-1', farmId: 'F1', tenantId: 'PLATFORM', role: 'owner' }
+    store.info = { ...store.info, address: '', phone: '' }
+    expect(await store.submitOrder()).toBe(null)
+    expect(store.checkoutError).toContain('收货')
+    expect(calls.filter((url) => url.endsWith('/orders'))).toHaveLength(0)
   })
 })

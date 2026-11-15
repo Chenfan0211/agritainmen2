@@ -10,6 +10,7 @@ import {
   PLATFORM_SUPPLIER_ACCOUNTS_STORAGE_KEY,
   createPlatformDictionaryCache,
   defaultProductCategoryImage,
+  getApiClientConfig,
   matchesPolicyScope,
   mediaValueToImage,
   money,
@@ -277,7 +278,8 @@ Page({
     })
     const scenario = wx.getLaunchOptionsSync().query?.mock
     if (scenario === 'empty' || scenario === 'failure') store.setMockScenario(scenario)
-    await store.initialize()
+    if (getApiClientConfig().dataMode === 'api' && store.auth.isLoggedIn) await store.refreshSharedState()
+    else await store.initialize()
     if (store.auth.isLoggedIn) {
       store.cart = seedDemoStoreCart(store.cart, store.products, store.mockScenario)
       store.repriceCart()
@@ -717,6 +719,7 @@ Page({
   },
 
   sendCode() {
+    if (getApiClientConfig().dataMode === 'api') return this.toast('当前环境暂不支持验证码登录，请使用密码登录')
     if (!validatePhone(this.data.loginPhone)) return this.toast('请输入正确的手机号')
     if (this.data.codeCountdown > 0) return
     this.setData({ codeCountdown: 60, codeButtonText: '60s', codeDisabled: true })
@@ -728,16 +731,17 @@ Page({
     this.toast('验证码已发送（演示码 123456）')
   },
 
-  submitLogin() {
+  async submitLogin() {
     const ok = this.data.loginTab === 'password'
-      ? store.loginWithPassword(this.data.loginPhone, this.data.loginPassword, this.data.loginRole)
+      ? await store.loginWithPassword(this.data.loginPhone, this.data.loginPassword, this.data.loginRole)
       : store.loginWithCode(this.data.loginPhone, this.data.loginCode, this.data.loginRole)
     if (!ok) {
+      if (getApiClientConfig().dataMode === 'api') return this.toast(store.error || '登录失败')
       const role = store.storeAccountRole(this.data.loginPhone)
       if (role && role !== this.data.loginRole) return this.toast(role === 'owner' ? '该手机号是门店账号，请切换为门店账号登录' : '该手机号是业务员账号，请切换为业务员账号登录')
       return this.toast(this.data.loginTab === 'password' ? '手机号或密码错误（演示 13800000001 / 123456）' : '手机号或验证码错误（演示验证码 123456）')
     }
-    store.cart = seedDemoStoreCart(store.cart, store.products, store.mockScenario)
+    if (getApiClientConfig().dataMode !== 'api') store.cart = seedDemoStoreCart(store.cart, store.products, store.mockScenario)
     store.repriceCart()
     if (!store.checkoutLineKeys.length) store.toggleAllCheckoutSelection()
     store.saveCurrentTenantSession()
@@ -745,8 +749,8 @@ Page({
     this.syncFromStore()
   },
 
-  logout() {
-    store.logout()
+  async logout() {
+    await store.logout()
     this.toast('已退出登录')
     this.syncFromStore()
   }

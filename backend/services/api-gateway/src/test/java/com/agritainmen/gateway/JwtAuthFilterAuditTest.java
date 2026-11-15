@@ -127,6 +127,20 @@ class JwtAuthFilterAuditTest {
     }
 
     @Test
+    void authServiceCanReadOnlyExactFarmProfileThroughGateway() {
+        String service = token(key, "access", Instant.now().plusSeconds(300), "service", "auth-service",
+                "PLATFORM", List.of("farm.inspect"));
+        assertTrue(invoke(HttpMethod.GET, "/api/v1/org/farms/F1", service, null).chainCalled());
+        assertEquals(HttpStatus.FORBIDDEN, invoke(HttpMethod.GET, "/api/v1/org/farms", service, null).status());
+        assertEquals(HttpStatus.FORBIDDEN, invoke(HttpMethod.POST, "/api/v1/org/farms/F1", service, null).status());
+        assertEquals(HttpStatus.FORBIDDEN, invoke(HttpMethod.GET, "/api/v1/org/farm-accounts/FACC1", service, null).status());
+        String bindingService = token(key, "access", Instant.now().plusSeconds(300), "service", "auth-service",
+                "PLATFORM", List.of("farm-account.inspect"));
+        assertTrue(invoke(HttpMethod.GET, "/api/v1/org/farm-accounts/FACC1", bindingService, null).chainCalled());
+        assertEquals(HttpStatus.FORBIDDEN, invoke(HttpMethod.GET, "/api/v1/org/farms/F1", bindingService, null).status());
+    }
+
+    @Test
     void mediaAndSupplierAccountRoutesCheckPlatformAdminPermissions() {
         assertAllowed(HttpMethod.POST, "/api/v1/org/media", "admin", "PLATFORM", List.of("supplier.update"));
         assertAllowed(HttpMethod.POST, "/api/v1/org/media", "admin", "PLATFORM", List.of("farm.manage"));
@@ -134,6 +148,7 @@ class JwtAuthFilterAuditTest {
         assertDenied(HttpMethod.POST, "/api/v1/org/media", "admin", "PLATFORM", List.of("supplier.audit"));
         assertAllowed(HttpMethod.POST, "/api/v1/auth/admin/supplier-accounts", "admin", "PLATFORM", List.of("supplier.audit"));
         assertAllowed(HttpMethod.POST, "/api/v1/auth/admin/store-accounts", "admin", "PLATFORM", List.of("farm.manage"));
+        assertAllowed(HttpMethod.GET, "/api/v1/auth/admin/store-accounts", "admin", "PLATFORM", List.of("farm.manage"));
         assertDenied(HttpMethod.POST, "/api/v1/auth/admin/store-accounts", "admin", "PLATFORM", List.of("supplier.audit"));
         assertAllowed(HttpMethod.PUT, "/api/v1/auth/admin/supplier-accounts/A1", "admin", "PLATFORM", List.of("supplier.account.update"));
         assertAllowed(HttpMethod.PATCH, "/api/v1/auth/admin/supplier-accounts/A1", "admin", "PLATFORM", List.of("supplier.account.freeze"));
@@ -228,6 +243,11 @@ class JwtAuthFilterAuditTest {
 
     private String token(SecretKey signingKey, String tokenType, Instant expiration,
                          String actorType, String tenantId, List<String> permissions) {
+        return token(signingKey, tokenType, expiration, actorType, "ACCOUNT-ADMIN", tenantId, permissions);
+    }
+
+    private String token(SecretKey signingKey, String tokenType, Instant expiration,
+                         String actorType, String actorId, String tenantId, List<String> permissions) {
         Instant now = Instant.now();
         return Jwts.builder()
                 .issuer(ISSUER)
@@ -235,7 +255,7 @@ class JwtAuthFilterAuditTest {
                 .issuedAt(Date.from(now.minusSeconds(600)))
                 .expiration(Date.from(expiration))
                 .claim("actorType", actorType)
-                .claim("actorId", "ACCOUNT-ADMIN")
+                .claim("actorId", actorId)
                 .claim("tenantId", tenantId)
                 .claim("roles", List.of("super_admin"))
                 .claim("permissions", permissions)

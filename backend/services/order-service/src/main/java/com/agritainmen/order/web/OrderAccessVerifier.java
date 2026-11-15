@@ -23,7 +23,7 @@ public class OrderAccessVerifier {
         this.auth = RestClient.builder().baseUrl(baseUrl).requestFactory(requests).build();
     }
 
-    public record Identity(String actorType, String actorId) {}
+    public record Identity(String actorType, String actorId, String farmId) {}
 
     public Identity verify(String authorization) {
         if (authorization == null || !authorization.startsWith("Bearer "))
@@ -45,12 +45,13 @@ public class OrderAccessVerifier {
         String id = profile.path("actorId").asText();
         if (!"PLATFORM".equals(profile.path("tenantId").asText()) || id.isBlank())
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        return new Identity(type, id);
+        return new Identity(type, id, profile.path("farmId").asText());
     }
 
     public void requireBuyer(String authorization, String buyerId) {
         Identity identity = verify(authorization);
         if ("admin".equals(identity.actorType())) return;
+        if ("store".equals(identity.actorType()) && !identity.farmId().isBlank() && identity.farmId().equals(buyerId)) return;
         if (!"user".equals(identity.actorType()) || !identity.actorId().equals(buyerId))
             throw new BusinessException(ErrorCode.FORBIDDEN);
     }
@@ -59,11 +60,13 @@ public class OrderAccessVerifier {
         Identity identity = verify(authorization);
         if ("admin".equals(identity.actorType())) return requestedBuyerId;
         if ("user".equals(identity.actorType())) return identity.actorId();
+        if ("store".equals(identity.actorType()) && !identity.farmId().isBlank()) return identity.farmId();
         throw new BusinessException(ErrorCode.FORBIDDEN);
     }
 
     public void requireReadable(Identity identity, String buyerId) {
         if ("admin".equals(identity.actorType())) return;
+        if ("store".equals(identity.actorType()) && !identity.farmId().isBlank() && identity.farmId().equals(buyerId)) return;
         if (!"user".equals(identity.actorType()) || !identity.actorId().equals(buyerId))
             throw new BusinessException(ErrorCode.NOT_FOUND, "订单不存在");
     }

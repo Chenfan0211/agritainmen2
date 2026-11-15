@@ -18,6 +18,8 @@ describe('admin api dashboard bootstrap', () => {
       urls.push(request.url)
       if (request.url.includes('/auth/me')) return { status: 200, body: { code: 'OK', data: { actorType: 'admin', actorId: 'A1', tenantId: 'PLATFORM', roles: ['super_admin'], permissions: ['*'] } } }
       if (request.url.includes('/auth/admin/supplier-accounts')) return { status: 200, body: { code: 'OK', data: [] } }
+      if (request.url.includes('/auth/admin/store-accounts')) return { status: 200, body: { code: 'OK', data: [{ id: 'AUTH-1', storeAccountId: 'FACC-1', farmId: 'F1', account: '13900000001', enabled: true }] } }
+      if (request.url.includes('/org/farm-accounts')) return { status: 200, body: { code: 'OK', data: [{ id: 'FACC-1', farm_id: 'F1', account: '13900000001', display_name: '店主', role: 'owner', enabled: true }, { id: 'FACC-2', farm_id: 'F1', account: '13900000002', display_name: '店员', role: 'staff', enabled: true }] } }
       if (request.url.includes('/org/suppliers')) return { status: 200, body: { code: 'OK', message: 'ok', data: [{ id: 'S1', name: 'API 供应商', region: '湘西', status: 'active', contactPhone: '138' }] } }
       if (request.url.includes('/org/farms')) return { status: 200, body: { code: 'OK', message: 'ok', data: [{ id: 'F1', name: 'API 门店', region: '湘西', status: 'active' }] } }
       if (request.url.includes('/catalog/products')) return { status: 200, body: { code: 'OK', message: 'ok', data: { items: [{ id: 'P1', supplierId: 'S1', name: 'API 商品', category: 'fresh', channel: 'store', enabled: true, skus: [{ id: 'SKU1', name: '500g', priceCents: 5990, enabled: true }] }], page: 1, pageSize: 200, total: 1 } } }
@@ -43,6 +45,10 @@ describe('admin api dashboard bootstrap', () => {
     expect(store.orders).toHaveLength(1)
     expect(store.orders[0]).toMatchObject({ id: 'O1', amount: 100 })
     expect(store.farms).toHaveLength(1)
+    expect(store.storeAccounts).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'FACC-1', provisioned: true, password: '' }),
+      expect.objectContaining({ id: 'FACC-2', provisioned: false, password: '' })
+    ]))
     expect(urls.some((url) => url.includes('/catalog/products'))).toBe(true)
   })
 })

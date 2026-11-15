@@ -79,6 +79,13 @@ public class AuthController {
                 "store".equals(claims.actorType()) ? claims.subject() : null));
     }
 
+    @GetMapping("/store/farm")
+    public ApiResponse<com.agritainmen.auth.service.StoreAccountBindingClient.StoreFarm> storeFarm(
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        if (authorization == null || !authorization.startsWith("Bearer ")) throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        return ApiResponse.ok(authService.storeFarm(authorization.substring(7)));
+    }
+
     private ResponseCookie refreshCookie(HttpServletRequest request, String refreshToken) {
         return ResponseCookie.from(ADMIN_REFRESH_COOKIE, refreshToken)
                 .httpOnly(true)

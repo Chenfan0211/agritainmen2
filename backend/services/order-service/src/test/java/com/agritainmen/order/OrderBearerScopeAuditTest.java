@@ -57,6 +57,25 @@ class OrderBearerScopeAuditTest {
         assertEquals(403, status("Bearer store-unbound", "F001", "ORDER-" + UUID.randomUUID()));
     }
 
+    @Test void boundStoreCanOnlyCreateAndReadItsOwnFarmOrders() {
+        assertEquals(403, status("Bearer store-a", "F002", "ORDER-" + UUID.randomUUID()));
+        String own = create("Bearer store-a", "F001");
+        String other = create("Bearer store-b", "F002");
+        JsonNode list = client.get().uri("/api/v1/orders?buyerId=F002")
+                .header("Authorization", "Bearer store-a").retrieve().body(JsonNode.class);
+        List<String> ids = new ArrayList<>();
+        for (JsonNode item : list.path("data").path("items")) {
+            assertEquals("F001", item.path("buyerId").asText());
+            ids.add(item.path("id").asText());
+        }
+        assertTrue(ids.contains(own));
+        assertFalse(ids.contains(other));
+        int detailStatus = client.get().uri("/api/v1/orders/" + other)
+                .header("Authorization", "Bearer store-a")
+                .exchange((request, response) -> response.getStatusCode().value());
+        assertEquals(404, detailStatus);
+    }
+
     @Test void anonymousCannotProbeWhetherAnOrderExists() {
         int status = client.get().uri("/api/v1/orders/MISSING-" + UUID.randomUUID())
                 .exchange((request, response) -> response.getStatusCode().value());
@@ -105,11 +124,14 @@ class OrderBearerScopeAuditTest {
             server.createContext("/api/v1/auth/me", exchange -> {
                 String token = exchange.getRequestHeaders().getFirst("Authorization");
                 String actor = "Bearer user-a".equals(token) ? "U-A" : "Bearer user-b".equals(token) ? "U-B"
-                        : "Bearer store-unbound".equals(token) ? "SA-1" : null;
+                        : "Bearer store-unbound".equals(token) ? "SA-1"
+                        : "Bearer store-a".equals(token) ? "SA-A"
+                        : "Bearer store-b".equals(token) ? "SA-B" : null;
                 int status = actor == null ? 401 : 200;
                 String body = actor == null ? "{\"code\":\"UNAUTHORIZED\"}" :
-                        "{\"code\":\"OK\",\"data\":{\"actorType\":\"" + ("SA-1".equals(actor) ? "store" : "user")
-                                + "\",\"actorId\":\"" + actor + "\",\"tenantId\":\"PLATFORM\"}}";
+                        "{\"code\":\"OK\",\"data\":{\"actorType\":\"" + (actor.startsWith("SA-") ? "store" : "user")
+                                + "\",\"actorId\":\"" + actor + "\",\"tenantId\":\"PLATFORM\""
+                                + ("SA-A".equals(actor) ? ",\"farmId\":\"F001\"" : "SA-B".equals(actor) ? ",\"farmId\":\"F002\"" : "") + "}}";
                 byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
                 exchange.sendResponseHeaders(status, bytes.length);

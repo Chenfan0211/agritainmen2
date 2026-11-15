@@ -220,6 +220,69 @@ describe('admin api P2 supplier farm commission', () => {
     expect(store.farms[0]?.tags).toEqual(['新入驻'])
   })
 
+  it('provisions store login after creating the organization account without keeping its password', async () => {
+    const calls: any[] = []
+    configureApiClient({ dataMode: 'api', baseUrl: 'https://api.example.com', transport: async (request) => {
+      calls.push(request)
+      if (request.url.endsWith('/api/v1/org/farm-accounts')) return envelope({ id: 'FACC-1', farm_id: 'F1', account: '13900000001', display_name: '店主', role: 'owner', enabled: true })
+      if (request.url.endsWith('/api/v1/auth/admin/store-accounts')) return envelope({ id: 'AUTH-1', storeAccountId: 'FACC-1', farmId: 'F1', account: '13900000001', enabled: true })
+      throw new Error('unexpected ' + request.url)
+    } })
+    const store = useAdminStore()
+    assumeAdminSession(store)
+    expect(await store.addStoreAccount({ farmId: 'F1', name: '店主', account: '13900000001', password: 'secret-1', role: 'owner' })).toBe(true)
+    expect(calls.map((call) => call.url)).toEqual([
+      'https://api.example.com/api/v1/org/farm-accounts',
+      'https://api.example.com/api/v1/auth/admin/store-accounts'
+    ])
+    expect(calls[1].body).toEqual({ storeAccountId: 'FACC-1', password: 'secret-1' })
+    expect(store.storeAccounts[0]).toMatchObject({ id: 'FACC-1', farmId: 'F1', account: '13900000001', provisioned: true })
+    expect(store.storeAccounts[0].password).toBe('')
+  })
+
+  it('retries a failed store login provision without creating a second organization account', async () => {
+    const calls: any[] = []
+    let fail = true
+    configureApiClient({ dataMode: 'api', baseUrl: 'https://api.example.com', transport: async (request) => {
+      calls.push(request)
+      if (request.url.endsWith('/api/v1/org/farm-accounts')) return envelope({ id: 'FACC-2', farm_id: 'F1', account: '13900000002', display_name: '店员', role: 'staff', enabled: true })
+      if (request.url.endsWith('/api/v1/auth/admin/store-accounts')) {
+        if (fail) return { status: 503, body: { code: 'UNAVAILABLE', message: '账号服务暂不可用' } }
+        return envelope({ id: 'AUTH-2', storeAccountId: 'FACC-2', farmId: 'F1', account: '13900000002', enabled: true })
+      }
+      throw new Error('unexpected ' + request.url)
+    } })
+    const store = useAdminStore()
+    assumeAdminSession(store)
+    const payload = { farmId: 'F1', name: '店员', account: '13900000002', password: 'secret-2', role: 'staff' as const }
+    expect(await store.addStoreAccount(payload)).toBe(false)
+    expect(store.error).toContain('组织账号已创建')
+    expect(store.storeAccounts[0]).toMatchObject({ id: 'FACC-2', provisioned: false })
+    fail = false
+    expect(await store.addStoreAccount(payload)).toBe(true)
+    expect(calls.filter((call) => call.url.endsWith('/api/v1/org/farm-accounts'))).toHaveLength(1)
+    expect(store.storeAccounts[0]).toMatchObject({ id: 'FACC-2', provisioned: true })
+    expect(store.storeAccounts[0].password).toBe('')
+  })
+
+  it('rejects unsupported credential and role edits in API mode', async () => {
+    const calls: any[] = []
+    configureApiClient({ dataMode: 'api', baseUrl: 'https://api.example.com', transport: async (request) => {
+      calls.push(request)
+      return envelope({ id: 'FACC-1', farm_id: 'F1', account: '13900000001', display_name: '新店主', role: 'owner', enabled: true })
+    } })
+    const store = useAdminStore()
+    assumeAdminSession(store)
+    store.storeAccounts = [{ id: 'FACC-1', farmId: 'F1', name: '店主', account: '13900000001', password: '', role: 'owner', enabled: true }]
+    expect(await store.updateStoreAccount('FACC-1', { account: '13900000002' })).toBe(false)
+    expect(await store.updateStoreAccount('FACC-1', { password: 'new-secret' })).toBe(false)
+    expect(await store.updateStoreAccount('FACC-1', { role: 'staff' })).toBe(false)
+    expect(calls).toHaveLength(0)
+    expect(await store.updateStoreAccount('FACC-1', { name: '新店主' })).toBe(true)
+    expect(store.storeAccounts[0].name).toBe('新店主')
+    expect(store.storeAccounts[0].account).toBe('13900000001')
+  })
+
   it('updates farm profile and local state through API', async () => {
     const calls: any[] = []
     const transport = vi.fn(async (request) => {

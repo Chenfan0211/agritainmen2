@@ -63,6 +63,10 @@ class StoreAccountBindingAuditTest {
                 .retrieve().body(JsonNode.class).path("data");
         assertEquals("F001", provisioned.path("farmId").asText());
         assertEquals("FACC-BIND-1", provisioned.path("storeAccountId").asText());
+        JsonNode listed = client.get().uri("/api/v1/auth/admin/store-accounts")
+                .header("Authorization", "Bearer " + farmAdmin).retrieve().body(JsonNode.class).path("data");
+        assertEquals("FACC-BIND-1", listed.get(0).path("storeAccountId").asText());
+        assertTrue(listed.get(0).path("password").isMissingNode());
 
         JsonNode retried = client.post().uri("/api/v1/auth/admin/store-accounts")
                 .header("Authorization", "Bearer " + farmAdmin).contentType(MediaType.APPLICATION_JSON)
@@ -80,6 +84,11 @@ class StoreAccountBindingAuditTest {
         assertEquals("F001", login.path("profile").path("farmId").asText());
         String access = login.path("accessToken").asText();
         String refresh = login.path("refreshToken").asText();
+        JsonNode farm = client.get().uri("/api/v1/auth/store/farm")
+                .header("Authorization", "Bearer " + access).retrieve().body(JsonNode.class).path("data");
+        assertEquals("湖南省门店1号", farm.path("address").asText());
+        assertEquals("13900000111", farm.path("contactPhone").asText());
+        assertTrue(farm.path("priceLevel").isNull());
         assertEquals("F001", client.get().uri("/api/v1/auth/me").header("Authorization", "Bearer " + access)
                 .retrieve().body(JsonNode.class).path("data").path("farmId").asText());
         assertTrue(client.get().uri("/api/v1/auth/me").header("Authorization", "Bearer " + access)
@@ -94,6 +103,9 @@ class StoreAccountBindingAuditTest {
         assertTrue(refreshed.path("profile").path("roles").toString().contains("staff"));
         String rotatedAccess = refreshed.path("accessToken").asText();
         String rotatedRefresh = refreshed.path("refreshToken").asText();
+        assertEquals("B", client.get().uri("/api/v1/auth/store/farm")
+                .header("Authorization", "Bearer " + rotatedAccess).retrieve().body(JsonNode.class)
+                .path("data").path("priceLevel").asText());
 
         ACTIVE.set(false);
         assertEquals(401, assertThrows(RestClientResponseException.class,
@@ -115,9 +127,15 @@ class StoreAccountBindingAuditTest {
             HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
             server.createContext("/api/v1/org/farm-accounts/FACC-BIND-1", exchange -> {
                 String body = "{\"code\":\"OK\",\"data\":{\"id\":\"FACC-BIND-1\",\"farm_id\":\"F001\","
-                        + "\"account\":\"13999999999\",\"role\":\"" + ROLE.get() + "\",\"price_level\":null,\"enabled\":"
+                        + "\"account\":\"13999999999\",\"role\":\"" + ROLE.get() + "\",\"price_level\":\"B\",\"enabled\":"
                         + ACTIVE.get() + "}}";
                 byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().set("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, bytes.length);
+                try (var out = exchange.getResponseBody()) { out.write(bytes); }
+            });
+            server.createContext("/api/v1/org/farms/F001", exchange -> {
+                byte[] bytes = "{\"code\":\"OK\",\"data\":{\"id\":\"F001\",\"name\":\"石板溪\",\"contact\":\"王店长\",\"contactPhone\":\"13900000111\",\"profile\":{\"address\":\"湖南省门店1号\"}}}".getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
                 exchange.sendResponseHeaders(200, bytes.length);
                 try (var out = exchange.getResponseBody()) { out.write(bytes); }

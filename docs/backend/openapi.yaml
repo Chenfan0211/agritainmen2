@@ -73,6 +73,11 @@ paths:
         "200":
           description: OK
   /org/farm-accounts:
+    get:
+      summary: 查询门店账号列表
+      responses:
+        "200": { description: PLATFORM 管理员 farm.manage 权限可读取，不含密码 }
+        "403": { $ref: '#/components/responses/Forbidden' }
     post:
       summary: 新增门店账号
       responses:
@@ -310,6 +315,11 @@ paths:
         "409": { $ref: '#/components/responses/Conflict' }
         "500": { description: 组织服务暂不可用或响应无效，未创建账号 }
   /auth/admin/store-accounts:
+    get:
+      summary: 查询已绑定的门店登录账号
+      responses:
+        "200": { description: 返回 Auth 绑定账号列表，不含密码 }
+        "403": { $ref: '#/components/responses/Forbidden' }
     post:
       summary: 核验组织服务门店账号后开通真实登录
       description: 需要 PLATFORM 管理员的 farm.manage 权限；重复请求不重置密码。组织服务停用账号后，登录、访问令牌校验和刷新均拒绝。
@@ -530,6 +540,17 @@ paths:
         "400":
           $ref: '#/components/responses/BadRequest'
   /org/farms/{id}:
+    get:
+      summary: 查询单个门店资料（管理员或 Auth 服务）
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 返回含 profile 的门店资料
     put:
       summary: 修改门店
       requestBody:
@@ -1044,6 +1065,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TokenResponse"
+  /auth/store/farm:
+    get:
+      summary: 查询当前门店账号绑定的门店资料
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 返回门店名称、联系人、电话、地址及业务员价格档位
   /auth/supplier/login:
     post:
       summary: 供应商登录

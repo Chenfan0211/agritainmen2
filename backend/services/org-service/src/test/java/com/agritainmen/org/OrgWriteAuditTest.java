@@ -40,6 +40,22 @@ class OrgWriteAuditTest {
     }
 
     @Test
+    void listsFarmAccountsForAdminRecovery() {
+        jdbc.update("insert into org_farm_account(id,tenant_id,farm_id,account,display_name,role,enabled,created_at,updated_at,version,deleted) values ('FACC-LIST','PLATFORM','F1','13900000111','店员','staff',true,current_timestamp,current_timestamp,0,false)");
+        JsonNode rows = client.get().uri("/api/v1/org/farm-accounts").retrieve().body(JsonNode.class).path("data");
+        assertEquals("FACC-LIST", rows.get(0).path("id").asText());
+        assertEquals("F1", rows.get(0).path("farm_id").asText());
+    }
+
+    @Test
+    void readsOneFarmForAuthServiceProfile() {
+        jdbc.update("insert into org_farm(id,tenant_id,name,status,contact,contact_phone,profile_json,created_at,updated_at,version,deleted) values ('F-SELF','PLATFORM','石板溪','active','王店长','13900000111','{\"address\":\"湖南省门店1号\"}',current_timestamp,current_timestamp,0,false)");
+        JsonNode farm = client.get().uri("/api/v1/org/farms/F-SELF").retrieve().body(JsonNode.class).path("data");
+        assertEquals("石板溪", farm.path("name").asText());
+        assertEquals("湖南省门店1号", farm.path("profile").path("address").asText());
+    }
+
+    @Test
     void createsSupplierAndTransitionsStatus() {
         JsonNode created = client.post().uri("/api/v1/org/suppliers").contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("name", "湘西腊味", "region", "湘西", "contactPhone", "13787366688")).retrieve().body(JsonNode.class);

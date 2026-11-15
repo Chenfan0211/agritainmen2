@@ -54,7 +54,12 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             String tenantId = claims.get("tenantId", String.class);
             if (actorType == null || actorId == null || tenantId == null
                     || actorType.isBlank() || actorId.isBlank() || tenantId.isBlank()) return unauthorized(exchange, "TOKEN_INVALID");
-            if (requiresPlatformAdmin(path) && (!"admin".equals(actorType) || !"PLATFORM".equals(tenantId)
+            boolean serviceFarmRead = method == HttpMethod.GET && "service".equals(actorType)
+                    && "auth-service".equals(actorId) && "PLATFORM".equals(tenantId)
+                    && claims.get("permissions") instanceof List<?> permissions
+                    && ((path.matches("/api/v1/org/farms/[^/]+") && permissions.contains("farm.inspect"))
+                    || (path.matches("/api/v1/org/farm-accounts/[^/]+") && permissions.contains("farm-account.inspect")));
+            if (requiresPlatformAdmin(path) && !serviceFarmRead && (!"admin".equals(actorType) || !"PLATFORM".equals(tenantId)
                     || !permitted(path, method, claims.get("permissions")))) return forbidden(exchange);
             ServerWebExchange mutated = exchange.mutate().request(request -> request.headers(headers -> {
                 stripActorHeaders(headers);
@@ -110,7 +115,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             return method == HttpMethod.PUT && permissions.contains("supplier.account.update");
         }
         if (path.equals("/api/v1/auth/admin/store-accounts"))
-            return method == HttpMethod.POST && permissions.contains("farm.manage");
+            return (method == HttpMethod.POST || method == HttpMethod.GET) && permissions.contains("farm.manage");
         if (path.startsWith("/api/v1/auth/admin/roles")) {
             if (method == HttpMethod.GET) return permissions.stream().anyMatch(value -> value instanceof String code && code.startsWith("admin.role."));
             if (method == HttpMethod.POST) return permissions.contains("admin.role.create");

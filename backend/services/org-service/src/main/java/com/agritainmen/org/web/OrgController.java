@@ -34,6 +34,11 @@ public class OrgController {
         return ApiResponse.ok(profiles.farms());
     }
 
+    @GetMapping("/farms/{id}")
+    public ApiResponse<Map<String, Object>> farm(@PathVariable String id) {
+        return ApiResponse.ok(profiles.farm(id));
+    }
+
     @GetMapping("/drivers")
     public ApiResponse<List<Map<String, Object>>> drivers() {
         return ApiResponse.ok(jdbc.queryForList("select id, supplier_id, name, phone, status from org_driver where deleted=false order by name"));

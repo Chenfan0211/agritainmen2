@@ -12,6 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -35,6 +36,16 @@ public class StoreAccountAdminController {
 
     public record ProvisionRequest(@NotBlank String storeAccountId, @NotBlank String password) {}
     public record AccountView(String id, String storeAccountId, String farmId, String account, boolean enabled) {}
+
+    @GetMapping
+    public ApiResponse<List<AccountView>> list() {
+        return ApiResponse.ok(jdbc.query("""
+                select id,store_account_id,farm_id,account,enabled from auth_account
+                where tenant_id='PLATFORM' and actor_type='store' and store_account_id is not null and deleted=false
+                order by account
+                """, (rs, row) -> new AccountView(rs.getString("id"), rs.getString("store_account_id"),
+                rs.getString("farm_id"), rs.getString("account"), rs.getBoolean("enabled"))));
+    }
 
     @PostMapping
     @Transactional

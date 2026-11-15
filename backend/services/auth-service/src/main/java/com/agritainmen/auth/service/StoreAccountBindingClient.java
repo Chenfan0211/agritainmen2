@@ -30,7 +30,8 @@ public class StoreAccountBindingClient {
         this.jwt = jwt;
     }
 
-    public record Binding(String id, String farmId, String account, String role, boolean enabled) {}
+    public record Binding(String id, String farmId, String account, String role, String priceLevel, boolean enabled) {}
+    public record StoreFarm(String farmId, String name, String contact, String contactPhone, String address, String priceLevel) {}
 
     public Binding load(String storeAccountId, String authorization) {
         JsonNode envelope;
@@ -53,15 +54,38 @@ public class StoreAccountBindingClient {
         if (!storeAccountId.equals(id) || farmId.isBlank() || account.isBlank()
                 || (!"owner".equals(role) && !"staff".equals(role)))
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, "门店账号资料响应无效");
-        return new Binding(id, farmId, account, role, data.path("enabled").asBoolean(false));
+        String priceLevel = data.path("price_level").isNull() ? null : data.path("price_level").asText(null);
+        return new Binding(id, farmId, account, role, priceLevel, data.path("enabled").asBoolean(false));
+    }
+
+    public StoreFarm farm(Binding binding) {
+        JsonNode envelope;
+        try {
+            envelope = org.get().uri("/api/v1/org/farms/{id}", binding.farmId())
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + serviceToken("farm.inspect"))
+                    .retrieve().body(JsonNode.class);
+        } catch (RestClientResponseException error) {
+            if (error.getStatusCode().value() == 404) throw new BusinessException(ErrorCode.UNAUTHORIZED, "所属门店已失效");
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "门店资料暂不可用");
+        } catch (Exception error) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "门店资料暂不可用");
+        }
+        if (envelope == null || !"OK".equals(envelope.path("code").asText()))
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "门店资料响应无效");
+        JsonNode data = envelope.path("data");
+        String id = data.path("id").asText();
+        String name = data.path("name").asText();
+        if (!binding.farmId().equals(id) || name.isBlank())
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "门店资料响应无效");
+        return new StoreFarm(id, name, data.path("contact").asText(""), data.path("contactPhone").asText(""),
+                data.path("profile").path("address").asText(""), "staff".equals(binding.role()) ? binding.priceLevel() : null);
     }
 
     public Binding requireActive(AuthAccount account) {
         if (account == null || !"store".equals(account.getActorType()) || !Boolean.TRUE.equals(account.getEnabled())
                 || account.getStoreAccountId() == null || account.getFarmId() == null)
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "门店账号已失效");
-        String token = jwt.createAccessToken(new TokenClaims("auth-service", "service", "auth-service", "PLATFORM",
-                List.of("service"), List.of("farm-account.inspect")));
+        String token = serviceToken("farm-account.inspect");
         Binding binding;
         try {
             binding = load(account.getStoreAccountId(), "Bearer " + token);
@@ -73,5 +97,10 @@ public class StoreAccountBindingClient {
                 || !account.getAccount().equals(binding.account()))
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "门店账号已失效");
         return binding;
+    }
+
+    private String serviceToken(String permission) {
+        return jwt.createAccessToken(new TokenClaims("auth-service", "service", "auth-service", "PLATFORM",
+                List.of("service"), List.of(permission)));
     }
 }
