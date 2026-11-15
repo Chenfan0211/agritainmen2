@@ -91,6 +91,10 @@ class OrgWriteAuditTest {
         JsonNode account = client.post().uri("/api/v1/org/farm-accounts").contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("farmId", farmId, "account", "13800000000", "displayName", "王店长", "role", "owner")).retrieve().body(JsonNode.class);
         assertEquals("OK", account.path("code").asText());
+        String accountId = account.path("data").path("id").asText();
+        JsonNode persisted = client.get().uri("/api/v1/org/farm-accounts/" + accountId).retrieve().body(JsonNode.class);
+        assertEquals(farmId, persisted.path("data").path("farm_id").asText());
+        assertEquals("owner", persisted.path("data").path("role").asText());
 
         JsonNode promoter = client.post().uri("/api/v1/org/promoters").contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("name", "李业务", "level", "level1", "region", "湘西")).retrieve().body(JsonNode.class);

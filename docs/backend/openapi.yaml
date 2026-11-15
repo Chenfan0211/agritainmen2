@@ -79,6 +79,17 @@ paths:
         "200":
           description: OK
   /org/farm-accounts/{id}:
+    get:
+      summary: 查询门店账号绑定资料
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
     put:
       summary: 修改门店账号
       parameters:

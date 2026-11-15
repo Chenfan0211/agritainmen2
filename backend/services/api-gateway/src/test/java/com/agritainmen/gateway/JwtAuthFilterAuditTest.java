@@ -113,6 +113,9 @@ class JwtAuthFilterAuditTest {
         assertAllowed(HttpMethod.POST, "/api/v1/org/suppliers/S1/audit", "admin", "PLATFORM", List.of("supplier.audit"));
         assertAllowed(HttpMethod.POST, "/api/v1/org/suppliers/S1/pause", "admin", "PLATFORM", List.of("supplier.pause"));
         assertAllowed(HttpMethod.GET, "/api/v1/org/farms", "admin", "PLATFORM", List.of("farm.manage"));
+        assertAllowed(HttpMethod.GET, "/api/v1/org/farm-accounts/FACC1", "admin", "PLATFORM", List.of("farm.manage"));
+        assertDenied(HttpMethod.POST, "/api/v1/org/farm-accounts", "supplier", "PLATFORM", List.of("*"));
+        assertDenied(HttpMethod.POST, "/api/v1/org/farm-accounts", "admin", "PLATFORM", List.of("supplier.create"));
         assertAllowed(HttpMethod.PUT, "/api/v1/org/farms/F1", "admin", "PLATFORM", List.of("farm.manage"));
         assertDenied(HttpMethod.POST, "/api/v1/org/suppliers", "admin", "PLATFORM", List.of("supplier.update"));
         assertDenied(HttpMethod.POST, "/api/v1/org/suppliers/S1/audit", "admin", "PLATFORM", List.of("supplier.pause"));

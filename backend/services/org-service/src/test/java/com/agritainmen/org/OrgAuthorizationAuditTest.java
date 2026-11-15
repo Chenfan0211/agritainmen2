@@ -49,6 +49,8 @@ class OrgAuthorizationAuditTest {
     void signedNonPlatformOrNonAdminCannotAccessOrgAdminRoutes() {
         assertEquals(403, status(HttpMethod.GET, "/api/v1/org/suppliers", token("supplier", "PLATFORM", List.of("*")), true));
         assertEquals(403, status(HttpMethod.GET, "/api/v1/org/drivers", token("supplier", "PLATFORM", List.of("*")), true));
+        assertEquals(403, status(HttpMethod.POST, "/api/v1/org/farm-accounts", token("supplier", "PLATFORM", List.of("*")), false));
+        assertEquals(403, status(HttpMethod.GET, "/api/v1/org/farm-accounts/MISSING", token("store", "PLATFORM", List.of("*")), false));
         assertEquals(403, status(HttpMethod.GET, "/api/v1/org/suppliers", token("admin", "OTHER", List.of("*")), true));
         assertEquals(401, status(HttpMethod.GET, "/api/v1/org/suppliers", jwt.createRefreshToken(
                 new TokenClaims("admin", "admin", "A1", "PLATFORM", List.of(), List.of("*"))), false));

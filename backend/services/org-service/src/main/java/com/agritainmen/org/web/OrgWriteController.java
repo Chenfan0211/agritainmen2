@@ -145,6 +145,16 @@ public class OrgWriteController {
         return ApiResponse.ok(jdbc.queryForMap("select id, farm_id, account, display_name, role, price_level, enabled from org_farm_account where id=?", id));
     }
 
+    @GetMapping("/farm-accounts/{id}")
+    public ApiResponse<Map<String, Object>> farmAccount(@PathVariable String id) {
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                select id, farm_id, account, display_name, role, price_level, enabled
+                from org_farm_account where id=? and tenant_id='PLATFORM' and deleted=false
+                """, id);
+        if (rows.isEmpty()) throw new BusinessException(ErrorCode.NOT_FOUND, "门店账号不存在");
+        return ApiResponse.ok(rows.getFirst());
+    }
+
     @PutMapping("/farm-accounts/{id}")
     public ApiResponse<Map<String, Object>> updateFarmAccount(@PathVariable String id, @RequestBody FarmAccountPatch request) {
         Map<String, Object> current = jdbc.queryForMap("select id, farm_id, account, display_name, role, price_level, enabled from org_farm_account where id=? and deleted=false", id);

@@ -135,6 +135,7 @@ public class OrgSecurityConfiguration {
 
         private boolean permitted(String path, String method, TokenClaims claims) {
             if (!path.startsWith("/api/v1/org/suppliers") && !path.startsWith("/api/v1/org/farms")
+                    && !path.startsWith("/api/v1/org/farm-accounts")
                     && !path.startsWith("/api/v1/org/media") && !path.startsWith("/api/v1/org/drivers")) return true;
             if (!"admin".equals(claims.actorType()) || !"PLATFORM".equals(claims.tenantId())) return false;
             List<String> permissions = claims.permissions();
@@ -147,7 +148,8 @@ public class OrgSecurityConfiguration {
                         : "POST".equals(method) && (permissions.contains("supplier.create")
                         || permissions.contains("supplier.update") || permissions.contains("farm.manage"));
             }
-            if (path.startsWith("/api/v1/org/farms")) return permissions.contains("farm.manage");
+            if (path.startsWith("/api/v1/org/farms") || path.startsWith("/api/v1/org/farm-accounts"))
+                return permissions.contains("farm.manage");
             if ("GET".equals(method)) return hasSupplierPermission(permissions);
             if (path.matches("/api/v1/org/suppliers/[^/]+/(audit|restore)")) return permissions.contains("supplier.audit");
             if (path.matches("/api/v1/org/suppliers/[^/]+/(pause|resume)")) return permissions.contains("supplier.pause");

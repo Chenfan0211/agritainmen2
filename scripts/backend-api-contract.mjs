@@ -63,6 +63,7 @@ const expected = [
   ['POST', '/api/v1/org/suppliers/{id}/pause'],
   ['POST', '/api/v1/org/suppliers/{id}/resume'],
   ['POST', '/api/v1/org/farm-accounts'],
+  ['GET', '/api/v1/org/farm-accounts/{id}'],
   ['PUT', '/api/v1/org/farm-accounts/{id}'],
   ['PATCH', '/api/v1/org/farm-accounts/{id}'],
   ['POST', '/api/v1/org/promoters'],

@@ -77,6 +77,7 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
 
     private boolean requiresPlatformAdmin(String path) {
         return path.startsWith("/api/v1/org/suppliers") || path.startsWith("/api/v1/org/farms")
+                || path.startsWith("/api/v1/org/farm-accounts")
                 || path.startsWith("/api/v1/org/media") || path.startsWith("/api/v1/org/drivers")
                 || path.startsWith("/api/v1/auth/admin/");
     }
@@ -91,7 +92,8 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
                     : method == HttpMethod.POST && (permissions.contains("supplier.create")
                     || permissions.contains("supplier.update") || permissions.contains("farm.manage"));
         }
-        if (path.startsWith("/api/v1/org/farms")) return permissions.contains("farm.manage");
+        if (path.startsWith("/api/v1/org/farms") || path.startsWith("/api/v1/org/farm-accounts"))
+            return permissions.contains("farm.manage");
         if (path.startsWith("/api/v1/org/suppliers")) {
             if (method == HttpMethod.GET) return hasSupplierPermission(permissions);
             if (path.matches("/api/v1/org/suppliers/[^/]+/(audit|restore)")) return permissions.contains("supplier.audit");
