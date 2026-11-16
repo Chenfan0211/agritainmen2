@@ -5,13 +5,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import org.springframework.core.annotation.Order;
-import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
@@ -29,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@Import(SettlementApiAuditTest.AuditTestSecurityConfiguration.class)
 @Tag("api-audit")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "spring.profiles.active=test")
 class SettlementApiAuditTest {
@@ -40,6 +34,12 @@ class SettlementApiAuditTest {
     private JsonMapper jsonMapper;
 
     private RestClient restClient;
+
+    @DynamicPropertySource
+    static void authUrl(DynamicPropertyRegistry registry) {
+        registry.add("agritainmen.clients.auth.base-url", () ->
+                "http://127.0.0.1:" + SettlementBearerScopeAuditTest.AUTH.getAddress().getPort());
+    }
 
     @BeforeEach
     void setUp() {
@@ -93,7 +93,7 @@ class SettlementApiAuditTest {
         JsonNode approvedData = assertSuccess(approved);
         assertAll("首次审批响应语义",
                 () -> assertEquals("APPROVED", approvedData.path("status").asText()),
-                () -> assertEquals("audit-admin", approvedData.path("reviewedBy").asText()),
+                () -> assertEquals("ADMIN-REVIEW", approvedData.path("reviewedBy").asText()),
                 () -> assertFalse(approvedData.path("reviewedAt").isNull())
         );
 
@@ -140,7 +140,7 @@ class SettlementApiAuditTest {
                 .uri(path)
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
-                .headers(headers -> headers.setBasicAuth("api-audit", "api-audit-password"))
+                .headers(headers -> headers.setBearerAuth(path.endsWith("/review") ? "admin-review" : "admin-commission"))
                 .body(jsonMapper.writeValueAsString(requestBody))
                 .exchange((request, response) -> new RawHttpResponse(
                         response.getStatusCode().value(),
@@ -201,17 +201,5 @@ class SettlementApiAuditTest {
     }
 
     private record ApiHttpResponse(int status, MediaType contentType, String traceHeader, JsonNode body) {
-    }
-    @TestConfiguration(proxyBeanMethods = false)
-    static class AuditTestSecurityConfiguration {
-        @Bean
-        @Order(org.springframework.core.Ordered.HIGHEST_PRECEDENCE)
-        SecurityFilterChain auditHttpBasicSecurity(HttpSecurity http) throws Exception {
-            http
-                    .csrf(csrf -> csrf.disable())
-                    .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
-                    .httpBasic(Customizer.withDefaults());
-            return http.build();
-        }
     }
 }

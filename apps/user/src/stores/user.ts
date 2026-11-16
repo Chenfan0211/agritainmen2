@@ -1033,8 +1033,8 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
     },
     async refreshCommissionSummary() {
       if (getApiClientConfig().dataMode !== 'api') return
-      const beneficiaryId = this.currentDistributor?.promoterId || this.promoterId
-      if (!beneficiaryId) return
+      const beneficiaryId = this.currentDistributor?.promoterId
+      if (!beneficiaryId) { this.commissionSummary = null; return }
       try {
         this.commissionSummary = await createAdminQueryClient().myCommission(beneficiaryId)
       } catch (error) {

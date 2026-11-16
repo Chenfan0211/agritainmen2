@@ -5,12 +5,9 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
@@ -19,11 +16,16 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @Tag("api-audit")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "spring.profiles.active=test")
-@Import(CommissionQueryAuditTest.PermitAllApiAuditSecurity.class)
 class CommissionQueryAuditTest {
     @LocalServerPort int port;
     @Autowired JdbcTemplate jdbc;
     RestClient client;
+
+    @DynamicPropertySource
+    static void authUrl(DynamicPropertyRegistry registry) {
+        registry.add("agritainmen.clients.auth.base-url", () ->
+                "http://127.0.0.1:" + SettlementBearerScopeAuditTest.AUTH.getAddress().getPort());
+    }
 
     @BeforeEach
     void setUp() {
@@ -35,20 +37,16 @@ class CommissionQueryAuditTest {
 
     @Test
     void listsCommissionsAndAggregatesMine() {
-        JsonNode list = client.get().uri("/api/v1/commissions?beneficiaryId=T1&page=1&pageSize=20").retrieve().body(JsonNode.class);
+        JsonNode list = client.get().uri("/api/v1/commissions?beneficiaryId=T1&page=1&pageSize=20")
+                .header("Authorization", "Bearer admin-commission").retrieve().body(JsonNode.class);
         assertEquals("OK", list.path("code").asText());
         assertEquals(2, list.path("data").path("total").asInt());
 
-        JsonNode mine = client.get().uri("/api/v1/commissions/me?beneficiaryId=T1").retrieve().body(JsonNode.class);
+        JsonNode mine = client.get().uri("/api/v1/commissions/me?beneficiaryId=T1")
+                .header("Authorization", "Bearer admin-commission").retrieve().body(JsonNode.class);
         assertEquals("OK", mine.path("code").asText());
         assertEquals(10000, mine.path("data").path("availableCents").asLong());
         assertEquals(5000, mine.path("data").path("withdrawnCents").asLong());
     }
 
-    @TestConfiguration(proxyBeanMethods = false)
-    static class PermitAllApiAuditSecurity {
-        @Bean SecurityFilterChain apiAuditFilterChain(HttpSecurity http) throws Exception {
-            return http.csrf(csrf -> csrf.disable()).authorizeHttpRequests(auth -> auth.anyRequest().permitAll()).build();
-        }
-    }
 }

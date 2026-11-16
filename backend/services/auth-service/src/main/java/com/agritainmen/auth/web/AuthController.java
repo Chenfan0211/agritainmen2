@@ -10,7 +10,6 @@ import com.agritainmen.auth.web.AuthDtos.WechatExchangeRequest;
 import com.agritainmen.common.core.ApiResponse;
 import com.agritainmen.common.core.BusinessException;
 import com.agritainmen.common.core.ErrorCode;
-import com.agritainmen.common.security.TokenClaims;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -71,12 +70,7 @@ public class AuthController {
     @GetMapping("/me")
     public ApiResponse<Profile> me(@RequestHeader(value = "Authorization", required = false) String authorization) {
         if (authorization == null || !authorization.startsWith("Bearer ")) throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        TokenClaims claims = authService.verifyAccessToken(authorization.substring(7));
-        return ApiResponse.ok(new Profile(claims.actorType(), claims.actorId(), claims.tenantId(), null,
-                "user".equals(claims.actorType()) ? claims.subject() : null,
-                null, null, null, claims.roles(), claims.permissions(), claims.supplierId(),
-                "driver".equals(claims.actorType()) ? claims.actorId() : null,
-                "store".equals(claims.actorType()) ? claims.subject() : null));
+        return ApiResponse.ok(authService.currentProfile(authorization.substring(7)));
     }
 
     @GetMapping("/store/farm")

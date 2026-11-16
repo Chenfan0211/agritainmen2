@@ -150,26 +150,44 @@ public class AuthService {
                     if (!account.getFarmId().equals(claims.subject()) || !claims.roles().contains(binding.role()))
                         throw new BusinessException(ErrorCode.UNAUTHORIZED, "门店账号已失效");
                 }
-                AuthSession session = sessionMapper.selectOne(new LambdaQueryWrapper<AuthSession>()
-                        .eq(AuthSession::getAccessTokenHash, hash(token)).last("limit 1"));
-                if (session == null || session.getRevokedAt() != null || session.getExpiresAt().isBefore(Instant.now())
-                        || !claims.actorId().equals(session.getActorId())) {
-                    throw new BusinessException(ErrorCode.UNAUTHORIZED, "访问令牌已失效");
-                }
             } else if ("admin".equals(claims.actorType())) {
                 activeAdmin(claims);
-                AuthSession session = sessionMapper.selectOne(new LambdaQueryWrapper<AuthSession>()
-                        .eq(AuthSession::getAccessTokenHash, hash(token)).last("limit 1"));
-                if (session == null || session.getRevokedAt() != null || session.getExpiresAt().isBefore(Instant.now())
-                        || !claims.actorId().equals(session.getActorId()))
-                    throw new BusinessException(ErrorCode.UNAUTHORIZED, "访问令牌已失效");
-            }
+            } else if (!"user".equals(claims.actorType())) throw new BusinessException(ErrorCode.UNAUTHORIZED);
+            AuthSession session = sessionMapper.selectOne(new LambdaQueryWrapper<AuthSession>()
+                    .eq(AuthSession::getAccessTokenHash, hash(token)).last("limit 1"));
+            if (session == null || session.getRevokedAt() != null || session.getExpiresAt().isBefore(Instant.now())
+                    || !claims.actorId().equals(session.getActorId()))
+                throw new BusinessException(ErrorCode.UNAUTHORIZED, "访问令牌已失效");
             return claims;
         } catch (BusinessException exception) {
             throw exception;
         } catch (Exception exception) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "访问令牌无效或已过期");
         }
+    }
+
+    public Profile currentProfile(String accessToken) {
+        TokenClaims claims = verifyAccessToken(accessToken);
+        AuthIdentity identity = null;
+        if ("user".equals(claims.actorType())) {
+            identity = identityMapper.selectOne(new LambdaQueryWrapper<AuthIdentity>()
+                    .eq(AuthIdentity::getUserId, claims.actorId()).last("limit 1"));
+            if (identity == null) throw new BusinessException(ErrorCode.UNAUTHORIZED, "用户身份已失效");
+        }
+        String level = identity == null ? null : "disabled".equalsIgnoreCase(identity.getStatus()) ? "normal" : identity.getLevel();
+        boolean leader = "level1".equals(level) || "level2".equals(level);
+        if (identity != null) claims = userClaims(identity);
+        if ("admin".equals(claims.actorType())) {
+            List<AuthRole> roles = accountMapper.findRoles(claims.actorId());
+            claims = new TokenClaims(claims.subject(), claims.actorType(), claims.actorId(), claims.tenantId(),
+                    roles.stream().map(AuthRole::getCode).toList(), permissions(roles));
+        }
+        return new Profile(claims.actorType(), claims.actorId(), claims.tenantId(), null,
+                identity == null ? null : identity.getUserId(), level,
+                leader ? identity.getLeaderId() : null, leader ? identity.getParentLeaderId() : null,
+                claims.roles(), claims.permissions(), claims.supplierId(),
+                "driver".equals(claims.actorType()) ? claims.actorId() : null,
+                "store".equals(claims.actorType()) ? claims.subject() : null);
     }
 
     public StoreAccountBindingClient.StoreFarm storeFarm(String token) {

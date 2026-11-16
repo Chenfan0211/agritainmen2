@@ -435,6 +435,7 @@ paths:
   /commissions/me:
     get:
       summary: 我的佣金汇总
+      description: 当前有效团长只能查询其 Auth 身份绑定的 leaderId；具备 commission.manage 的平台管理员可查询指定团长。
       parameters:
         - in: query
           name: beneficiaryId
@@ -1041,13 +1042,8 @@ paths:
   /withdrawals/{id}/review:
     post:
       summary: 提现审批
+      description: 需要当前平台管理员的 withdrawal.review 或 leader.withdrawal.review 权限；审核人由服务端身份确定。
       parameters:
-        - in: header
-          name: Idempotency-Key
-          required: true
-          schema:
-            type: string
-          description: 幂等键：同键同载荷重放返回原结果；同键异载荷返回 409 IDEMPOTENCY_CONFLICT
         - in: path
           name: id
           required: true
@@ -1061,12 +1057,13 @@ paths:
               type: object
               required:
                 - approved
-                - operator
               properties:
                 approved:
                   type: boolean
                 operator:
                   type: string
+                  deprecated: true
+                  description: 兼容旧客户端；服务端忽略此值，使用当前管理员 ID
                 note:
                   type: string
       responses:
@@ -1198,6 +1195,7 @@ paths:
   /auth/me:
     get:
       summary: 当前登录主体
+      description: 返回当前有效会话。用户包含实时等级与团长 leaderId；管理员权限按当前有效角色计算。
       responses:
         "200":
           description: OK
@@ -1389,6 +1387,7 @@ paths:
   /commissions:
     get:
       summary: 佣金分页查询
+      description: 需要当前平台管理员的 commission.manage 权限。
       parameters:
         - in: query
           name: beneficiaryId
@@ -1407,6 +1406,7 @@ paths:
           description: OK
     post:
       summary: 新增佣金流水
+      description: 需要当前平台管理员的 commission.manage 权限。
       requestBody:
         required: true
         content:
@@ -1416,16 +1416,10 @@ paths:
       responses:
         "200":
           description: OK
-      parameters:
-        - in: header
-          name: Idempotency-Key
-          required: true
-          schema:
-            type: string
-          description: 幂等键：同键同载荷重放返回原结果；同键异载荷返回 409 IDEMPOTENCY_CONFLICT
   /withdrawals:
     post:
       summary: 发起提现
+      description: 当前有效团长只能为 Auth 身份绑定的 leaderId 提现；具备 commission.manage 的平台管理员可代提交。重复提交会产生新申请。
       requestBody:
         required: true
         content:
@@ -1435,13 +1429,6 @@ paths:
       responses:
         "200":
           description: OK
-      parameters:
-        - in: header
-          name: Idempotency-Key
-          required: true
-          schema:
-            type: string
-          description: 幂等键：同键同载荷重放返回原结果；同键异载荷返回 409 IDEMPOTENCY_CONFLICT
   /admin/audit:
     get:
       summary: 查询审计日志
@@ -1558,12 +1545,14 @@ paths:
   /commissions/share-config:
     put:
       summary: 更新分佣配置
+      description: 需要当前平台管理员的 commission.manage 或 leader.manage 权限。
       responses:
         "200":
           description: OK
   /commissions/rules/{id}:
     put:
       summary: 更新佣金规则
+      description: 需要当前平台管理员的 commission.manage 权限。
       parameters:
         - in: path
           name: id

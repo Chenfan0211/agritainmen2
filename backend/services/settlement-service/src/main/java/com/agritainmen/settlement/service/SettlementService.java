@@ -72,17 +72,17 @@ public class SettlementService {
     }
 
     public CommissionView findCommission(String sourceId, String beneficiaryId) {
-        List<CommissionView> rows = jdbc.query("select * from settlement_commission where source_id=? and beneficiary_id=? and deleted=false", (rs, rowNum) -> mapCommission(rs), sourceId, beneficiaryId);
+        List<CommissionView> rows = jdbc.query("select * from settlement_commission where tenant_id='PLATFORM' and source_id=? and beneficiary_id=? and deleted=false", (rs, rowNum) -> mapCommission(rs), sourceId, beneficiaryId);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
     public CommissionView findCommissionById(String id) {
-        List<CommissionView> rows = jdbc.query("select * from settlement_commission where id=? and deleted=false", (rs, rowNum) -> mapCommission(rs), id);
+        List<CommissionView> rows = jdbc.query("select * from settlement_commission where tenant_id='PLATFORM' and id=? and deleted=false", (rs, rowNum) -> mapCommission(rs), id);
         return rows.isEmpty() ? null : rows.get(0);
     }
 
     public WithdrawalView findWithdrawal(String id) {
-        List<WithdrawalView> rows = jdbc.query("select * from settlement_withdrawal where id=? and deleted=false", (rs, rowNum) -> mapWithdrawal(rs), id);
+        List<WithdrawalView> rows = jdbc.query("select * from settlement_withdrawal where tenant_id='PLATFORM' and id=? and deleted=false", (rs, rowNum) -> mapWithdrawal(rs), id);
         return rows.isEmpty() ? null : rows.get(0);
     }
 

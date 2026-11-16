@@ -9,6 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -16,6 +17,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -31,6 +33,8 @@ class AuthApiAuditTest {
 
     @Autowired
     private JsonMapper objectMapper;
+    @Autowired
+    private JdbcTemplate jdbc;
 
     private RestClient http;
 
@@ -70,6 +74,52 @@ class AuthApiAuditTest {
         assertEquals("user", data.path("profile").path("actorType").asText());
         assertEquals("level1", data.path("profile").path("level").asText());
         assertTrue(data.path("profile").path("roles").toString().contains("leader:level1"));
+    }
+
+    @Test
+    void currentProfileKeepsLeaderScopeAndRejectsLoggedOutUserToken() {
+        JsonNode login = assertOkEnvelope(post("/api/v1/auth/wechat/exchange",
+                Map.of("app", "user", "code", "mock_openid_demo_level1"), Map.of()));
+        String access = login.path("accessToken").asText();
+        String refresh = login.path("refreshToken").asText();
+
+        JsonNode profile = assertOkEnvelope(get("/api/v1/auth/me", access));
+        assertEquals("level1", profile.path("level").asText());
+        assertEquals("T001", profile.path("leaderId").asText());
+        assertEquals("U-DEMO-L1", profile.path("userId").asText());
+
+        try {
+            jdbc.update("update auth_identity set status='disabled' where user_id='U-DEMO-L1'");
+            JsonNode disabled = assertOkEnvelope(get("/api/v1/auth/me", access));
+            assertEquals("normal", disabled.path("level").asText());
+            assertTrue(disabled.path("leaderId").isNull());
+        } finally {
+            jdbc.update("update auth_identity set status='active' where user_id='U-DEMO-L1'");
+        }
+
+        assertEquals(200, post("/api/v1/auth/logout", Map.of("refreshToken", refresh), Map.of()).status());
+        assertEquals(401, get("/api/v1/auth/me", access).status());
+    }
+
+    @Test
+    void currentAdminProfileDropsChangedOrDisabledRolePermissions() {
+        String suffix = UUID.randomUUID().toString();
+        String accountId = "A-SETTLEMENT-" + suffix;
+        String roleId = "R-SETTLEMENT-" + suffix;
+        String account = "settlement-" + suffix;
+        String passwordHash = jdbc.queryForObject("select password_hash from auth_account where actor_type='admin' and account='admin'", String.class);
+        jdbc.update("insert into auth_role(id,tenant_id,code,name,permissions_json,system_role,enabled,created_at,updated_at,version,deleted) values (?, 'PLATFORM', ?, '结算测试', '[\"commission.manage\"]', false, true, current_timestamp, current_timestamp, 0, false)", roleId, account);
+        jdbc.update("insert into auth_account(id,tenant_id,actor_type,account,password_hash,display_name,enabled,created_at,updated_at,version,deleted) values (?, 'PLATFORM', 'admin', ?, ?, '结算测试', true, current_timestamp, current_timestamp, 0, false)", accountId, account, passwordHash);
+        jdbc.update("insert into auth_account_role(id,tenant_id,account_id,role_id,enabled,created_at,updated_at,version,deleted) values (?, 'PLATFORM', ?, ?, true, current_timestamp, current_timestamp, 0, false)", "AR-" + suffix, accountId, roleId);
+
+        String access = assertOkEnvelope(login("/api/v1/auth/admin/login", account, "123456"))
+                .path("accessToken").asText();
+        assertTrue(assertOkEnvelope(get("/api/v1/auth/me", access)).path("permissions").toString().contains("commission.manage"));
+        jdbc.update("update auth_role set permissions_json='[]' where id=?", roleId);
+        assertFalse(assertOkEnvelope(get("/api/v1/auth/me", access)).path("permissions").toString().contains("commission.manage"));
+        jdbc.update("update auth_role set permissions_json='[\"commission.manage\"]' where id=?", roleId);
+        jdbc.update("update auth_account_role set enabled=false where account_id=?", accountId);
+        assertFalse(assertOkEnvelope(get("/api/v1/auth/me", access)).path("permissions").toString().contains("commission.manage"));
     }
 
     @Test

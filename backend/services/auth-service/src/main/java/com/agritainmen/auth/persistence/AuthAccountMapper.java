@@ -11,7 +11,8 @@ public interface AuthAccountMapper extends BaseMapper<AuthAccount> {
     @Select("""
         select r.* from auth_role r
         join auth_account_role ar on ar.role_id = r.id
-        where ar.account_id = #{accountId} and r.deleted = false and r.enabled != false
+        where ar.account_id = #{accountId} and ar.deleted = false and ar.enabled = true
+          and r.deleted = false and r.enabled != false
         order by r.code
         """)
     List<AuthRole> findRoles(String accountId);

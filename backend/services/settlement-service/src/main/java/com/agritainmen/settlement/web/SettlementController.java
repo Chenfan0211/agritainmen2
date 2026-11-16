@@ -21,24 +21,32 @@ import java.util.Map;
 public class SettlementController {
     private final SettlementService settlementService;
     private final JdbcTemplate jdbc;
+    private final SettlementAccessVerifier accessVerifier;
 
-    public SettlementController(SettlementService settlementService, JdbcTemplate jdbc) {
+    public SettlementController(SettlementService settlementService, JdbcTemplate jdbc,
+                                SettlementAccessVerifier accessVerifier) {
         this.settlementService = settlementService;
         this.jdbc = jdbc;
+        this.accessVerifier = accessVerifier;
     }
 
     @PostMapping("/commissions")
-    public ApiResponse<CommissionView> addCommission(@Valid @RequestBody AddCommissionRequest request) {
+    public ApiResponse<CommissionView> addCommission(@Valid @RequestBody AddCommissionRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        accessVerifier.requireAdmin(authorization, "commission.manage");
         return ApiResponse.ok(settlementService.addCommission(request.sourceId(), request.beneficiaryId(), request.amountCents(), request.direction()));
     }
 
     @GetMapping("/commissions")
     public ApiResponse<PageView> commissions(@RequestParam(required = false) String beneficiaryId,
                                              @RequestParam(defaultValue = "1") int page,
-                                             @RequestParam(defaultValue = "20") int pageSize) {
+                                             @RequestParam(defaultValue = "20") int pageSize,
+                                             @RequestHeader(value = "Authorization", required = false) String authorization) {
+        accessVerifier.requireAdmin(authorization, "commission.manage");
         if (page < 1 || pageSize < 1 || pageSize > 200) throw new BusinessException(ErrorCode.BAD_REQUEST, "page 必须大于 0，pageSize 必须在 1-200 之间");
         String normalized = beneficiaryId == null ? "" : beneficiaryId.trim();
-        String where = normalized.isBlank() ? " where deleted=false" : " where deleted=false and beneficiary_id=?";
+        String where = normalized.isBlank() ? " where tenant_id='PLATFORM' and deleted=false"
+                : " where tenant_id='PLATFORM' and deleted=false and beneficiary_id=?";
         Object[] args = normalized.isBlank() ? new Object[0] : new Object[]{normalized};
         Long total = jdbc.queryForObject("select count(*) from settlement_commission" + where, Long.class, args);
         Object[] pageArgs = new Object[args.length + 2];
@@ -50,23 +58,29 @@ public class SettlementController {
     }
 
     @GetMapping("/commissions/me")
-    public ApiResponse<MineView> mine(@RequestParam String beneficiaryId) {
+    public ApiResponse<MineView> mine(@RequestParam String beneficiaryId,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
         String id = beneficiaryId == null ? "" : beneficiaryId.trim();
         if (id.isBlank()) throw new BusinessException(ErrorCode.BAD_REQUEST, "beneficiaryId 不能为空");
-        long available = jdbc.queryForObject("select coalesce(sum(amount_cents),0) from settlement_commission where beneficiary_id=? and status='AVAILABLE' and deleted=false", Long.class, id);
-        long pending = jdbc.queryForObject("select coalesce(sum(amount_cents),0) from settlement_commission where beneficiary_id=? and status='PENDING' and deleted=false", Long.class, id);
-        long withdrawn = jdbc.queryForObject("select coalesce(sum(amount_cents),0) from settlement_commission where beneficiary_id=? and status='WITHDRAWN' and deleted=false", Long.class, id);
+        accessVerifier.requireBeneficiary(authorization, id);
+        long available = jdbc.queryForObject("select coalesce(sum(amount_cents),0) from settlement_commission where tenant_id='PLATFORM' and beneficiary_id=? and status='AVAILABLE' and deleted=false", Long.class, id);
+        long pending = jdbc.queryForObject("select coalesce(sum(amount_cents),0) from settlement_commission where tenant_id='PLATFORM' and beneficiary_id=? and status='PENDING' and deleted=false", Long.class, id);
+        long withdrawn = jdbc.queryForObject("select coalesce(sum(amount_cents),0) from settlement_commission where tenant_id='PLATFORM' and beneficiary_id=? and status='WITHDRAWN' and deleted=false", Long.class, id);
         return ApiResponse.ok(new MineView(id, available, pending, withdrawn));
     }
 
     @PostMapping("/withdrawals")
-    public ApiResponse<WithdrawalView> requestWithdrawal(@Valid @RequestBody WithdrawalRequest request) {
+    public ApiResponse<WithdrawalView> requestWithdrawal(@Valid @RequestBody WithdrawalRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        accessVerifier.requireBeneficiary(authorization, request.requesterId());
         return ApiResponse.ok(settlementService.requestWithdrawal(request.requesterId(), request.amountCents(), request.method()));
     }
 
     @PostMapping("/withdrawals/{id}/review")
-    public ApiResponse<WithdrawalView> review(@PathVariable String id, @Valid @RequestBody ReviewRequest request) {
-        return ApiResponse.ok(settlementService.reviewWithdrawal(id, request.approved(), request.operator(), request.note()));
+    public ApiResponse<WithdrawalView> review(@PathVariable String id, @Valid @RequestBody ReviewRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        String operatorId = accessVerifier.requireAdmin(authorization, "withdrawal.review", "leader.withdrawal.review").actorId();
+        return ApiResponse.ok(settlementService.reviewWithdrawal(id, request.approved(), operatorId, request.note()));
     }
 
     public record PageView(List<Map<String, Object>> items, int page, int pageSize, long total) {}
