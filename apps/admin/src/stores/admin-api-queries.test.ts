@@ -28,6 +28,7 @@ describe('admin api P1 queries', () => {
       if (request.url.includes('/org/users')) return { status: 200, body: { code: 'OK', message: 'ok', data: { items: [{ id: 'U1', nickname: '王小满' }], page: 1, pageSize: 20, total: 1 } } }
       if (request.url.includes('/after-sales')) return { status: 200, body: { code: 'OK', message: 'ok', data: { items: [{ id: 'AS1', order_id: 'O1', type: 'refund', status: 'processing', amount_cents: 10000 }], page: 1, pageSize: 20, total: 1 } } }
       if (request.url.includes('/commissions')) return { status: 200, body: { code: 'OK', message: 'ok', data: { items: [{ id: 'CM1', source_id: 'S1', beneficiary_id: 'T1', amount_cents: 500, direction: 'PROMOTER', status: 'AVAILABLE' }], page: 1, pageSize: 20, total: 1 } } }
+      if (request.url.endsWith('/withdrawals')) return { status: 200, body: { code: 'OK', data: [] } }
       if (request.url.includes('/auth/admin/roles')) return { status: 200, body: { code: 'OK', message: 'ok', data: [{ id: 'R1', code: 'admin', name: '管理员', enabled: true }] } }
       if (request.url.includes('/auth/admin/accounts')) return { status: 200, body: { code: 'OK', message: 'ok', data: [{ id: 'A1', account: 'admin', display_name: '管理员', enabled: true, role_code: 'admin' }] } }
       if (request.url.includes('/admin/dashboard')) return { status: 200, body: { code: 'OK', message: 'ok', data: { gmvCents: 0, orderCount: 0 } } }
@@ -62,6 +63,22 @@ describe('admin api P1 queries', () => {
     expect(store.canMenu('suppliers')).toBe(true)
     expect(store.canMenu('farms')).toBe(false)
     expect(calls).toHaveLength(3)
+  })
+
+  it('opens the commissions review menu for a leader withdrawal reviewer', async () => {
+    const calls: string[] = []
+    configureApiClient({ dataMode: 'api', baseUrl: 'https://api.example.com', getAccessToken: () => 'reviewer-token', transport: async (request) => {
+      calls.push(request.url)
+      if (request.url.endsWith('/auth/me')) return { status: 200, body: { code: 'OK', data: { actorType: 'admin', actorId: 'A3', tenantId: 'PLATFORM', roles: ['reviewer'], permissions: ['leader.withdrawal.review'] } } }
+      if (request.url.endsWith('/withdrawals')) return { status: 200, body: { code: 'OK', data: [{ id: 'W1', requesterId: 'T1', amountCents: 200, method: 'WECHAT', status: 'PENDING', createdAt: '2026-11-16T10:00:00Z' }] } }
+      throw new Error('unexpected ' + request.url)
+    } })
+    const store = useAdminStore()
+    await store.initialize()
+    expect(store.error).toBe('')
+    expect(store.canMenu('commissions')).toBe(true)
+    expect(store.pendingWithdrawals).toBe(1)
+    expect(calls.filter((url) => url.endsWith('/withdrawals'))).toHaveLength(1)
   })
 
   it('sends super administrator role writes to auth service', async () => {

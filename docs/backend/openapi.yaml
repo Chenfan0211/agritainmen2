@@ -1417,6 +1417,22 @@ paths:
         "200":
           description: OK
   /withdrawals:
+    get:
+      summary: 管理员查询提现申请
+      description: 仅具备 withdrawal.review 或 leader.withdrawal.review 权限的平台管理员可查询；可按申请人过滤，按创建时间倒序返回。
+      parameters:
+        - name: requesterId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: 未登录
+        "403":
+          description: 无审核权限
     post:
       summary: 发起提现
       description: 当前有效团长只能为 Auth 身份绑定的 leaderId 提现；具备 commission.manage 的平台管理员可代提交。同一申请人用同一幂等键和相同金额、方式重试时返回原申请；参数不同返回 409。

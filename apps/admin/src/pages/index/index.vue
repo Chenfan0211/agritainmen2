@@ -517,7 +517,7 @@ const pagedPromoterCommissionRows = computed(() => filteredPromoterCommissionRow
 const filteredWithdrawals = computed<WithdrawalRequest[]>(() => {
   withdrawalVersion.value
   const q = withdrawalKeyword.value.trim().toLowerCase()
-  return Object.values(readPlatformWithdrawals() || {}).filter((item) => {
+  return (isApiMode() ? store.apiWithdrawals : Object.values(readPlatformWithdrawals() || {})).filter((item) => {
     const matchesKeyword = !q || `${item.id}${item.requesterType}${item.requesterId}${item.amount}${item.method}${item.reviewedNote || ''}`.toLowerCase().includes(q)
     const matchesStatus = withdrawalStatusFilter.value === '全部' || item.status === withdrawalStatusFilter.value
     return matchesKeyword && matchesStatus && matchesActiveTodo('commissions', item)
@@ -670,6 +670,7 @@ function selectModule(key: ModuleKey) {
   dialog.value = null
   keyword.value = ''
   page.value = 1
+  if (key === 'commissions' && isApiMode() && !store.can('commission.manage')) commissionTab.value = '提现审核'
 }
 
 function promoterTypeLabel(type?: string) {
@@ -751,7 +752,7 @@ function resetFiltersForModule(route: ModuleKey) {
     dictStatusFilter.value = '全部'
   }
   if (route === 'commissions') {
-    commissionTab.value = '佣金结算'
+    commissionTab.value = isApiMode() && !store.can('commission.manage') ? '提现审核' : '佣金结算'
     commissionKeyword.value = ''
     commissionStatusFilter.value = '全部'
     supplierSettleKeyword.value = ''
@@ -2452,7 +2453,7 @@ onBeforeUnmount(() => {
         <section v-else-if="active === 'leaders'" class="data-panel"><AdminLeadersPanel /></section>
 
         <section v-else-if="active === 'commissions'" class="data-panel">
-          <view class="filter-chips commission-filter-tabs"><button v-for="item in commissionTabOptions" :key="item.value" :class="{ active: commissionTab === item.value }" @click="commissionTab = item.value; page = 1">{{ item.label }}</button></view>
+          <view class="filter-chips commission-filter-tabs"><button v-for="item in commissionTabOptions.filter((option) => !isApiMode() || (option.value === '提现审核' ? (store.can('withdrawal.review') || store.can('leader.withdrawal.review')) : store.can('commission.manage')))" :key="item.value" :class="{ active: commissionTab === item.value }" @click="commissionTab = item.value; page = 1">{{ item.label }}</button></view>
           <template v-if="commissionTab === '佣金结算'">
             <view class="filter-bar"><label class="field is-search"><text>关键词</text><view class="filter-control"><UiIcon name="search" :size="16" /><input v-model="commissionKeyword" placeholder="请输入单号 / 金额 / 业务员" /></view></label><view class="field"><text>状态</text><SearchableSelect v-model="commissionStatusFilter" :options="commissionStatusOptions" search-placeholder="搜索结算状态" placeholder="请选择状态" /></view></view>
             <view class="commission-status-table">
@@ -2474,13 +2475,13 @@ onBeforeUnmount(() => {
             </view>
           </template>
           <template v-else-if="commissionTab === '提现审核'">
-            <view class="filter-bar"><label class="field is-search"><text>关键词</text><view class="filter-control"><UiIcon name="search" :size="16" /><input v-model="withdrawalKeyword" placeholder="请输入申请人 / 提现单号 / 方式" /></view></label><view class="field"><text>状态</text><SearchableSelect v-model="withdrawalStatusFilter" :options="withdrawalStatusOptions" search-placeholder="筛选状态" placeholder="请选择状态" /></view></view>
+            <view class="filter-bar"><label class="field is-search"><text>关键词</text><view class="filter-control"><UiIcon name="search" :size="16" /><input v-model="withdrawalKeyword" placeholder="请输入申请人 / 提现单号 / 方式" /></view></label><view class="field"><text>状态</text><SearchableSelect v-model="withdrawalStatusFilter" :options="withdrawalStatusOptions" search-placeholder="筛选状态" placeholder="请选择状态" /></view><button v-if="isApiMode()" class="compact-button" @click="store.loadWithdrawals()">刷新</button></view>
             <view class="withdrawal-table">
               <view class="withdrawal-table-scroll">
               <view class="table-row table-head withdrawal-grid"><text>申请人</text><text>金额</text><text>方式</text><text>申请时间</text><text>状态</text><text>备注</text><text>操作</text></view>
               <view v-for="item in filteredWithdrawals" :key="item.id" class="table-row withdrawal-grid">
-                <view><strong>{{ item.requesterType === 'user' ? '用户' : '业务员' }} · {{ item.requesterId }}</strong><small>{{ item.id }}</small></view><strong>{{ money(item.amount) }}</strong><text>{{ item.method }}</text><text>{{ item.createdAt }}</text><span class="status" :class="item.status">{{ withdrawalStatusText(item.status) }}</span><text>{{ item.reviewedNote || '—' }}</text>
-                <view class="row-actions"><template v-if="item.status === 'pending' && store.can('withdrawal.review')"><button @click="confirmAction('确认通过该提现申请？', () => approveWithdrawal(item.id))">通过</button><button class="danger" @click="openWithdrawalReject(item.id)">驳回</button></template><text v-else>—</text></view>
+                <view><strong>{{ item.requesterType === 'user' ? '用户' : isApiMode() ? '团长' : '业务员' }} · {{ item.requesterId }}</strong><small>{{ item.id }}</small></view><strong>{{ money(item.amount) }}</strong><text>{{ item.method }}</text><text>{{ item.createdAt }}</text><span class="status" :class="item.status">{{ withdrawalStatusText(item.status) }}</span><text>{{ item.reviewedNote || '—' }}</text>
+                <view class="row-actions"><template v-if="item.status === 'pending' && (store.can('withdrawal.review') || store.can('leader.withdrawal.review'))"><button @click="confirmAction('确认通过该提现申请？', () => approveWithdrawal(item.id))">通过</button><button class="danger" @click="openWithdrawalReject(item.id)">驳回</button></template><text v-else>—</text></view>
               </view>
               </view>
               <view v-if="!filteredWithdrawals.length" class="empty-state">暂无提现申请</view>

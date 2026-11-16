@@ -79,6 +79,13 @@ public class SettlementController {
         return ApiResponse.ok(settlementService.listWithdrawals(id));
     }
 
+    @GetMapping("/withdrawals")
+    public ApiResponse<List<WithdrawalView>> withdrawals(@RequestParam(required = false) String requesterId,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        accessVerifier.requireAdmin(authorization, "withdrawal.review", "leader.withdrawal.review");
+        return ApiResponse.ok(settlementService.listWithdrawalsForAdmin(requesterId == null ? "" : requesterId.trim()));
+    }
+
     @PostMapping("/withdrawals")
     public ApiResponse<WithdrawalView> requestWithdrawal(@Valid @RequestBody WithdrawalRequest request,
             @RequestHeader(value = "Authorization", required = false) String authorization,

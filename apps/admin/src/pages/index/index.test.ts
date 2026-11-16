@@ -240,7 +240,7 @@ describe('admin supplier and RBAC page', () => {
     expect(source).toContain('placeholder="请输入商品名称"')
     expect(source).not.toContain('搜索商品名称 / 供应商')
     expect(source).toContain('class="filter-chips commission-filter-tabs"')
-    expect(source).toContain('v-for="item in commissionTabOptions"')
+    expect(source).toContain('v-for="item in commissionTabOptions.filter(')
     expect(source).not.toContain('SearchableSelect v-model="commissionTab"')
     expect(source).toContain('commissionTabOptions')
   })

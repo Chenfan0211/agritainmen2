@@ -100,6 +100,28 @@ class SettlementBearerScopeAuditTest {
                 "admin-leader-review", Map.of("approved", false)));
     }
 
+    @Test void reviewersListOnlyPlatformWithdrawals() {
+        String suffix = UUID.randomUUID().toString();
+        String platformId = "W-PLATFORM-" + suffix;
+        String foreignId = "W-OTHER-" + suffix;
+        jdbc.update("insert into settlement_withdrawal(id,tenant_id,requester_id,amount_cents,method,status,created_at,updated_at,version,deleted) values (?, 'PLATFORM', ?, 100, 'WECHAT', 'PENDING', current_timestamp, current_timestamp, 0, false)", platformId, "T-" + suffix);
+        jdbc.update("insert into settlement_withdrawal(id,tenant_id,requester_id,amount_cents,method,status,created_at,updated_at,version,deleted) values (?, 'OTHER', ?, 100, 'WECHAT', 'PENDING', current_timestamp, current_timestamp, 0, false)", foreignId, "T-" + suffix);
+        assertEquals(401, getStatus("/api/v1/withdrawals", null));
+        assertEquals(403, getStatus("/api/v1/withdrawals", "leader-a"));
+        assertEquals(403, getStatus("/api/v1/withdrawals", "admin-none"));
+        assertEquals(403, getStatus("/api/v1/withdrawals", "admin-commission"));
+        assertEquals(403, getStatus("/api/v1/withdrawals", "admin-foreign"));
+        JsonNode reviewList = client.get().uri("/api/v1/withdrawals")
+                .header("Authorization", "Bearer admin-review").retrieve().body(JsonNode.class);
+        assertEquals("OK", reviewList.path("code").asText());
+        assertEquals(true, reviewList.path("data").valueStream().anyMatch(row -> platformId.equals(row.path("id").asText())));
+        assertEquals(false, reviewList.path("data").valueStream().anyMatch(row -> foreignId.equals(row.path("id").asText())));
+        JsonNode filtered = client.get().uri("/api/v1/withdrawals?requesterId=" + "T-" + suffix)
+                .header("Authorization", "Bearer admin-leader-review").retrieve().body(JsonNode.class);
+        assertEquals(1, filtered.path("data").size());
+        assertEquals(platformId, filtered.path("data").get(0).path("id").asText());
+    }
+
     @Test void configurationWritesRequireMatchingAdminPermission() {
         String rule = "/api/v1/commissions/rules/R-" + UUID.randomUUID();
         Map<String, Object> body = Map.of("name", "测试规则", "promoterRate", 0.1, "storeRate", 0.1, "enabled", true);

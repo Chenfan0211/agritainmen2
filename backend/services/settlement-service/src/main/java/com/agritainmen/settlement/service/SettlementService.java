@@ -100,6 +100,11 @@ public class SettlementService {
         return jdbc.query("select * from settlement_withdrawal where tenant_id='PLATFORM' and requester_id=? and deleted=false order by created_at desc, id desc", (rs, rowNum) -> mapWithdrawal(rs), requesterId);
     }
 
+    public List<WithdrawalView> listWithdrawalsForAdmin(String requesterId) {
+        if (!requesterId.isBlank()) return listWithdrawals(requesterId);
+        return jdbc.query("select * from settlement_withdrawal where tenant_id='PLATFORM' and deleted=false order by created_at desc, id desc", (rs, rowNum) -> mapWithdrawal(rs));
+    }
+
     private WithdrawalView findWithdrawalByKey(String requesterId, String idempotencyKey) {
         List<WithdrawalView> rows = jdbc.query("""
                 select * from settlement_withdrawal

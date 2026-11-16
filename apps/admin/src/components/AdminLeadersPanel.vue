@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { readPlatformWithdrawals, readPricingDefaults } from '@agritainment/shared'
+import { getApiClientConfig, readPlatformWithdrawals, readPricingDefaults } from '@agritainment/shared'
 import type { WithdrawalRequest } from '@agritainment/shared'
 import { useAdminStore } from '../stores/admin'
 import { buildAdminLeaders, buildLeaderCommissionRows } from '../data/user-operations'
@@ -17,13 +17,17 @@ const commissions = ref<AdminLeaderCommissionRow[]>([])
 const withdrawals = ref<WithdrawalRequest[]>([])
 const priceForm = reactive({ level1Amount: 0, level2Amount: 0 })
 const message = ref('')
+const apiMode = getApiClientConfig().dataMode === 'api'
+const canReview = computed(() => store.can('leader.withdrawal.review') || store.can('withdrawal.review'))
+const serverWithdrawals = computed(() => store.apiWithdrawals)
 
-function reload() {
+async function reload() {
   rows.value = buildAdminLeaders()
   const defaults = readPricingDefaults()
   priceForm.level1Amount = defaults.level1Amount
   priceForm.level2Amount = defaults.level2Amount
-  const allWithdrawals = Object.values(readPlatformWithdrawals() || {})
+  if (apiMode && canReview.value) await store.loadWithdrawals()
+  const allWithdrawals = apiMode ? store.apiWithdrawals : Object.values(readPlatformWithdrawals() || {})
   withdrawals.value = selectedId.value
     ? allWithdrawals.filter((item) => item.requesterId === selectedId.value).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     : []
@@ -77,8 +81,10 @@ async function toggleStatus(row: AdminLeaderRow) {
 async function reviewWithdrawal(item: WithdrawalRequest, status: 'approved' | 'rejected') {
   message.value = ''
   const result = await store.reviewWithdrawal(item.id, status, status === 'rejected' ? '团长提现资料不符合要求' : undefined, 'leader.withdrawal.review')
-  message.value = result ? `提现「${item.id}」已${status === 'approved' ? '通过' : '驳回'}` : store.error || '提现审核失败或当前角色无权限'
-  reload()
+  const resultMessage = result ? `提现「${item.id}」已${status === 'approved' ? '通过' : '驳回'}` : store.error || '提现审核失败或当前角色无权限'
+  if (result && apiMode) await reload()
+  else if (!apiMode) await reload()
+  message.value = resultMessage
 }
 
 function money(value: number) {
@@ -96,6 +102,16 @@ function money(value: number) {
         <button class="button primary" :disabled="!store.can('leader.price.manage')" @click="savePrice">保存团长价格</button>
       </view>
       <text v-if="message" class="config-message">{{ message }}</text>
+    </view>
+
+    <view v-if="apiMode && canReview" class="leader-detail-drawer">
+      <view class="panel-head"><view><h2>提现审核</h2><text>服务端申请 · 待审核 {{ store.pendingWithdrawals }} 笔</text></view><button class="button secondary" @click="reload">刷新</button></view>
+      <text v-if="message" class="config-message">{{ message }}</text>
+      <view v-if="!serverWithdrawals.length" class="empty-state">暂无提现申请</view>
+      <view v-for="item in serverWithdrawals" :key="item.id" class="history-row withdrawal-row">
+        <view><strong>{{ item.requesterId }} · {{ item.id }} · {{ money(item.amount) }}</strong><small>{{ item.status === 'pending' ? '待审核' : item.status === 'approved' ? '已通过' : '已驳回' }} · {{ item.createdAt }}</small></view>
+        <view v-if="item.status === 'pending'" class="row-actions"><button @click="reviewWithdrawal(item, 'approved')">通过</button><button class="danger" @click="reviewWithdrawal(item, 'rejected')">驳回</button></view>
+      </view>
     </view>
 
     <view class="filter-bar">
@@ -134,8 +150,8 @@ function money(value: number) {
       <view v-for="item in withdrawals" :key="item.id" class="history-row withdrawal-row">
         <view><strong>{{ item.id }} · {{ money(item.amount) }}</strong><small>{{ item.status === 'pending' ? '待审核' : item.status === 'approved' ? '已通过' : item.status === 'rejected' ? '已驳回' : item.status }} · {{ item.createdAt }}</small></view>
         <view v-if="item.status === 'pending'" class="row-actions">
-          <button :disabled="!store.can('leader.withdrawal.review')" @click="reviewWithdrawal(item, 'approved')">通过</button>
-          <button class="danger" :disabled="!store.can('leader.withdrawal.review')" @click="reviewWithdrawal(item, 'rejected')">驳回</button>
+          <button :disabled="!canReview" @click="reviewWithdrawal(item, 'approved')">通过</button>
+          <button class="danger" :disabled="!canReview" @click="reviewWithdrawal(item, 'rejected')">驳回</button>
         </view>
       </view>
     </view>

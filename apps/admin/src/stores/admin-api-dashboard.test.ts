@@ -30,6 +30,7 @@ describe('admin api dashboard bootstrap', () => {
       if (request.url.includes('/catalog/prices')) return { status: 200, body: { code: 'OK', message: 'ok', data: [] } }
       if (request.url.includes('/org/users')) return { status: 200, body: { code: 'OK', message: 'ok', data: { items: [], page: 1, pageSize: 20, total: 0 } } }
       if (request.url.includes('/commissions')) return { status: 200, body: { code: 'OK', message: 'ok', data: { items: [], page: 1, pageSize: 20, total: 0 } } }
+      if (request.url.endsWith('/withdrawals')) return { status: 200, body: { code: 'OK', data: [] } }
       if (request.url.includes('/auth/admin/roles')) return { status: 200, body: { code: 'OK', message: 'ok', data: [] } }
       if (request.url.includes('/auth/admin/accounts')) return { status: 200, body: { code: 'OK', message: 'ok', data: [] } }
       throw new Error('unexpected ' + request.url)

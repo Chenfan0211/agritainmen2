@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { AdminAccount, AdminMenuKey, AdminPermissionCode, AdminRole, AfterSale, BusinessMediaValue, CatalogStockLogEntry, CatalogProduct, CatalogProductSubmission, CatalogState, Category, CCommissionAllocation, CDistributorProfile, CommissionRule, CommissionSettlementRecord, COrder, CProduct, DictGroup, DictItem, FarmAdministrativeAddress, FarmStore, GeocodeRequest, GeocodeResult, MockScenario, Order, PlatformAuditLogEntry, PlatformDictionaryState, PlatformEntities, PlatformJournalEntry, PlatformRecoveryHandlerKey, PlatformTransactionStep, PricePolicy, PriceTier, PricingDefaults, Product, Promoter, ShareConfig, StoreAccount, Supplier, SupplierAccount, SupplierSettlementRecord, WithdrawalRequestStatus, WriteResult } from '@agritainment/shared'
+import type { AdminAccount, AdminMenuKey, AdminPermissionCode, AdminRole, AfterSale, BusinessMediaValue, CatalogStockLogEntry, CatalogProduct, CatalogProductSubmission, CatalogState, Category, CCommissionAllocation, CDistributorProfile, CommissionRule, CommissionSettlementRecord, COrder, CProduct, DictGroup, DictItem, FarmAdministrativeAddress, FarmStore, GeocodeRequest, GeocodeResult, MockScenario, Order, PlatformAuditLogEntry, PlatformDictionaryState, PlatformEntities, PlatformJournalEntry, PlatformRecoveryHandlerKey, PlatformTransactionStep, PricePolicy, PriceTier, PricingDefaults, Product, Promoter, ShareConfig, StoreAccount, Supplier, SupplierAccount, SupplierSettlementRecord, WithdrawalRequest, WithdrawalRequestStatus, WriteResult } from '@agritainment/shared'
 import { apiRequest, createAdminQueryClient, createCatalogApiClient, createIdempotencyKey, getApiClientConfig } from '@agritainment/shared'
 import { addDictGroup as addSharedDictGroup, addDictItem as addSharedDictItem, ADMIN_SUPER_ROLE_ID, appendCatalogStockLogs, appendPlatformAuditLog, approveCatalogProductSubmission as approveSharedCatalogProductSubmission, authenticateAdmin, buildFarmAdministrativeAddress, buildPromoterAccountSeeds, buildSupplierAccountSeeds, canPublishPlatformDictionaries, CATALOG_PRODUCT_REVIEW_RECOVERY_HANDLER_KEY, catalogChannelFlags, catalogProductStockWarnings, catalogProductToCProduct, catalogSkuNeedsRestock, catalogProductToProduct, clearPlatformJson, cloneSeed, confirmCSubOrderReceiptAtSupplier, createCatalogProductReviewRecoveryHandlerRegistration, createCatalogProductSubmission, createGeocodeProviders, createId, createPlatformAuditLogEntry, createPlatformProductionRecoveryHandlerRegistration, createStrictSnapshotRecoveryHandlerRegistration, createUserAtomicRecoveryHandlerRegistrations, DEFAULT_PRICING_DEFAULTS, deriveCOrderStatus, DICTIONARY_SCHEMA_VERSION, emptyPlatformMedia, enqueuePlatformRecovery, ensureCatalogState, formatFarmAdministrativeAddress, geocodeAddress, getPlatformProviders, hasAdminMenu, hasAdminPermission, initializePlatformRecoveryHandlers, mergeEntitySeeds, mergePlatformAfterSales, mergePlatformEntities, mergePlatformOrders, mergePlatformPromoterAccounts, mergePlatformStoreAccounts, mergePlatformSupplierAccounts, migrateFarmAdministrativeAddress, normalizeCProducts, normalizeMediaReference, pendingShareTotal, persistPlatformEntity, PLATFORM_AFTERSALES_STORAGE_KEY, PLATFORM_AUDIT_LOG_STORAGE_KEY, PLATFORM_C_COMMISSIONS_STORAGE_KEY, PLATFORM_C_ORDERS_STORAGE_KEY, PLATFORM_CATALOG_PRODUCT_SUBMISSIONS_STORAGE_KEY, PLATFORM_CATALOG_STORAGE_KEY, PLATFORM_COMMISSION_RULES_STORAGE_KEY, PLATFORM_COMMISSION_SETTLEMENT_RECORDS_STORAGE_KEY, PLATFORM_ENTITIES_STORAGE_KEY, PLATFORM_ORDERS_STORAGE_KEY, PLATFORM_SETTLEMENTS_STORAGE_KEY, PLATFORM_SHARES_STORAGE_KEY, PLATFORM_SUPPLIER_SETTLEMENTS_STORAGE_KEY, preparePlatformJournal, readCatalogProductSubmissionState, readCatalogState, readCCommissionRecords, readCDistributorProfiles, readCInventoryState, readCOrders, readPlatformAdminAccounts, readPlatformAdminRoles, readPlatformAfterSales, readPlatformAuditLogs, readPlatformCollectionRevision, readPlatformCommissionRules, readPlatformCommissionSettlementRecords, readPlatformCommissionSettlements, readPlatformDictionaries, readPlatformDrivers, readPlatformEntities, readPlatformJournal, readPlatformJson, readPlatformMedia, readPlatformOrders, readPlatformPromoterAccountState, readPlatformRecoveryQueue, readPlatformStoreAccounts, readPlatformSupplierAccounts, readPlatformSupplierSettlements, readPlatformWithdrawals, readPricingDefaults, readShareConfig, readShareRecords, reconcilePendingPlatformTransactions, rejectCatalogProductSubmission as rejectSharedCatalogProductSubmission, removeDictGroup as removeSharedDictGroup, removeDictItem as removeSharedDictItem, resolvePlatformJournal, resolvePlatformRecoveryTask, retryPlatformRecoveryTask, round2, runLockedPlatformTransaction, saveCatalogProduct as persistCatalogProduct, seedCCommerceData, seedPlatformAdminSecurity, syncCSubOrderFromSupplier, todayString, updateDictGroup as updateSharedDictGroup, updateDictItem as updateSharedDictItem, upsertPlatformFarm, validatePhone, writeCatalogState, writeCCommissionRecords, writeCDistributorProfiles, writeCOrders, writePlatformAdminAccounts, writePlatformAdminRoles, writePlatformAfterSales, writePlatformCommissionRules, writePlatformCommissionSettlementRecords, writePlatformCommissionSettlements, writePlatformEntities, writePlatformJson, writePlatformMedia, writePlatformOrders, writePlatformPromoterAccounts, writePlatformStoreAccounts, writePlatformSupplierAccounts, writePlatformSupplierSettlements, writePricingDefaults, writeShareConfig, writeShareRecords } from '@agritainment/shared'
 import { PLATFORM_ADMIN_ACCOUNTS_STORAGE_KEY, PLATFORM_ADMIN_ROLES_STORAGE_KEY, PLATFORM_C_DISTRIBUTORS_STORAGE_KEY, PLATFORM_DICTIONARIES_STORAGE_KEY, PLATFORM_MEDIA_STORAGE_KEY, PLATFORM_PRICING_DEFAULTS_STORAGE_KEY, PLATFORM_PROMOTER_ACCOUNTS_STORAGE_KEY, PLATFORM_RECOVERY_QUEUE_STORAGE_KEY, PLATFORM_SHARE_CONFIG_STORAGE_KEY, PLATFORM_STORE_ACCOUNTS_STORAGE_KEY, PLATFORM_SUPPLIER_ACCOUNTS_STORAGE_KEY, PLATFORM_TRANSACTION_JOURNAL_STORAGE_KEY, PLATFORM_WITHDRAWALS_STORAGE_KEY } from '@agritainment/shared'
@@ -25,7 +25,7 @@ function roleFromApiProfile(profile: AdminApiProfile): AdminRole {
   const menuScopes: Partial<Record<AdminMenuKey, string[]>> = {
     suppliers: ['supplier.'], farms: ['farm.'], products: ['product.'], categories: ['category.'],
     prices: ['price.'], orders: ['order.'], afterSales: ['afterSale.'], promoters: ['promoter.'],
-    commissions: ['commission.', 'withdrawal.'], users: ['user.'], leaders: ['leader.'],
+    commissions: ['commission.', 'withdrawal.', 'leader.withdrawal.'], users: ['user.'], leaders: ['leader.'],
     dict: ['dictionary.'], logs: ['audit.'], roles: ['admin.role.'], accounts: ['admin.account.'],
     reports: ['report.']
   }
@@ -44,6 +44,25 @@ interface SupplierAccountDto {
   enabled: boolean
   freezeReason?: string | null
   initialPassword?: string | null
+}
+
+interface WithdrawalDto {
+  id: string
+  requesterId: string
+  amountCents: number
+  method: string
+  status: string
+  reviewedBy?: string | null
+  reviewNote?: string | null
+  createdAt: string
+  reviewedAt?: string | null
+}
+
+function withdrawalFromDto(dto: WithdrawalDto): WithdrawalRequest {
+  return { id: dto.id, requesterType: 'promoter', requesterId: dto.requesterId,
+    amount: dto.amountCents / 100, method: dto.method, status: dto.status.toLowerCase() as WithdrawalRequestStatus,
+    requestKey: dto.id, createdAt: dto.createdAt, reviewedAt: dto.reviewedAt || undefined,
+    operator: dto.reviewedBy || undefined, reviewedNote: dto.reviewNote || undefined }
 }
 
 function supplierAccountFromDto(dto: SupplierAccountDto, supplierName: string): SupplierAccount {
@@ -86,6 +105,7 @@ interface AdminState {
   adminRoles: AdminRole[]
   adminAccounts: AdminAccount[]
   apiRole: AdminRole | null
+  apiWithdrawals: WithdrawalRequest[]
   auth: { isLoggedIn: boolean; account: string; accountId: string; roleId: string; roleCode: string; name: string }
 }
 
@@ -157,7 +177,7 @@ function buildCatalogStockLogs(current: CatalogState | null, payload: CatalogPro
   })
 }
 
-function buildAdminTodos(state: Pick<AdminState, 'suppliers' | 'products' | 'productSubmissions' | 'catalogProducts' | 'orders' | 'afterSales' | 'supplierSettlementRecords' | 'commissionSettlementRecords'>): AdminTodo[] {
+function buildAdminTodos(state: Pick<AdminState, 'suppliers' | 'products' | 'productSubmissions' | 'catalogProducts' | 'orders' | 'afterSales' | 'supplierSettlementRecords' | 'commissionSettlementRecords' | 'apiWithdrawals'>): AdminTodo[] {
   const todos: AdminTodo[] = []
   const add = (type: string, title: string, items: Array<{ id: string }>, route: AdminMenuKey, priority: AdminTodo['priority'], createdAt: string, filters?: Record<string, string>) => {
     if (!items.length) return
@@ -190,7 +210,7 @@ function buildAdminTodos(state: Pick<AdminState, 'suppliers' | 'products' | 'pro
   const stockWarningProducts = state.catalogProducts.filter((product) => catalogProductStockWarnings(product).length > 0)
   add('stock-warning', `商品「${stockWarningProducts[0]?.name}」库存低于预警阈值`, stockWarningProducts, 'products', 'medium', stableAdminCreatedAt([]), { stock: 'warning' })
 
-  const withdrawals = Object.values(readPlatformWithdrawals() || {}).filter((item) => item.status === 'pending')
+  const withdrawals = (getApiClientConfig().dataMode === 'api' ? state.apiWithdrawals : Object.values(readPlatformWithdrawals() || {})).filter((item) => item.status === 'pending')
   add('withdrawal', `提现「${withdrawals[0]?.requesterId}」待审核`, withdrawals, 'commissions', 'medium', withdrawals[0]?.createdAt || '', { view: 'withdrawals', status: 'pending' })
   const recovery = readPlatformRecoveryQueue().filter((item) => item.status === 'pending')
   add('recovery', `事务「${recovery[0]?.operationId}」待恢复`, recovery, 'dashboard', 'high', recovery[0]?.createdAt || '', { detail: 'todos', type: 'recovery' })
@@ -859,6 +879,7 @@ export const useAdminStore = defineStore('operations', {
     adminRoles: [],
     adminAccounts: [],
     apiRole: null,
+    apiWithdrawals: [],
     auth: { isLoggedIn: false, account: '', accountId: '', roleId: '', roleCode: '', name: '' }
   }),
   getters: {
@@ -869,7 +890,7 @@ export const useAdminStore = defineStore('operations', {
     ]).size,
     pendingOrders: (state) => state.orders.filter((item) => item.status === 'pending').length,
     pendingAfterSales: (state) => state.afterSales.filter((item) => !['refunded', 'rejected', 'refund-failed'].includes(item.status)).length,
-    pendingWithdrawals: () => Object.values(readPlatformWithdrawals() || {}).filter((item) => item.status === 'pending').length,
+    pendingWithdrawals: (state) => (getApiClientConfig().dataMode === 'api' ? state.apiWithdrawals : Object.values(readPlatformWithdrawals() || {})).filter((item) => item.status === 'pending').length,
     pendingRecovery: () => readPlatformRecoveryQueue().filter((item) => item.status === 'pending').length,
     pendingTodos(state): number {
       return buildAdminTodos(state).reduce((sum, todo) => sum + todo.count, 0)
@@ -901,6 +922,7 @@ export const useAdminStore = defineStore('operations', {
         if (!getApiClientConfig().getAccessToken?.()) {
           this.auth = { isLoggedIn: false, account: '', accountId: '', roleId: '', roleCode: '', name: '' }
           this.apiRole = null
+          this.apiWithdrawals = []
           this.initialized = true
           return
         }
@@ -914,6 +936,7 @@ export const useAdminStore = defineStore('operations', {
           clearAdminAccessToken()
           this.auth = { isLoggedIn: false, account: '', accountId: '', roleId: '', roleCode: '', name: '' }
           this.apiRole = null
+          this.apiWithdrawals = []
           this.error = error instanceof Error ? error.message : '登录已失效，请重新登录'
           return
         }
@@ -935,7 +958,7 @@ export const useAdminStore = defineStore('operations', {
               categories: this.canMenu('categories') ? (await createAdminQueryClient().categories()).map((item) => ({ id: item.id, name: item.name, sort: item.sortOrder, enabled: item.enabled }) as never) : [],
               pricePolicies: this.canMenu('prices') ? (await createAdminQueryClient().prices()).map((item) => ({ id: item.id, name: item.name, scope: item.scope, discountRate: item.discountRate, enabled: item.enabled }) as never) : [],
               afterSales: this.canMenu('afterSales') ? (await createAdminQueryClient().afterSales()).items.map((item) => ({ id: item.id, orderId: item.orderId, type: item.type, status: item.status, amount: item.amount, refundAmount: item.refunded }) as never) : [],
-              commissionSettlements: this.canMenu('commissions') ? (await createAdminQueryClient().commissions()).items.map((item) => ({ id: item.id, amount: item.amount, status: item.status }) as never) : [],
+              commissionSettlements: this.can('commission.manage') ? (await createAdminQueryClient().commissions()).items.map((item) => ({ id: item.id, amount: item.amount, status: item.status }) as never) : [],
               orders: this.canMenu('orders') ? (await apiRequest<{ items: Array<{ id: string; orderNo: string; buyerId: string; status: string; amountCents: number }> }>('/api/v1/orders?page=1&pageSize=200')).items.map((item) => ({ id: item.id, orderNo: item.orderNo, storeId: item.buyerId, amount: item.amountCents / 100, status: item.status === 'PENDING_PAYMENT' ? 'pending-payment' : 'pending', createdAt: '', items: [] }) as never) : [],
               farms: this.canMenu('farms') ? (await apiRequest<FarmDto[]>('/api/v1/org/farms')).map(farmFromDto) : []
             }
@@ -1003,6 +1026,8 @@ export const useAdminStore = defineStore('operations', {
           adminAccounts: apiMode ? (this.canMenu('accounts') ? (await createAdminQueryClient().accounts()).map((item) => ({ id: item.id, account: item.account, name: item.displayName, roleId: item.roleCode || '', enabled: item.enabled }) as never) : []) : adminAccounts,
           initialized: true
         })
+        if (apiMode && (this.can('withdrawal.review') || this.can('leader.withdrawal.review'))) await this.loadWithdrawals()
+        else if (apiMode) this.apiWithdrawals = []
         if (this.auth.isLoggedIn && !apiMode) {
           const account = adminAccounts.find((item) => item.id === this.auth.accountId || item.account === this.auth.account)
           const role = adminRoles.find((item) => item.id === account?.roleId)
@@ -2912,7 +2937,49 @@ export const useAdminStore = defineStore('operations', {
       })
       return result.ok
     },
+    async loadWithdrawals(): Promise<boolean> {
+      if (getApiClientConfig().dataMode !== 'api' || !this.auth.isLoggedIn || !(this.can('withdrawal.review') || this.can('leader.withdrawal.review'))) {
+        this.apiWithdrawals = []
+        this.error = '无权查询提现申请'
+        return false
+      }
+      try {
+        this.apiWithdrawals = (await apiRequest<WithdrawalDto[]>('/api/v1/withdrawals')).map(withdrawalFromDto)
+        this.error = ''
+        return true
+      } catch (error) {
+        this.apiWithdrawals = []
+        this.error = error instanceof Error ? error.message : '提现申请加载失败'
+        return false
+      }
+    },
     async reviewWithdrawal(id: string, status: WithdrawalRequestStatus, note?: string, permission: AdminPermissionCode = 'withdrawal.review') {
+      if (getApiClientConfig().dataMode === 'api') {
+        if (!(this.can('withdrawal.review') || this.can('leader.withdrawal.review'))) {
+          this.error = '无权审核提现'
+          return null
+        }
+        if (status !== 'approved' && status !== 'rejected') {
+          this.error = '无效的审核结果'
+          return null
+        }
+        try {
+          const dto = await apiRequest<WithdrawalDto>('/api/v1/withdrawals/' + encodeURIComponent(id) + '/review', {
+            method: 'POST', body: { approved: status === 'approved', note: note?.trim() || undefined }
+          })
+          const reviewed = withdrawalFromDto(dto)
+          const index = this.apiWithdrawals.findIndex((item) => item.id === id)
+          if (index >= 0) this.apiWithdrawals.splice(index, 1, reviewed)
+          else this.apiWithdrawals.unshift(reviewed)
+          this.error = ''
+          return reviewed
+        } catch (error) {
+          const message = error instanceof Error ? error.message : '提现审核失败'
+          await this.loadWithdrawals()
+          this.error = message
+          return null
+        }
+      }
       const rawWithdrawals = readPlatformJson(PLATFORM_WITHDRAWALS_STORAGE_KEY)
       const withdrawals = readPlatformWithdrawals() ?? {}
       const current = withdrawals[id]
@@ -3225,6 +3292,7 @@ export const useAdminStore = defineStore('operations', {
           if (result.profile.actorType !== 'admin' || result.profile.tenantId !== 'PLATFORM') throw new Error('当前账号无权访问运营后台')
           saveAdminAccessToken(result.accessToken)
           this.apiRole = roleFromApiProfile(result.profile)
+          this.apiWithdrawals = []
           this.auth = { isLoggedIn: true, account: account.trim(), accountId: result.profile.actorId,
             roleId: this.apiRole.id, roleCode: this.apiRole.code, name: result.profile.displayName || account.trim() }
           this.initialized = false
@@ -3272,6 +3340,7 @@ export const useAdminStore = defineStore('operations', {
         if (getApiClientConfig().getAccessToken?.()) void apiRequest('/api/v1/auth/logout', { method: 'POST', retryOnUnauthorized: false }).catch(() => undefined)
         clearAdminAccessToken()
         this.apiRole = null
+        this.apiWithdrawals = []
         this.initialized = false
         this.auth = { isLoggedIn: false, account: '', accountId: '', roleId: '', roleCode: '', name: '' }
         return

@@ -51,6 +51,7 @@ const expected = [
   ['GET', '/api/v1/fulfillment/logistics/{trackingNo}'],
   ['POST', '/api/v1/commissions'],
   ['POST', '/api/v1/withdrawals'],
+  ['GET', '/api/v1/withdrawals'],
   ['GET', '/api/v1/withdrawals/me'],
   ['POST', '/api/v1/withdrawals/{id}/review'],
   ['POST', '/api/v1/admin/audit'],
