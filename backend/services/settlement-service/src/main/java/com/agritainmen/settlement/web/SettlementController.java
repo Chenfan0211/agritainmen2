@@ -63,10 +63,20 @@ public class SettlementController {
         String id = beneficiaryId == null ? "" : beneficiaryId.trim();
         if (id.isBlank()) throw new BusinessException(ErrorCode.BAD_REQUEST, "beneficiaryId 不能为空");
         accessVerifier.requireBeneficiary(authorization, id);
-        long available = jdbc.queryForObject("select coalesce(sum(amount_cents),0) from settlement_commission where tenant_id='PLATFORM' and beneficiary_id=? and status='AVAILABLE' and deleted=false", Long.class, id);
+        long available = settlementService.availableForWithdrawal(id);
         long pending = jdbc.queryForObject("select coalesce(sum(amount_cents),0) from settlement_commission where tenant_id='PLATFORM' and beneficiary_id=? and status='PENDING' and deleted=false", Long.class, id);
-        long withdrawn = jdbc.queryForObject("select coalesce(sum(amount_cents),0) from settlement_commission where tenant_id='PLATFORM' and beneficiary_id=? and status='WITHDRAWN' and deleted=false", Long.class, id);
+        long withdrawn = jdbc.queryForObject("select coalesce(sum(amount_cents),0) from settlement_commission where tenant_id='PLATFORM' and beneficiary_id=? and status='WITHDRAWN' and deleted=false", Long.class, id)
+                + settlementService.approvedWithdrawalCents(id);
         return ApiResponse.ok(new MineView(id, available, pending, withdrawn));
+    }
+
+    @GetMapping("/withdrawals/me")
+    public ApiResponse<List<WithdrawalView>> myWithdrawals(@RequestParam String requesterId,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        String id = requesterId == null ? "" : requesterId.trim();
+        if (id.isBlank()) throw new BusinessException(ErrorCode.BAD_REQUEST, "requesterId 不能为空");
+        accessVerifier.requireBeneficiary(authorization, id);
+        return ApiResponse.ok(settlementService.listWithdrawals(id));
     }
 
     @PostMapping("/withdrawals")

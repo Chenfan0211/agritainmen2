@@ -25,6 +25,7 @@ class SettlementServiceTest {
 
     @Test
     void withdrawalCanOnlyBeReviewedOnce() {
+        jdbc.update("insert into settlement_commission(id,tenant_id,source_id,beneficiary_id,amount_cents,direction,status,created_at,updated_at,version,deleted) values (?, 'PLATFORM', ?, 'T001', 20000, 'LEVEL_1', 'AVAILABLE', current_timestamp, current_timestamp, 0, false)", "C-" + UUID.randomUUID(), "S-" + UUID.randomUUID());
         var withdrawal = settlementService.requestWithdrawal("T001", 20000, "微信零钱", UUID.randomUUID().toString());
         assertEquals("APPROVED", settlementService.reviewWithdrawal(withdrawal.id(), true, "admin", "核对通过").status());
         assertThrows(BusinessException.class, () -> settlementService.reviewWithdrawal(withdrawal.id(), false, "reviewer", "重复处理"));
@@ -41,6 +42,7 @@ class SettlementServiceTest {
     void concurrentWithdrawalRequestsWithSameKeyCreateOneRow() throws Exception {
         String requesterId = "T-" + UUID.randomUUID();
         String key = UUID.randomUUID().toString();
+        jdbc.update("insert into settlement_commission(id,tenant_id,source_id,beneficiary_id,amount_cents,direction,status,created_at,updated_at,version,deleted) values (?, 'PLATFORM', ?, ?, 20000, 'LEVEL_1', 'AVAILABLE', current_timestamp, current_timestamp, 0, false)", "C-" + UUID.randomUUID(), "S-" + UUID.randomUUID(), requesterId);
         var start = new CountDownLatch(1);
         var executor = Executors.newFixedThreadPool(2);
         try {
@@ -48,6 +50,23 @@ class SettlementServiceTest {
             var second = executor.submit(() -> { start.await(); return settlementService.requestWithdrawal(requesterId, 20000, "WECHAT", key); });
             start.countDown();
             assertEquals(first.get(10, TimeUnit.SECONDS).id(), second.get(10, TimeUnit.SECONDS).id());
+            assertEquals(1, jdbc.queryForObject("select count(*) from settlement_withdrawal where requester_id=?", Integer.class, requesterId));
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void concurrentDifferentKeysCannotOverdrawCommission() throws Exception {
+        String requesterId = "T-" + UUID.randomUUID();
+        jdbc.update("insert into settlement_commission(id,tenant_id,source_id,beneficiary_id,amount_cents,direction,status,created_at,updated_at,version,deleted) values (?, 'PLATFORM', ?, ?, 500, 'LEVEL_1', 'AVAILABLE', current_timestamp, current_timestamp, 0, false)", "C-" + UUID.randomUUID(), "S-" + UUID.randomUUID(), requesterId);
+        var start = new CountDownLatch(1);
+        var executor = Executors.newFixedThreadPool(2);
+        try {
+            var first = executor.submit(() -> { start.await(); try { settlementService.requestWithdrawal(requesterId, 500, "WECHAT", UUID.randomUUID().toString()); return true; } catch (BusinessException error) { return false; } });
+            var second = executor.submit(() -> { start.await(); try { settlementService.requestWithdrawal(requesterId, 500, "WECHAT", UUID.randomUUID().toString()); return true; } catch (BusinessException error) { return false; } });
+            start.countDown();
+            assertEquals(1, (first.get(10, TimeUnit.SECONDS) ? 1 : 0) + (second.get(10, TimeUnit.SECONDS) ? 1 : 0));
             assertEquals(1, jdbc.queryForObject("select count(*) from settlement_withdrawal where requester_id=?", Integer.class, requesterId));
         } finally {
             executor.shutdownNow();

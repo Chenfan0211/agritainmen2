@@ -58,6 +58,10 @@ class SettlementBearerScopeAuditTest {
     }
 
     @Test void leaderCanReadAndRequestOnlyOwnCommission() {
+        assertEquals(401, getStatus("/api/v1/withdrawals/me?requesterId=T001", null));
+        assertEquals(200, getStatus("/api/v1/withdrawals/me?requesterId=T001", "leader-a"));
+        assertEquals(403, getStatus("/api/v1/withdrawals/me?requesterId=T002", "leader-a"));
+        assertEquals(403, getStatus("/api/v1/withdrawals/me?requesterId=T001", "normal-user"));
         assertEquals(401, getStatus("/api/v1/commissions/me?beneficiaryId=T001", null));
         assertEquals(200, getStatus("/api/v1/commissions/me?beneficiaryId=T001", "leader-a"));
         assertEquals(403, getStatus("/api/v1/commissions/me?beneficiaryId=T002", "leader-a"));
@@ -70,12 +74,15 @@ class SettlementBearerScopeAuditTest {
 
         Map<String, Object> own = Map.of("requesterId", "T001", "amountCents", 100, "method", "WECHAT");
         Map<String, Object> other = Map.of("requesterId", "T002", "amountCents", 100, "method", "WECHAT");
+        seedCommission("T001", 100);
         assertEquals(403, postStatus("/api/v1/withdrawals", "leader-a", other));
         assertEquals(403, postStatus("/api/v1/withdrawals", "normal-user", own));
         assertEquals(200, postStatus("/api/v1/withdrawals", "leader-a", own));
     }
 
     @Test void reviewUsesVerifiedOperatorAndWithdrawalPermission() {
+        seedCommission("T001", 100);
+        seedCommission("T002", 100);
         JsonNode created = postBody("/api/v1/withdrawals", "leader-a",
                 Map.of("requesterId", "T001", "amountCents", 100, "method", "WECHAT"));
         String id = created.path("data").path("id").asText();
@@ -142,6 +149,11 @@ class SettlementBearerScopeAuditTest {
         var request = client.get().uri(path);
         if (token != null) request.header("Authorization", "Bearer " + token);
         return request.exchange((sent, response) -> response.getStatusCode().value());
+    }
+
+    private void seedCommission(String requesterId, long amountCents) {
+        String suffix = UUID.randomUUID().toString();
+        jdbc.update("insert into settlement_commission(id,tenant_id,source_id,beneficiary_id,amount_cents,direction,status,created_at,updated_at,version,deleted) values (?, 'PLATFORM', ?, ?, ?, 'LEVEL_1', 'AVAILABLE', current_timestamp, current_timestamp, 0, false)", "C-" + suffix, "S-" + suffix, requesterId, amountCents);
     }
 
     private int postStatus(String path, String token, Object body) {

@@ -706,6 +706,8 @@ interface UserState {
   addresses: CAddress[]
   commissionRecords: CCommissionAllocation[]
   commissionSummary: { available: number; pending: number; withdrawn: number } | null
+  commissionSummaryBeneficiaryId: string
+  apiWithdrawals: WithdrawalRequest[]
   identityStatus: 'idle' | 'loading' | 'ready' | 'error'
   identityProfile: UserIdentityProfile | null
   identityError: string
@@ -722,6 +724,24 @@ const activeDistributorForState = (state: Pick<UserState, 'identityProfile' | 'd
   const profile = state.identityProfile
   if (!profile || profile.status !== 'active' || profile.level === 'normal' || !profile.leaderId) return null
   return { userId: profile.userId, promoterId: profile.leaderId, level: profile.level, parentPromoterId: profile.parentLeaderId, status: 'active' }
+}
+interface ApiWithdrawalView {
+  id: string
+  requesterId: string
+  amountCents: number
+  method: string
+  status: string
+  createdAt: string
+  reviewedAt?: string
+  reviewedBy?: string
+  reviewNote?: string
+}
+function toUserWithdrawal(row: ApiWithdrawalView, leaderId: string): WithdrawalRequest | null {
+  const status = row.status?.toLowerCase()
+  if (row.requesterId !== leaderId || !['pending', 'approved', 'rejected'].includes(status) || !Number.isSafeInteger(row.amountCents) || row.amountCents <= 0) return null
+  return { id: row.id, requesterType: 'promoter', requesterId: leaderId, amount: row.amountCents / 100,
+    method: row.method === 'WECHAT' ? '微信提现' : row.method, status: status as WithdrawalRequest['status'], requestKey: row.id,
+    createdAt: row.createdAt, reviewedAt: row.reviewedAt, operator: row.reviewedBy, reviewedNote: row.reviewNote }
 }
 const persistUserAddresses = (userId: string, addresses: CAddress[], options: { removedIds?: string[]; defaultId?: string } = {}) => {
   const all = cloneSeed(readCAddresses() || {})
@@ -815,7 +835,7 @@ let activeUserIdentityRequest: Promise<UserIdentityProfile | null> | null = null
 const userStoreOptions: NativeStoreOptions<UserState> = {
   state: (): UserState => ({
     initialized: false, loading: false, withdrawalsTick: 0, distributorTick: 0, error: '', mockScenario: 'normal', farms: [], products: [], cProducts: [], inventoryRevision: 0, launchProductId: '', promoterId: '', promoterName: '', referralPromoterId: '', userId: '',
-    cart: [], orders: [], addresses: [], commissionRecords: [], commissionSummary: null, identityStatus: 'idle', identityProfile: null, identityError: '', identityCheckedAt: 0, openid: '', checkoutError: ''
+    cart: [], orders: [], addresses: [], commissionRecords: [], commissionSummary: null, commissionSummaryBeneficiaryId: '', apiWithdrawals: [], identityStatus: 'idle', identityProfile: null, identityError: '', identityCheckedAt: 0, openid: '', checkoutError: ''
   }),
   getters: {
     level: (state): CUserLevel => activeDistributorForState(state)?.level || 'normal',
@@ -832,20 +852,32 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
     defaultAddress: (state) => state.addresses.find((item) => item.isDefault) || state.addresses[0] || null,
     vouchers: (state): VoucherOrder[] => Object.values(readPlatformVoucherOrders() || {}).filter((item) => item.userId === state.userId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     myCommissionRecords: (state) => {
+      if (getApiClientConfig().dataMode === 'api') return []
       const beneficiaryId = activeDistributorForState(state)?.promoterId
       return state.commissionRecords.filter((item) => item.beneficiaryId === beneficiaryId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     },
     withdrawalRequests: (state): WithdrawalRequest[] => {
+      if (getApiClientConfig().dataMode === 'api') {
+        const leaderId = activeDistributorForState(state)?.promoterId
+        return leaderId ? state.apiWithdrawals.filter((item) => item.requesterId === leaderId) : []
+      }
       void state.withdrawalsTick
       return Object.values(readPlatformWithdrawals() || {}).filter((item) => item.requesterType === 'user' && item.requesterId === state.userId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     },
     availableCommission(): number {
+      if (getApiClientConfig().dataMode === 'api' && this.commissionSummaryBeneficiaryId !== this.currentDistributor?.promoterId) return 0
       if (this.commissionSummary) return Math.max(0, round2(this.commissionSummary.available))
+      if (getApiClientConfig().dataMode === 'api') return 0
       const available = this.myCommissionRecords.filter((item) => item.status === 'available').reduce((sum, item) => sum + item.amount, 0)
       const pending = this.withdrawalRequests.filter((item) => item.status === 'pending').reduce((sum, item) => sum + item.amount, 0)
       return Math.max(0, round2(available - pending))
     },
-    pendingCommission(): number { return this.commissionSummary ? round2(this.commissionSummary.pending) : Math.round(this.myCommissionRecords.filter((item) => item.status === 'pending').reduce((sum, item) => sum + item.amount, 0) * 100) / 100 }
+    pendingCommission(): number {
+      if (getApiClientConfig().dataMode === 'api' && this.commissionSummaryBeneficiaryId !== this.currentDistributor?.promoterId) return 0
+      if (this.commissionSummary) return round2(this.commissionSummary.pending)
+      if (getApiClientConfig().dataMode === 'api') return 0
+      return Math.round(this.myCommissionRecords.filter((item) => item.status === 'pending').reduce((sum, item) => sum + item.amount, 0) * 100) / 100
+    }
   },
   actions: {
     paymentAttemptForOrder(orderId: string): PaymentAttempt | null {
@@ -1032,15 +1064,26 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
       return true
     },
     async refreshCommissionSummary() {
-      if (getApiClientConfig().dataMode !== 'api') return
+      if (getApiClientConfig().dataMode !== 'api') return false
       const beneficiaryId = this.currentDistributor?.promoterId
-      if (!beneficiaryId) { this.commissionSummary = null; return }
+      if (!beneficiaryId) { this.commissionSummary = null; this.commissionSummaryBeneficiaryId = ''; this.apiWithdrawals = []; return false }
       try {
-        this.commissionSummary = await createAdminQueryClient().myCommission(beneficiaryId)
+        const summary = await createAdminQueryClient().myCommission(beneficiaryId)
+        const rows = await apiRequest<ApiWithdrawalView[]>(`/api/v1/withdrawals/me?requesterId=${encodeURIComponent(beneficiaryId)}`)
+        if (!Array.isArray(rows)) throw new Error('提现记录格式异常')
+        this.commissionSummary = summary
+        this.commissionSummaryBeneficiaryId = beneficiaryId
+        this.apiWithdrawals = rows.map((row) => toUserWithdrawal(row, beneficiaryId)).filter((row): row is WithdrawalRequest => row !== null)
+        return true
       } catch (error) {
+        this.commissionSummary = null
+        this.commissionSummaryBeneficiaryId = ''
+        this.apiWithdrawals = []
         this.error = error instanceof Error ? error.message : '佣金数据加载失败'
+        return false
       }
-    },    async refreshSharedState() {
+    },
+    async refreshSharedState() {
       this.refreshCatalog()
       this.products = readStorePackageProjection()
       const persisted = normalizeCOrders(readCOrders() || {})
@@ -1577,6 +1620,29 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
     /** 提交提现申请；返回 pending/duplicate/invalid/insufficient/false，不再按旧 boolean 解释。 */
     async withdrawCommission(method = '微信提现'): Promise<'pending' | 'duplicate' | 'invalid' | 'insufficient' | false> {
       if (!this.userId) return 'invalid' as const
+      if (getApiClientConfig().dataMode === 'api') {
+        const leaderId = this.currentDistributor?.promoterId
+        if (!leaderId) return 'invalid'
+        this.error = ''
+        if (!await this.refreshCommissionSummary()) return false
+        if (this.apiWithdrawals.some((item) => item.status === 'pending')) return 'duplicate'
+        const amountCents = Math.round((this.commissionSummary?.available || 0) * 100)
+        if (amountCents <= 0) return 'invalid'
+        try {
+          const row = await apiRequest<ApiWithdrawalView>('/api/v1/withdrawals', {
+            method: 'POST', idempotencyKey: createIdempotencyKey('withdrawal'),
+            body: { requesterId: leaderId, amountCents, method: method === '微信提现' ? 'WECHAT' : method }
+          })
+          const request = toUserWithdrawal(row, leaderId)
+          if (!request) throw new Error('提现申请响应格式异常')
+          this.apiWithdrawals = [request, ...this.apiWithdrawals.filter((item) => item.id !== request.id)]
+          if (this.commissionSummary) this.commissionSummary = { ...this.commissionSummary, available: Math.max(0, this.commissionSummary.available - request.amount) }
+          return 'pending'
+        } catch (error) {
+          this.error = error instanceof Error ? error.message : '提现申请失败'
+          return false
+        }
+      }
       const userId = this.userId
       const result = await runLockedPlatformCollectionTask({
         collections: [PLATFORM_WITHDRAWALS_STORAGE_KEY, PLATFORM_C_COMMISSIONS_STORAGE_KEY, PLATFORM_C_DISTRIBUTORS_STORAGE_KEY],
@@ -1602,6 +1668,7 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
       return result.value ?? false
     },
     async syncWithdrawals() {
+      if (getApiClientConfig().dataMode === 'api') return false
       if (!this.userId) return false
       const stable = readStableUserCommerceSnapshot('withdrawal', this.userId)
       if (!stable) { this.error = '提现数据已更新，请重试'; return false }

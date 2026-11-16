@@ -98,12 +98,13 @@ Page({
     this.setData(buildViewModel(type))
     this.unsubscribeStore = store.$subscribe(() => this.render())
     if (!store.identityProfile) {
-      void store.authenticate().then(() => this.render(), () => this.render())
+      void store.authenticate().then(() => store.refreshCommissionSummary()).then(() => this.render(), () => this.render())
     }
   },
 
   onShow(this: any) {
     this.render()
+    if (store.identityProfile) void store.refreshCommissionSummary().then(() => this.render(), () => this.render())
   },
 
   onUnload(this: any) {
@@ -117,7 +118,7 @@ Page({
 
   async withdraw(this: any) {
     const result = await store.withdrawCommission('微信提现')
-    const title = result === 'pending' ? '提现申请已提交' : result === 'duplicate' ? '已有申请处理中' : '暂无可提现收入'
+    const title = result === 'pending' ? '提现申请已提交' : result === 'duplicate' ? '已有申请处理中' : result === 'invalid' ? '暂无可提现收入' : store.error || '提现申请失败'
     wx.showToast({ title, icon: 'none' })
     this.render()
   }

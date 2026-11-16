@@ -1441,6 +1441,19 @@ paths:
           description: 缺少或无效的幂等键
         "409":
           description: 幂等键对应的申请参数不同
+  /withdrawals/me:
+    get:
+      summary: 查询我的提现申请
+      description: 当前有效团长只能查询 Auth 身份绑定的 leaderId；具备 commission.manage 的平台管理员可代查。按创建时间倒序返回申请。
+      parameters:
+        - name: requesterId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
   /admin/audit:
     get:
       summary: 查询审计日志

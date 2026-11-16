@@ -79,8 +79,10 @@ class SettlementApiAuditTest {
 
     @Test
     void withdrawalApprovalSucceedsOnceAndDuplicateApprovalReturns409() throws Exception {
+        String requesterId = unique("REQUESTER");
+        seedCommission(requesterId, 20000);
         ApiHttpResponse created = post("/api/v1/withdrawals", Map.of(
-                "requesterId", unique("REQUESTER"),
+                "requesterId", requesterId,
                 "amountCents", 20000,
                 "method", "WECHAT"
         ));
@@ -152,6 +154,7 @@ class SettlementApiAuditTest {
     @Test
     void withdrawalReplayKeepsOneApplicationAndRejectsChangedPayload() throws Exception {
         String requesterId = unique("REQUESTER");
+        seedCommission(requesterId, 100);
         String key = unique("WITHDRAWAL");
         Map<String, Object> body = Map.of("requesterId", requesterId, "amountCents", 100, "method", "WECHAT");
         String firstId = assertSuccess(post("/api/v1/withdrawals", body, key)).path("id").asText();
@@ -167,11 +170,59 @@ class SettlementApiAuditTest {
     @Test
     void sameWithdrawalKeyIsIndependentForDifferentRequesters() throws Exception {
         String key = unique("WITHDRAWAL");
+        String firstRequester = unique("REQUESTER-A");
+        String secondRequester = unique("REQUESTER-B");
+        seedCommission(firstRequester, 100);
+        seedCommission(secondRequester, 100);
         String first = assertSuccess(post("/api/v1/withdrawals", Map.of(
-                "requesterId", unique("REQUESTER-A"), "amountCents", 100, "method", "WECHAT"), key)).path("id").asText();
+                "requesterId", firstRequester, "amountCents", 100, "method", "WECHAT"), key)).path("id").asText();
         String second = assertSuccess(post("/api/v1/withdrawals", Map.of(
-                "requesterId", unique("REQUESTER-B"), "amountCents", 100, "method", "WECHAT"), key)).path("id").asText();
+                "requesterId", secondRequester, "amountCents", 100, "method", "WECHAT"), key)).path("id").asText();
         assertFalse(first.equals(second));
+    }
+
+    @Test
+    void withdrawalUsesServerBalanceAndRejectedRequestReleasesIt() throws Exception {
+        String requesterId = unique("REQUESTER");
+        seedCommission(requesterId, 500);
+        assertError(post("/api/v1/withdrawals", Map.of("requesterId", requesterId,
+                "amountCents", 600, "method", "WECHAT")), 409, "CONFLICT");
+        String id = assertSuccess(post("/api/v1/withdrawals", Map.of("requesterId", requesterId,
+                "amountCents", 500, "method", "WECHAT"))).path("id").asText();
+        assertEquals(0, mine(requesterId).path("availableCents").asLong());
+        assertEquals(1, withdrawals(requesterId).size());
+        assertError(post("/api/v1/withdrawals", Map.of("requesterId", requesterId,
+                "amountCents", 500, "method", "WECHAT")), 409, "CONFLICT");
+        assertSuccess(post("/api/v1/withdrawals/" + id + "/review", Map.of("approved", false, "note", "资料不完整")));
+        assertEquals(500, mine(requesterId).path("availableCents").asLong());
+        assertEquals("REJECTED", withdrawals(requesterId).get(0).path("status").asText());
+        assertEquals("资料不完整", withdrawals(requesterId).get(0).path("reviewNote").asText());
+        String secondId = assertSuccess(post("/api/v1/withdrawals", Map.of("requesterId", requesterId,
+                "amountCents", 500, "method", "WECHAT"))).path("id").asText();
+        assertSuccess(post("/api/v1/withdrawals/" + secondId + "/review", Map.of("approved", true)));
+        assertEquals(0, mine(requesterId).path("availableCents").asLong());
+        assertEquals(500, mine(requesterId).path("withdrawnCents").asLong());
+        assertEquals("APPROVED", withdrawals(requesterId).get(0).path("status").asText());
+    }
+
+    private JsonNode mine(String requesterId) throws Exception {
+        return get("/api/v1/commissions/me?beneficiaryId=" + requesterId);
+    }
+
+    private void seedCommission(String requesterId, long amountCents) {
+        jdbc.update("insert into settlement_commission(id,tenant_id,source_id,beneficiary_id,amount_cents,direction,status,created_at,updated_at,version,deleted) values (?, 'PLATFORM', ?, ?, ?, 'LEVEL_1', 'AVAILABLE', current_timestamp, current_timestamp, 0, false)", unique("COMMISSION"), unique("SOURCE"), requesterId, amountCents);
+    }
+
+    private JsonNode withdrawals(String requesterId) throws Exception {
+        return get("/api/v1/withdrawals/me?requesterId=" + requesterId);
+    }
+
+    private JsonNode get(String path) throws Exception {
+        RawHttpResponse raw = restClient.get().uri(path)
+                .headers(headers -> headers.setBearerAuth("admin-commission"))
+                .exchange((sent, response) -> new RawHttpResponse(response.getStatusCode().value(),
+                        response.getHeaders().getContentType(), response.getHeaders().getFirst("X-Trace-Id"), response.bodyTo(String.class)));
+        return assertSuccess(parse(raw));
     }
 
     private ApiHttpResponse post(String path, Object requestBody) throws Exception {

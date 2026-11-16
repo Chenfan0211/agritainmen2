@@ -12,5 +12,5 @@ public final class SettlementDtos {
     public record WithdrawalRequest(@NotBlank String requesterId, @NotNull @Min(1) Long amountCents, @NotBlank String method) {}
     public record ReviewRequest(boolean approved, String operator, String note) {}
     public record CommissionView(String id, String sourceId, String beneficiaryId, long amountCents, String direction, String status, Instant createdAt) {}
-    public record WithdrawalView(String id, String requesterId, long amountCents, String method, String status, String reviewedBy, Instant createdAt, Instant reviewedAt) {}
+    public record WithdrawalView(String id, String requesterId, long amountCents, String method, String status, String reviewedBy, String reviewNote, Instant createdAt, Instant reviewedAt) {}
 }

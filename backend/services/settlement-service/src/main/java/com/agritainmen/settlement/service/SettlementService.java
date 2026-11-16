@@ -9,7 +9,9 @@ import com.agritainmen.settlement.web.SettlementDtos.WithdrawalView;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -20,10 +22,12 @@ import java.util.List;
 public class SettlementService {
     private final JdbcTemplate jdbc;
     private final OutboxService outboxService;
+    private final TransactionTemplate transactions;
 
-    public SettlementService(JdbcTemplate jdbc, OutboxService outboxService) {
+    public SettlementService(JdbcTemplate jdbc, OutboxService outboxService, PlatformTransactionManager transactionManager) {
         this.jdbc = jdbc;
         this.outboxService = outboxService;
+        this.transactions = new TransactionTemplate(transactionManager);
     }
 
     @Transactional
@@ -49,22 +53,51 @@ public class SettlementService {
         if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 128) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "Idempotency-Key 不能为空且不能超过 128 字符");
         }
+        WithdrawalView replayed = findWithdrawalByKey(requesterId, idempotencyKey);
+        if (replayed != null) return verifyReplay(replayed, amountCents, method);
         String id = Ids.uuid("WITHDRAWAL");
         Instant now = Instant.now();
         try {
-            jdbc.update("""
-                    insert into settlement_withdrawal(id, tenant_id, requester_id, amount_cents, method, status, idempotency_key, created_at, updated_at, version, deleted)
-                    values (?, 'PLATFORM', ?, ?, ?, 'PENDING', ?, ?, ?, 0, false)
-                    """, id, requesterId, amountCents, method, idempotencyKey, now, now);
+            return transactions.execute(status -> {
+                jdbc.query("select id from settlement_commission where tenant_id='PLATFORM' and beneficiary_id=? and status='AVAILABLE' and deleted=false for update", (rs, rowNum) -> rs.getString(1), requesterId);
+                WithdrawalView existing = findWithdrawalByKey(requesterId, idempotencyKey);
+                if (existing != null) return verifyReplay(existing, amountCents, method);
+                long available = availableForWithdrawal(requesterId);
+                if (amountCents <= 0 || amountCents > available) {
+                    throw new BusinessException(ErrorCode.CONFLICT, "可提现佣金不足，请刷新后重试");
+                }
+                jdbc.update("""
+                        insert into settlement_withdrawal(id, tenant_id, requester_id, amount_cents, method, status, idempotency_key, created_at, updated_at, version, deleted)
+                        values (?, 'PLATFORM', ?, ?, ?, 'PENDING', ?, ?, ?, 0, false)
+                        """, id, requesterId, amountCents, method, idempotencyKey, now, now);
+                return findWithdrawal(id);
+            });
         } catch (DuplicateKeyException duplicate) {
             WithdrawalView existing = findWithdrawalByKey(requesterId, idempotencyKey);
             if (existing == null) throw duplicate;
-            if (existing.amountCents() != amountCents || !existing.method().equals(method)) {
-                throw new BusinessException(ErrorCode.IDEMPOTENCY_CONFLICT);
-            }
-            return existing;
+            return verifyReplay(existing, amountCents, method);
         }
-        return findWithdrawal(id);
+    }
+
+    private WithdrawalView verifyReplay(WithdrawalView existing, long amountCents, String method) {
+        if (existing.amountCents() != amountCents || !existing.method().equals(method)) {
+            throw new BusinessException(ErrorCode.IDEMPOTENCY_CONFLICT);
+        }
+        return existing;
+    }
+
+    public long availableForWithdrawal(String requesterId) {
+        long earned = jdbc.queryForObject("select coalesce(sum(amount_cents),0) from settlement_commission where tenant_id='PLATFORM' and beneficiary_id=? and status='AVAILABLE' and deleted=false", Long.class, requesterId);
+        long reserved = jdbc.queryForObject("select coalesce(sum(amount_cents),0) from settlement_withdrawal where tenant_id='PLATFORM' and requester_id=? and status in ('PENDING','APPROVED') and deleted=false", Long.class, requesterId);
+        return Math.max(0, earned - reserved);
+    }
+
+    public long approvedWithdrawalCents(String requesterId) {
+        return jdbc.queryForObject("select coalesce(sum(amount_cents),0) from settlement_withdrawal where tenant_id='PLATFORM' and requester_id=? and status='APPROVED' and deleted=false", Long.class, requesterId);
+    }
+
+    public List<WithdrawalView> listWithdrawals(String requesterId) {
+        return jdbc.query("select * from settlement_withdrawal where tenant_id='PLATFORM' and requester_id=? and deleted=false order by created_at desc, id desc", (rs, rowNum) -> mapWithdrawal(rs), requesterId);
     }
 
     private WithdrawalView findWithdrawalByKey(String requesterId, String idempotencyKey) {
@@ -110,6 +143,6 @@ public class SettlementService {
     }
 
     private WithdrawalView mapWithdrawal(ResultSet rs) throws SQLException {
-        return new WithdrawalView(rs.getString("id"), rs.getString("requester_id"), rs.getLong("amount_cents"), rs.getString("method"), rs.getString("status"), rs.getString("reviewed_by"), rs.getTimestamp("created_at").toInstant(), rs.getTimestamp("reviewed_at") == null ? null : rs.getTimestamp("reviewed_at").toInstant());
+        return new WithdrawalView(rs.getString("id"), rs.getString("requester_id"), rs.getLong("amount_cents"), rs.getString("method"), rs.getString("status"), rs.getString("reviewed_by"), rs.getString("review_note"), rs.getTimestamp("created_at").toInstant(), rs.getTimestamp("reviewed_at") == null ? null : rs.getTimestamp("reviewed_at").toInstant());
     }
 }

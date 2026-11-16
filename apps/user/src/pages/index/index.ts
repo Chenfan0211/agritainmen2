@@ -524,6 +524,7 @@ Page({
     store.applyLaunch(launchQuery)
     store.seedDemoData()
     await store.initialize(true)
+    await store.refreshCommissionSummary()
     this.syncSelectedCartLines()
     const launchProduct = (store.cProducts as CProduct[]).find((product) => product.id === store.launchProductId)
     if (launchProduct) this.openProductById(launchProduct.id)
@@ -545,6 +546,7 @@ Page({
         }
       }
       await store.refreshSharedState()
+      await store.refreshCommissionSummary()
       this.render()
     })().catch(() => this.render())
   },
@@ -903,7 +905,7 @@ Page({
 
   async onWithdrawCommission(this: any) {
     const result = await store.withdrawCommission('微信提现')
-    toast(result === 'pending' ? '提现申请已提交' : result === 'duplicate' ? '已有提现申请处理中' : result === 'invalid' ? '暂无可提现佣金' : '提现申请失败')
+    toast(result === 'pending' ? '提现申请已提交' : result === 'duplicate' ? '已有提现申请处理中' : result === 'invalid' ? '暂无可提现佣金' : store.error || '提现申请失败')
     this.render()
   }
 })
