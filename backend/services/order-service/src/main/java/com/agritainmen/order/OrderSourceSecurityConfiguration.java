@@ -33,7 +33,9 @@ public class OrderSourceSecurityConfiguration {
     @Bean
     @Order(3)
     SecurityFilterChain otherPathsChain(HttpSecurity http) throws Exception {
-        return http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
+        return http.authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
+                        .anyRequest().authenticated())
                 .httpBasic(Customizer.withDefaults()).build();
     }
 }

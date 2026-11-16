@@ -319,6 +319,10 @@ services:
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-change-me}
       JWT_SECRET: ${JWT_SECRET:-replace-with-at-least-32-bytes-secret}
       INVENTORY_INTERNAL_TOKEN: ${INVENTORY_INTERNAL_TOKEN:-}
+      ORDER_PAYMENT_INTERNAL_TOKEN: ${ORDER_PAYMENT_INTERNAL_TOKEN:-}
+      AUTH_SERVICE_BASE_URL: http://auth-service:8080
+      AGRITAINMEN_CLIENTS_CATALOG_BASE_URL: http://catalog-service:8080
+      AGRITAINMEN_CLIENTS_INVENTORY_BASE_URL: http://inventory-service:8080
       DB_URL: jdbc:mysql://mysql:3306/agritainmen_order?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
       SPRING_PROFILES_ACTIVE: staging
       NACOS_NAMESPACE: ${NACOS_NAMESPACE:-agritainmen-staging}
@@ -361,6 +365,9 @@ services:
       RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-agritainmen}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-change-me}
       JWT_SECRET: ${JWT_SECRET:-replace-with-at-least-32-bytes-secret}
+      ORDER_SERVICE_BASE_URL: http://order-service:8080
+      ORDER_PAYMENT_INTERNAL_TOKEN: ${ORDER_PAYMENT_INTERNAL_TOKEN:-}
+      PAYMENT_CALLBACK_INTERNAL_TOKEN: ${PAYMENT_CALLBACK_INTERNAL_TOKEN:-}
       DB_URL: jdbc:mysql://mysql:3306/agritainmen_payment?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
       SPRING_PROFILES_ACTIVE: staging
       NACOS_NAMESPACE: ${NACOS_NAMESPACE:-agritainmen-staging}

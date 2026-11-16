@@ -47,6 +47,16 @@ class PaymentApiAuditTest {
 
     private RestClient client;
 
+    @Test
+    void composeHealthCheckDoesNotRequireBasicCredentials() {
+        int info = client.get().uri("/actuator/info")
+                .exchange((request, response) -> response.getStatusCode().value());
+        int health = client.get().uri("/actuator/health")
+                .exchange((request, response) -> response.getStatusCode().value());
+        assertEquals(200, info);
+        assertTrue(health == 200 || health == 503);
+    }
+
     @BeforeEach
     void setUp() {
         client = RestClient.builder().baseUrl("http://127.0.0.1:" + port).build();

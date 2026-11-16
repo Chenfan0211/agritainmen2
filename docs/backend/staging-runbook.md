@@ -18,6 +18,7 @@ Linux x86_64 云主机需要：
 - `RABBITMQ_PASSWORD`
 - `NACOS_AUTH_TOKEN`、`NACOS_AUTH_IDENTITY_VALUE`
 - `JWT_SECRET`
+- `INVENTORY_INTERNAL_TOKEN`、`ORDER_PAYMENT_INTERNAL_TOKEN`、`PAYMENT_CALLBACK_INTERNAL_TOKEN`（三个不同的随机值）
 - `MINIO_ROOT_PASSWORD`
 - `WECHAT_APP_ID_STORE/USER/SUPPLIER`
 - `WECHAT_APP_SECRET_STORE/USER/SUPPLIER`
@@ -155,3 +156,9 @@ bash deploy/scripts/rollback-compose.sh
 商品、库存服务现已使用显式无状态安全链：业务 GET 可读；商品非 GET 写入与库存调整需当前平台管理员 Bearer，由服务端调用 Auth `/me` 核验；库存预占、释放、确认需要订单与库存服务共用的 `INVENTORY_INTERNAL_TOKEN`。Auth 管理员访问令牌同时检查账号状态及会话，刷新轮换或退出后旧访问令牌立即失效。Compose 给商品、库存服务注入 `http://auth-service:8080`，给库存与订单服务注入同一个专用内部令牌；实际使用前须在 `.env` 设置随机密钥。
 
 本地启动四服务时，应设置 Auth/Catalog/Inventory 对端地址、H2 数据源、服务端口及 `INVENTORY_INTERNAL_TOKEN`；不再设置 `SPRING_AUTOCONFIGURE_EXCLUDE`。订单服务使用测试资源运行时仍需开启 `agritainmen.security.order-source.enabled=true`。本轮分别启动四个真实服务进程：商品列表、可用库存匿名 GET 为 200；商品写入和库存调整匿名为 401、供应商令牌为 403、管理员令牌为 200；库存预占缺令牌或错误令牌为 401，正确内部令牌可预占和释放；买家创建订单得到 `PENDING_PAYMENT`、5990 分，取消后可用库存 99→100；管理员退出后 Auth `/me` 和商品写入均返回 401。以上只验证本地 H2 与 HTTP；MySQL、RabbitMQ、网关与 Staging 仍需在相应环境验收。
+
+### 本地沙箱支付跨服务联调（2026-11-16）
+
+独立启动 Auth、Catalog、Inventory、Order、Payment 五个真实进程，使用 H2、沙箱支付、各服务 HTTP 客户端及三项独立内部令牌；未排除业务安全链。支付意图的匿名请求返回 401、跨买家返回 404、金额不符返回 409；无回调令牌或错误令牌返回 401。成功回调使支付单与订单成为 `PAID`，重复回调保持同一支付单，已付款订单取消返回 409。另一笔订单先取消再收到成功回调时，订单保持 `UNPAID_CANCELLED`，支付单完成沙箱全额退款为 `REFUNDED`，可用库存恢复。
+
+第三笔订单创建支付意图后临时停止库存服务：回调返回 `PAID_PENDING_ORDER`，确认中的订单取消返回 409；使用同一 H2 文件恢复库存服务后，订单与支付服务定时任务将状态收敛到 `PAID`，可用库存没有再次扣减。Compose 已给订单配置 Auth/商品/库存容器内 8080 地址和支付确认令牌，给支付配置订单容器内地址、支付确认令牌与独立回调令牌；订单和支付服务的健康检查路径已允许匿名访问。实际 MySQL、RabbitMQ、网关、Docker Compose 启动及 Staging 均未验收；`REFUNDED` 只代表沙箱结果，不能当作微信退款成功。

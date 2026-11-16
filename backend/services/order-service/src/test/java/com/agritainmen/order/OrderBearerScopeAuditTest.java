@@ -43,6 +43,16 @@ class OrderBearerScopeAuditTest {
     @Autowired JdbcTemplate jdbc;
     RestClient client;
 
+    @Test
+    void composeHealthCheckDoesNotRequireBasicCredentials() {
+        int info = client.get().uri("/actuator/info")
+                .exchange((request, response) -> response.getStatusCode().value());
+        int health = client.get().uri("/actuator/health")
+                .exchange((request, response) -> response.getStatusCode().value());
+        assertEquals(200, info);
+        assertTrue(health == 200 || health == 503);
+    }
+
     @DynamicPropertySource
     static void authUrl(DynamicPropertyRegistry registry) {
         registry.add("agritainmen.clients.auth.base-url", () -> "http://127.0.0.1:" + AUTH.getAddress().getPort());
