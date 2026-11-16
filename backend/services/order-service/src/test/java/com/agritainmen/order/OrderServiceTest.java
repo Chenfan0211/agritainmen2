@@ -15,11 +15,15 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -65,18 +69,85 @@ class OrderServiceTest {
     }
 
     @Test
-    void failedInventoryReleaseKeepsOrderPending() {
+    void failedInventoryReleaseKeepsDurableCancellationForRetry() {
         String key = "CANCEL-FAIL-" + UUID.randomUUID();
         OrderView created = orderService.create(key, new CreateOrderRequest("F1", List.of(new OrderLineRequest("SKU-1", 1)),
                 "张三", "13800000000", "湖南省长沙市"));
         inventory.failRelease.set(true);
         try {
-            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
-                    () -> orderService.cancelPending(created.id()));
-            assertEquals("PENDING_PAYMENT", orderService.find(created.id()).status());
+            assertEquals("UNPAID_CANCELLED", orderService.cancelPending(created.id()).status());
+            assertEquals(true, releasePending(created.id()));
+            assertEquals("UNPAID_CANCELLED", orderService.confirmPaid(created.id(), created.amountCents()).status());
         } finally {
             inventory.failRelease.set(false);
         }
+        orderService.retryPendingReleases();
+        assertEquals(false, releasePending(created.id()));
+        assertEquals("UNPAID_CANCELLED", orderService.find(created.id()).status());
+    }
+
+    @Test
+    void cancellationCommitsBeforeCallingInventoryRelease() {
+        OrderView order = createForPayment();
+        AtomicBoolean checked = new AtomicBoolean();
+        inventory.onRelease = reservationId -> {
+            if (!order.reservationId().equals(reservationId)) return;
+            assertEquals(false, TransactionSynchronizationManager.isActualTransactionActive());
+            assertEquals("UNPAID_CANCELLED", jdbc.queryForObject(
+                    "select status from trade_order where id=?", String.class, order.id()));
+            assertEquals(true, releasePending(order.id()));
+            checked.set(true);
+        };
+        try {
+            orderService.cancelPending(order.id());
+            assertEquals(true, checked.get());
+        } finally {
+            inventory.onRelease = ignored -> {};
+        }
+    }
+
+    @Test
+    void duplicateCancellationRetriesReleaseAndLostAcknowledgementIsRecoverable() {
+        OrderView order = createForPayment();
+        int before = inventory.releases.get();
+        inventory.failRelease.set(true);
+        try {
+            orderService.cancelPending(order.id());
+        } finally {
+            inventory.failRelease.set(false);
+        }
+        assertEquals(true, releasePending(order.id()));
+        assertEquals("UNPAID_CANCELLED", orderService.cancelPending(order.id()).status());
+        assertEquals(false, releasePending(order.id()));
+        assertEquals(before + 1, inventory.releases.get());
+        jdbc.update("update trade_order set release_pending=true where id=?", order.id());
+        orderService.retryPendingReleases();
+        assertEquals(false, releasePending(order.id()));
+    }
+
+    @Test
+    void oneFailedReleaseDoesNotBlockOtherPendingOrders() {
+        OrderView first = createForPayment();
+        OrderView second = createForPayment();
+        inventory.failRelease.set(true);
+        try {
+            orderService.cancelPending(first.id());
+            orderService.cancelPending(second.id());
+        } finally {
+            inventory.failRelease.set(false);
+        }
+        inventory.failIds.add(first.reservationId());
+        try {
+            orderService.retryPendingReleases();
+            assertEquals(true, releasePending(first.id()));
+            assertEquals(false, releasePending(second.id()));
+        } finally {
+            inventory.failIds.clear();
+        }
+    }
+
+    private Boolean releasePending(String orderId) {
+        return jdbc.queryForObject("select release_pending from trade_order where id=?", Boolean.class, orderId);
     }
 
     @Test
@@ -142,13 +213,16 @@ class OrderServiceTest {
     static class FakeInventoryClient implements InventoryClient {
         final AtomicInteger releases = new AtomicInteger();
         final AtomicBoolean failRelease = new AtomicBoolean();
+        final Set<String> failIds = ConcurrentHashMap.newKeySet();
         final AtomicInteger confirms = new AtomicInteger();
         final AtomicBoolean failConfirm = new AtomicBoolean();
+        volatile Consumer<String> onRelease = ignored -> {};
         @Override public Reservation reserve(String orderId, List<Line> lines, java.time.Instant expiresAt) {
             return new Reservation("RES-" + orderId, orderId, "RESERVED");
         }
         @Override public Reservation release(String reservationId) {
-            if (failRelease.get()) throw new IllegalStateException("库存服务不可用");
+            onRelease.accept(reservationId);
+            if (failRelease.get() || failIds.contains(reservationId)) throw new IllegalStateException("库存服务不可用");
             releases.incrementAndGet();
             return new Reservation(reservationId, reservationId.substring(4), "RELEASED");
         }

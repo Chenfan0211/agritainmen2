@@ -13,8 +13,12 @@ import com.agritainmen.order.web.OrderDtos.OrderView;
 import com.agritainmen.order.web.OrderDtos.PriceQuote;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -24,16 +28,20 @@ import java.util.List;
 
 @Service
 public class OrderService {
+    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
     private final JdbcTemplate jdbc;
     private final CatalogClient catalogClient;
     private final InventoryClient inventoryClient;
     private final OutboxService outboxService;
+    private final TransactionTemplate transactions;
 
-    public OrderService(JdbcTemplate jdbc, CatalogClient catalogClient, InventoryClient inventoryClient, OutboxService outboxService) {
+    public OrderService(JdbcTemplate jdbc, CatalogClient catalogClient, InventoryClient inventoryClient,
+                        OutboxService outboxService, TransactionTemplate transactions) {
         this.jdbc = jdbc;
         this.catalogClient = catalogClient;
         this.inventoryClient = inventoryClient;
         this.outboxService = outboxService;
+        this.transactions = transactions;
     }
 
     @Transactional
@@ -113,24 +121,65 @@ public class OrderService {
         return toView(rows.get(0));
     }
 
-    @Transactional
     public OrderView cancelPending(String orderId) {
+        OrderView cancelled = transactions.execute(status -> markUnpaidCancelled(orderId));
+        if (cancelled == null) throw new IllegalStateException("取消订单事务未返回结果");
+        releaseCancelledReservation(orderId);
+        return find(orderId);
+    }
+
+    private OrderView markUnpaidCancelled(String orderId) {
         List<OrderRow> rows = jdbc.query("select * from trade_order where id=? and tenant_id='PLATFORM' and deleted=false for update",
                 (rs, rowNum) -> mapOrder(rs), orderId);
         if (rows.isEmpty()) throw new BusinessException(ErrorCode.NOT_FOUND, "订单不存在");
         OrderRow order = rows.get(0);
         if ("UNPAID_CANCELLED".equals(order.status)) return toView(order);
         if (!"PENDING_PAYMENT".equals(order.status)) throw new BusinessException(ErrorCode.CONFLICT, "当前订单状态不可取消");
-        InventoryClient.Reservation released = inventoryClient.release(order.reservationId);
-        if (released == null || !order.reservationId.equals(released.id()) || !"RELEASED".equals(released.status()))
-            throw new BusinessException(ErrorCode.CONFLICT, "库存预占未释放，请重试");
         int updated = jdbc.update("""
-                update trade_order set status='UNPAID_CANCELLED', updated_at=?, version=version+1
+                update trade_order set status='UNPAID_CANCELLED', release_pending=true, updated_at=?, version=version+1
                  where id=? and tenant_id='PLATFORM' and status='PENDING_PAYMENT' and deleted=false
                 """, Instant.now(), orderId);
         if (updated != 1) throw new BusinessException(ErrorCode.CONFLICT);
         outboxService.append("order", orderId, "order.unpaid_cancelled", "{\"orderId\":\"" + orderId + "\"}");
         return find(orderId);
+    }
+
+    private void releaseCancelledReservation(String orderId) {
+        List<String> reservations = jdbc.query("""
+                select reservation_id from trade_order
+                 where id=? and tenant_id='PLATFORM' and status='UNPAID_CANCELLED'
+                   and release_pending=true and deleted=false
+                """, (rs, rowNum) -> rs.getString(1), orderId);
+        if (reservations.isEmpty()) return;
+        String reservationId = reservations.get(0);
+        try {
+            InventoryClient.Reservation released = inventoryClient.release(reservationId);
+            if (released == null || !reservationId.equals(released.id()) || !"RELEASED".equals(released.status()))
+                throw new BusinessException(ErrorCode.CONFLICT, "库存预占未释放");
+            jdbc.update("""
+                    update trade_order set release_pending=false, updated_at=?, version=version+1
+                     where id=? and tenant_id='PLATFORM' and status='UNPAID_CANCELLED'
+                       and release_pending=true and deleted=false
+                    """, Instant.now(), orderId);
+        } catch (Exception exception) {
+            log.warn("取消订单库存释放待重试: orderId={}, reason={}", orderId, exception.toString());
+            jdbc.update("""
+                    update trade_order set updated_at=?
+                     where id=? and tenant_id='PLATFORM' and status='UNPAID_CANCELLED'
+                       and release_pending=true and deleted=false
+                    """, Instant.now(), orderId);
+        }
+    }
+
+    @Scheduled(fixedDelayString = "${agritainmen.order.release-retry-ms:30000}")
+    public void retryPendingReleases() {
+        List<String> orderIds = jdbc.query("""
+                select id from trade_order
+                 where tenant_id='PLATFORM' and status='UNPAID_CANCELLED'
+                   and release_pending=true and deleted=false
+                 order by updated_at, id limit 50
+                """, (rs, rowNum) -> rs.getString(1));
+        for (String orderId : orderIds) releaseCancelledReservation(orderId);
     }
 
     @Transactional

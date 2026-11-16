@@ -35,6 +35,8 @@ docker compose --env-file deploy/compose/.env -f deploy/compose/docker-compose.y
 
 先用当前买家的 Bearer 调用 `POST /api/v1/payments/intents`，金额必须与待付款订单的 `amountCents` 一致；再以 `X-Payment-Callback-Token` 调用 `POST /api/v1/payments/callback/wechat` 发送沙箱成功/失败回调。随后查询订单与 `GET /api/v1/payments/orders/{orderId}`：成功为 `PAID`，订单服务暂不可用时为 `PAID_PENDING_ORDER`，取消后到账为 `REFUND_REQUIRED`。回调流水号应保持唯一；`REFUND_REQUIRED` 仅记录待退款事实，不会自动退款。微信 V3 证书和真实回调验签尚未接入。
 
+待付款取消先提交订单的 `UNPAID_CANCELLED` 状态，再释放库存预占。若库存服务暂不可用，订单仍显示已取消，订单服务保留 `release_pending` 并每 30 秒分批重试；再次调用取消接口也会触发重试。本地可通过 H2 测试覆盖失败及重试路径，真实库存服务联调需另行执行。
+
 ## 端口
 
 | 服务 | 端口 |
