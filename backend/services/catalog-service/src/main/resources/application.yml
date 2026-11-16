@@ -41,6 +41,9 @@ management:
       probes:
         enabled: true
 agritainmen:
+  clients:
+    auth:
+      base-url: ${AUTH_SERVICE_BASE_URL:http://127.0.0.1:8081}
   security:
     jwt:
       secret: ${JWT_SECRET:change-me-at-least-32-bytes-long-secret}

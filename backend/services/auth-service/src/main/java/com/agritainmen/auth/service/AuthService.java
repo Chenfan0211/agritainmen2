@@ -117,6 +117,7 @@ public class AuthService {
                     : accountMapper.selectById(claims.actorId());
             claims = accountClaims(account);
         }
+        if ("admin".equals(claims.actorType())) activeAdmin(claims);
         if (sessionMapper.revokeIfActive(session.getId(), "ROTATED") != 1)
             throw new BusinessException(ErrorCode.CONFLICT, "刷新令牌已被使用，请重新登录");
         AuthIdentity identity = identityMapper.selectOne(new LambdaQueryWrapper<AuthIdentity>()
@@ -155,6 +156,13 @@ public class AuthService {
                         || !claims.actorId().equals(session.getActorId())) {
                     throw new BusinessException(ErrorCode.UNAUTHORIZED, "访问令牌已失效");
                 }
+            } else if ("admin".equals(claims.actorType())) {
+                activeAdmin(claims);
+                AuthSession session = sessionMapper.selectOne(new LambdaQueryWrapper<AuthSession>()
+                        .eq(AuthSession::getAccessTokenHash, hash(token)).last("limit 1"));
+                if (session == null || session.getRevokedAt() != null || session.getExpiresAt().isBefore(Instant.now())
+                        || !claims.actorId().equals(session.getActorId()))
+                    throw new BusinessException(ErrorCode.UNAUTHORIZED, "访问令牌已失效");
             }
             return claims;
         } catch (BusinessException exception) {
@@ -194,6 +202,14 @@ public class AuthService {
                 || !account.getTenantId().equals(claims.tenantId())) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED, "供应商账号已失效");
         }
+        return account;
+    }
+
+    private AuthAccount activeAdmin(TokenClaims claims) {
+        AuthAccount account = accountMapper.selectById(claims.actorId());
+        if (account == null || !"admin".equals(account.getActorType()) || !Boolean.TRUE.equals(account.getEnabled())
+                || !"PLATFORM".equals(account.getTenantId()) || !account.getTenantId().equals(claims.tenantId()))
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "管理员账号已失效");
         return account;
     }
 

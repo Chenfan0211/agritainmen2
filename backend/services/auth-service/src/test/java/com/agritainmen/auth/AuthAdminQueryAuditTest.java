@@ -33,15 +33,16 @@ class AuthAdminQueryAuditTest {
         jdbc.update("insert into auth_role(id,tenant_id,code,name,permissions_json,system_role,enabled,created_at,updated_at,version,deleted) values ('R1','PLATFORM','admin','管理员','[\"user.view\"]',true,true,current_timestamp,current_timestamp,0,false)");
         jdbc.update("insert into auth_account(id,tenant_id,actor_type,account,password_hash,display_name,enabled,created_at,updated_at,version,deleted) values ('A1','PLATFORM','admin','admin-query-test','hash','管理员',true,current_timestamp,current_timestamp,0,false)");
         jdbc.update("insert into auth_account_role(id,tenant_id,account_id,role_id,enabled,created_at,updated_at,version,deleted) values ('AR1','PLATFORM','A1','R1',true,current_timestamp,current_timestamp,0,false)");
-        String token = jwtService.createAccessToken(new TokenClaims("A1", "admin", "A1", "PLATFORM", List.of("admin"), List.of("user.view")));
+        String token = AuthTestSessions.register(jdbc, "A1", jwtService.createAccessToken(
+                new TokenClaims("A1", "admin", "A1", "PLATFORM", List.of("admin"), List.of("user.view"))));
         client = RestClient.builder().baseUrl("http://localhost:" + port)
                 .defaultHeader("Authorization", "Bearer " + token).build();
     }
 
     @Test
     void listsRolesAndAccounts() {
-        String token = jwtService.createAccessToken(new TokenClaims("A1", "admin", "A1", "PLATFORM",
-                List.of("admin"), List.of("admin.role.update", "admin.account.update")));
+        String token = AuthTestSessions.register(jdbc, "A1", jwtService.createAccessToken(new TokenClaims("A1", "admin", "A1", "PLATFORM",
+                List.of("admin"), List.of("admin.role.update", "admin.account.update"))));
         RestClient authorized = RestClient.builder().baseUrl("http://localhost:" + port)
                 .defaultHeader("Authorization", "Bearer " + token).build();
         JsonNode roles = authorized.get().uri("/api/v1/auth/admin/roles").retrieve().body(JsonNode.class);
@@ -75,8 +76,8 @@ class AuthAdminQueryAuditTest {
 
     @Test
     void accountStatusPermissionCannotChangeProfileFields() {
-        String token = jwtService.createAccessToken(new TokenClaims("A1", "admin", "A1", "PLATFORM",
-                List.of("admin"), List.of("admin.account.status")));
+        String token = AuthTestSessions.register(jdbc, "A1", jwtService.createAccessToken(new TokenClaims("A1", "admin", "A1", "PLATFORM",
+                List.of("admin"), List.of("admin.account.status"))));
         RestClient statusAdmin = RestClient.builder().baseUrl("http://localhost:" + port)
                 .defaultHeader("Authorization", "Bearer " + token).build();
         int denied = statusAdmin.patch().uri("/api/v1/auth/admin/accounts/A1")
@@ -90,5 +91,8 @@ class AuthAdminQueryAuditTest {
         assertEquals(403, denied);
         assertEquals(200, allowed);
         assertEquals("管理员", jdbc.queryForObject("select display_name from auth_account where id='A1'", String.class));
+        int revokedStatus = statusAdmin.get().uri("/api/v1/auth/me")
+                .exchange((request, response) -> response.getStatusCode().value());
+        assertEquals(401, revokedStatus);
     }
 }

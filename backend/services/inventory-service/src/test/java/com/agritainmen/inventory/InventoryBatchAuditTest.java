@@ -5,12 +5,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
@@ -19,7 +14,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @Tag("api-audit")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "spring.profiles.active=test")
-@Import(InventoryBatchAuditTest.PermitAllApiAuditSecurity.class)
 class InventoryBatchAuditTest {
     @LocalServerPort int port;
     @Autowired JdbcTemplate jdbc;
@@ -42,11 +36,4 @@ class InventoryBatchAuditTest {
         assertEquals(0, response.path("data").path("SKU-MISSING").asInt());
     }
 
-    @TestConfiguration(proxyBeanMethods = false)
-    static class PermitAllApiAuditSecurity {
-        @Bean
-        SecurityFilterChain apiAuditFilterChain(HttpSecurity http) throws Exception {
-            return http.csrf(csrf -> csrf.disable()).authorizeHttpRequests(auth -> auth.anyRequest().permitAll()).build();
-        }
-    }
 }

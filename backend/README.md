@@ -31,6 +31,9 @@ docker compose --env-file deploy/compose/.env -f deploy/compose/docker-compose.y
 
 ## 本地沙箱支付联调
 
+商品、库存和订单服务独立启动时，分别给商品与库存服务设置 `AUTH_SERVICE_BASE_URL`，使管理写入实时核验 Auth 当前管理员令牌；给库存与订单服务设置相同的 `INVENTORY_INTERNAL_TOKEN`。商品及可用库存读取可直接访问服务；商品写入和库存调整需要当前平台管理员 Bearer，库存预占、释放、确认需要订单服务的 `X-Inventory-Internal-Token`。内部令牌无默认值，未配置时库存写入会拒绝执行。完整部署还需使用实际 MySQL、RabbitMQ 与网关环境验证。
+
+
 启动 `order-service` 与 `payment-service` 时，给两个进程设置相同的 `ORDER_PAYMENT_INTERNAL_TOKEN`；给 `payment-service` 另设 `PAYMENT_CALLBACK_INTERNAL_TOKEN`。两项均无默认值，未设置时内部确认或沙箱回调会拒绝执行。支付服务的 `ORDER_SERVICE_BASE_URL` 默认是 `http://127.0.0.1:8085`。
 
 先用当前买家的 Bearer 调用 `POST /api/v1/payments/intents`，金额必须与待付款订单的 `amountCents` 一致；再以 `X-Payment-Callback-Token` 调用 `POST /api/v1/payments/callback/wechat` 发送沙箱成功/失败回调。随后查询订单与 `GET /api/v1/payments/orders/{orderId}`：成功为 `PAID`，订单服务暂不可用时为 `PAID_PENDING_ORDER`，取消后到账进入沙箱全额退款，渠道确认成功后为 `REFUNDED`，失败或响应丢失时为 `REFUND_REQUIRED`。回调流水号应保持唯一；退款重试使用由支付单 ID 派生的固定退款单号，每 30 秒分批重试，重复回调也会重试。微信 V3 证书、真实回调验签和真实退款接口尚未接入；`REFUNDED` 在此仅代表本地沙箱结果。

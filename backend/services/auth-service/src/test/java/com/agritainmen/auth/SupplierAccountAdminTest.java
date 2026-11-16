@@ -73,7 +73,8 @@ class SupplierAccountAdminTest {
             admins = List.of("A-SUPPLIER-TEST");
         }
         adminId = admins.getFirst();
-        adminToken = jwtService.createAccessToken(new TokenClaims(adminId, "admin", adminId, "PLATFORM", List.of("super_admin"), List.of("*")));
+        adminToken = AuthTestSessions.register(jdbc, adminId,
+                jwtService.createAccessToken(new TokenClaims(adminId, "admin", adminId, "PLATFORM", List.of("super_admin"), List.of("*"))));
     }
 
     @Test
@@ -196,7 +197,7 @@ class SupplierAccountAdminTest {
 
     @Test
     void directAdminRoutesRejectOtherTenantAndSupplierReadRequiresPermission() {
-        assertEquals(403, getStatus("/api/v1/auth/admin/roles", token("OTHER", "*")));
+        assertEquals(401, getStatus("/api/v1/auth/admin/roles", token("OTHER", "*")));
         assertEquals(403, getStatus("/api/v1/auth/admin/supplier-accounts", token("PLATFORM")));
         assertEquals(403, getStatus("/api/v1/auth/admin/supplier-accounts/SUP-100", token("PLATFORM")));
         assertEquals(200, getStatus("/api/v1/auth/admin/supplier-accounts", token("PLATFORM", "supplier.audit")));
@@ -234,7 +235,8 @@ class SupplierAccountAdminTest {
     }
 
     private String token(String tenant, String... permissions) {
-        return jwtService.createAccessToken(new TokenClaims(adminId, "admin", adminId, tenant, List.of(), List.of(permissions)));
+        return AuthTestSessions.register(jdbc, adminId,
+                jwtService.createAccessToken(new TokenClaims(adminId, "admin", adminId, tenant, List.of(), List.of(permissions))));
     }
 
     private int getStatus(String path, String token) {

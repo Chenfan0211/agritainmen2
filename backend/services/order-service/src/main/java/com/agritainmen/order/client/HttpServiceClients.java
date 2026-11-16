@@ -33,18 +33,26 @@ public class HttpServiceClients {
     @Bean
     @ConditionalOnMissingBean
     public InventoryClient inventoryClient(@Value("${agritainmen.clients.inventory-base-url:http://inventory-service}") String baseUrl,
-                                           JsonMapper jsonMapper) {
+                                           JsonMapper jsonMapper,
+                                           @Value("${agritainmen.security.inventory.internal-token:}") String internalToken) {
         SimpleClientHttpRequestFactory requests = new SimpleClientHttpRequestFactory();
         requests.setConnectTimeout(Duration.ofSeconds(2));
         requests.setReadTimeout(Duration.ofSeconds(5));
         RestClient client = RestClient.builder().baseUrl(baseUrl).requestFactory(requests).build();
         return new InventoryClient() {
+            private String requiredToken() {
+                if (internalToken == null || internalToken.isBlank())
+                    throw new IllegalStateException("库存内部令牌未配置");
+                return internalToken;
+            }
+
             @Override
             public Reservation reserve(String orderId, java.util.List<Line> lines, java.time.Instant expiresAt) {
                 ApiResponse<Reservation> response;
                 try {
                     response = client.post().uri("/api/v1/inventory/reservations")
                             .header("Idempotency-Key", orderId)
+                            .header("X-Inventory-Internal-Token", requiredToken())
                             .body(new ReservePayload(orderId, lines, expiresAt))
                             .retrieve().body(new ParameterizedTypeReference<>() {});
                 } catch (RestClientResponseException exception) {
@@ -66,6 +74,7 @@ public class HttpServiceClients {
             @Override
             public Reservation release(String reservationId) {
                 ApiResponse<Reservation> response = client.post().uri("/api/v1/inventory/reservations/{id}/release", reservationId)
+                        .header("X-Inventory-Internal-Token", requiredToken())
                         .retrieve().body(new ParameterizedTypeReference<>() {});
                 if (response == null || response.data() == null) throw new IllegalStateException("库存释放失败");
                 return response.data();
@@ -74,6 +83,7 @@ public class HttpServiceClients {
             @Override
             public Reservation confirm(String reservationId) {
                 ApiResponse<Reservation> response = client.post().uri("/api/v1/inventory/reservations/{id}/confirm", reservationId)
+                        .header("X-Inventory-Internal-Token", requiredToken())
                         .retrieve().body(new ParameterizedTypeReference<>() {});
                 if (response == null || response.data() == null) throw new IllegalStateException("库存确认失败");
                 return response.data();

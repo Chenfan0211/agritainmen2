@@ -1,19 +1,16 @@
 package com.agritainmen.catalog;
 
+import com.agritainmen.common.web.RemoteAdminVerifier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.client.RestClient;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import tools.jackson.databind.JsonNode;
 
 import java.util.Map;
@@ -22,8 +19,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @Tag("api-audit")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "spring.profiles.active=test")
-@Import(CatalogWriteAuditTest.PermitAllApiAuditSecurity.class)
 class CatalogWriteAuditTest {
+    @MockitoBean RemoteAdminVerifier adminVerifier;
     @LocalServerPort int port;
     @Autowired JdbcTemplate jdbc;
     RestClient client;
@@ -75,10 +72,4 @@ class CatalogWriteAuditTest {
         assertEquals(false, toggled.path("data").path("enabled").asBoolean());
     }
 
-    @TestConfiguration(proxyBeanMethods = false)
-    static class PermitAllApiAuditSecurity {
-        @Bean SecurityFilterChain apiAuditFilterChain(HttpSecurity http) throws Exception {
-            return http.csrf(csrf -> csrf.disable()).authorizeHttpRequests(auth -> auth.anyRequest().permitAll()).build();
-        }
-    }
 }

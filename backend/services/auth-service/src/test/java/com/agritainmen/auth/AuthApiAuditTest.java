@@ -75,6 +75,7 @@ class AuthApiAuditTest {
     @Test
     void refreshRotatesTokenAndRejectsReplayAsConflict() {
         JsonNode login = assertOkEnvelope(login("/api/v1/auth/admin/login", "admin", "123456"));
+        String originalAccess = login.path("accessToken").asText();
         String originalRefresh = login.path("refreshToken").asText();
 
         HttpResult refreshed = post("/api/v1/auth/refresh",
@@ -88,6 +89,7 @@ class AuthApiAuditTest {
         HttpResult me = get("/api/v1/auth/me", refreshedData.path("accessToken").asText());
         assertEquals(200, me.status());
         assertEquals("admin", assertOkEnvelope(me).path("actorType").asText());
+        assertEquals(401, get("/api/v1/auth/me", originalAccess).status());
 
         HttpResult replay = post("/api/v1/auth/refresh",
                 Map.of("refreshToken", originalRefresh), Map.of());
@@ -110,6 +112,17 @@ class AuthApiAuditTest {
                 Map.of("refreshToken", refreshToken), Map.of());
         assertEquals(401, afterLogout.status());
         assertErrorEnvelope(afterLogout, "UNAUTHORIZED");
+    }
+
+    @Test
+    void adminLogoutRevokesAccessToken() {
+        JsonNode login = assertOkEnvelope(login("/api/v1/auth/admin/login", "admin", "123456"));
+        String access = login.path("accessToken").asText();
+        String refresh = login.path("refreshToken").asText();
+        assertEquals(200, get("/api/v1/auth/me", access).status());
+        assertEquals(200, post("/api/v1/auth/logout", Map.of("refreshToken", refresh), Map.of()).status());
+        assertEquals(401, get("/api/v1/auth/me", access).status());
+        assertEquals(401, get("/api/v1/auth/admin/roles", access).status());
     }
 
     @Test

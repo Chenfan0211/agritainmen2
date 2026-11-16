@@ -32,7 +32,8 @@ class AuthAdminWriteAuditTest {
         jdbc.update("delete from auth_account where account='ops01' or id='A-ADMIN-TEST'");
         jdbc.update("delete from auth_role where code='ops' or id='R-DUP-WRITE'");
         jdbc.update("insert into auth_account(id,tenant_id,actor_type,account,password_hash,display_name,enabled,created_at,updated_at,version,deleted) values ('A-ADMIN-TEST','PLATFORM','admin','admin-test','hash','管理员',true,current_timestamp,current_timestamp,0,false)");
-        String token = jwtService.createAccessToken(new TokenClaims("A-ADMIN-TEST", "admin", "A-ADMIN-TEST", "PLATFORM", List.of(), List.of("*")));
+        String token = AuthTestSessions.register(jdbc, "A-ADMIN-TEST",
+                jwtService.createAccessToken(new TokenClaims("A-ADMIN-TEST", "admin", "A-ADMIN-TEST", "PLATFORM", List.of(), List.of("*"))));
         client = RestClient.builder().baseUrl("http://localhost:" + port)
                 .defaultHeader("Authorization", "Bearer " + token).build();
     }

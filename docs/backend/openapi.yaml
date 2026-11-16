@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Agritainmen Platform API
   version: 1.0.0
-  description: 四端统一 API。金额使用整数分。库存预占、订单创建、履约等接口按各自定义携带 Idempotency-Key；支付意图按订单 ID 幂等。
+  description: 四端统一 API。金额使用整数分。库存预占、订单创建、履约等接口按各自定义携带 Idempotency-Key；支付意图按订单 ID 幂等。商品与可用库存的 GET 可直接访问服务，商品非 GET 写入与库存调整须携带当前平台管理员 Bearer；库存预占、释放、确认仅供订单服务使用独立内部令牌，不能使用买家 Bearer 代替。
 servers:
   - url: https://api.example.com/api/v1
 paths:
@@ -374,6 +374,7 @@ paths:
           description: OK
     post:
       summary: 新增品类
+      description: 需要当前平台管理员 Bearer；Auth 会话失效后拒绝。
       responses:
         "200":
           description: OK
@@ -789,7 +790,13 @@ paths:
   /inventory/reservations:
     post:
       summary: 库存预占
+      description: 仅订单服务调用，需与库存服务配置一致的内部令牌。
       parameters:
+        - in: header
+          name: X-Inventory-Internal-Token
+          required: true
+          schema:
+            type: string
         - in: header
           name: Idempotency-Key
           required: true
@@ -1216,7 +1223,13 @@ paths:
   /inventory/reservations/{id}/release:
     post:
       summary: 释放库存预占
+      description: 仅订单服务调用，需与库存服务配置一致的内部令牌。
       parameters:
+        - in: header
+          name: X-Inventory-Internal-Token
+          required: true
+          schema:
+            type: string
         - in: path
           name: id
           required: true
@@ -1228,7 +1241,13 @@ paths:
   /inventory/reservations/{id}/confirm:
     post:
       summary: 确认库存扣减
+      description: 仅订单服务调用，需与库存服务配置一致的内部令牌。
       parameters:
+        - in: header
+          name: X-Inventory-Internal-Token
+          required: true
+          schema:
+            type: string
         - in: path
           name: id
           required: true
@@ -1240,6 +1259,7 @@ paths:
   /inventory/skus/{skuId}/adjust:
     post:
       summary: 调整库存
+      description: 需要当前平台管理员 Bearer；Auth 会话失效后拒绝。
       parameters:
         - in: path
           name: skuId
@@ -1527,6 +1547,7 @@ paths:
   /catalog/pricing-defaults:
     put:
       summary: 更新价格默认档位
+      description: 需要当前平台管理员 Bearer；Auth 会话失效后拒绝。
       responses:
         "200":
           description: OK

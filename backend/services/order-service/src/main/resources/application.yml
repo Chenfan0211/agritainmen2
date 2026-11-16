@@ -45,6 +45,8 @@ agritainmen:
     auth:
       base-url: ${AUTH_SERVICE_BASE_URL:http://127.0.0.1:8081}
   security:
+    inventory:
+      internal-token: ${INVENTORY_INTERNAL_TOKEN:}
     payment:
       internal-token: ${ORDER_PAYMENT_INTERNAL_TOKEN:}
     jwt:

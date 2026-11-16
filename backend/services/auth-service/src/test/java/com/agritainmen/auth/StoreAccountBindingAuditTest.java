@@ -48,10 +48,10 @@ class StoreAccountBindingAuditTest {
                 .body(Map.of("account", "admin", "password", "123456")).retrieve().body(JsonNode.class)
                 .path("data");
         String adminId = adminLogin.path("profile").path("actorId").asText();
-        String farmAdmin = jwt.createAccessToken(new TokenClaims(adminId, "admin", adminId, "PLATFORM",
-                List.of("admin"), List.of("farm.manage")));
-        String supplierAdmin = jwt.createAccessToken(new TokenClaims(adminId, "admin", adminId, "PLATFORM",
-                List.of("admin"), List.of("supplier.audit")));
+        String farmAdmin = AuthTestSessions.register(jdbc, adminId, jwt.createAccessToken(new TokenClaims(adminId, "admin", adminId, "PLATFORM",
+                List.of("admin"), List.of("farm.manage"))));
+        String supplierAdmin = AuthTestSessions.register(jdbc, adminId, jwt.createAccessToken(new TokenClaims(adminId, "admin", adminId, "PLATFORM",
+                List.of("admin"), List.of("supplier.audit"))));
         assertEquals(403, assertThrows(RestClientResponseException.class,
                 () -> client.post().uri("/api/v1/auth/admin/store-accounts")
                         .header("Authorization", "Bearer " + supplierAdmin).contentType(MediaType.APPLICATION_JSON)

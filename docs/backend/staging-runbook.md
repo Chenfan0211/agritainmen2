@@ -149,3 +149,9 @@ bash deploy/scripts/rollback-compose.sh
 | 已成功键改用 2 件重放 | 返回 409 `IDEMPOTENCY_CONFLICT`；可用库存保持 98 |
 
 独立启动发现后续部署阻断：商品报价和库存查询在默认配置下均返回 401。两个服务缺少显式业务安全链，现有商品查询和库存 API 审计测试通过排除 Spring 默认安全自动配置才可访问接口；本轮的本地覆盖仅用于联调，不能作为部署配置。下一批需给商品读取/管理写入、库存读取/调整及订单服务的预占/释放/确认分别建立可执行的鉴权策略，再去掉本地覆盖做 HTTP 复测。无 RabbitMQ 时库存服务 `/actuator/health` 返回 503；本轮未验证 RabbitMQ 事件发布、MySQL 行锁行为、网关与 Staging。
+
+### 本地商品与库存鉴权复测（2026-11-16）
+
+商品、库存服务现已使用显式无状态安全链：业务 GET 可读；商品非 GET 写入与库存调整需当前平台管理员 Bearer，由服务端调用 Auth `/me` 核验；库存预占、释放、确认需要订单与库存服务共用的 `INVENTORY_INTERNAL_TOKEN`。Auth 管理员访问令牌同时检查账号状态及会话，刷新轮换或退出后旧访问令牌立即失效。Compose 给商品、库存服务注入 `http://auth-service:8080`，给库存与订单服务注入同一个专用内部令牌；实际使用前须在 `.env` 设置随机密钥。
+
+本地启动四服务时，应设置 Auth/Catalog/Inventory 对端地址、H2 数据源、服务端口及 `INVENTORY_INTERNAL_TOKEN`；不再设置 `SPRING_AUTOCONFIGURE_EXCLUDE`。订单服务使用测试资源运行时仍需开启 `agritainmen.security.order-source.enabled=true`。本轮分别启动四个真实服务进程：商品列表、可用库存匿名 GET 为 200；商品写入和库存调整匿名为 401、供应商令牌为 403、管理员令牌为 200；库存预占缺令牌或错误令牌为 401，正确内部令牌可预占和释放；买家创建订单得到 `PENDING_PAYMENT`、5990 分，取消后可用库存 99→100；管理员退出后 Auth `/me` 和商品写入均返回 401。以上只验证本地 H2 与 HTTP；MySQL、RabbitMQ、网关与 Staging 仍需在相应环境验收。
