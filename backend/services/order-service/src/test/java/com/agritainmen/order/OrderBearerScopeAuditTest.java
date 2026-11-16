@@ -32,7 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Tag("api-audit")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = {"spring.profiles.active=test", "agritainmen.security.order-source.enabled=true"})
+        properties = {"spring.profiles.active=test", "agritainmen.security.order-source.enabled=true",
+                "agritainmen.security.payment.internal-token=test-payment-token"})
 @Import(OrderBearerScopeAuditTest.FakeClients.class)
 class OrderBearerScopeAuditTest {
     private static final HttpServer AUTH = authServer();
@@ -113,6 +114,23 @@ class OrderBearerScopeAuditTest {
                 .path("data").path("status").asText());
     }
 
+    @Test void paymentConfirmationRequiresInternalToken() {
+        String own = create("Bearer store-a", "F001");
+        assertEquals(401, paymentConfirm(own, null));
+        assertEquals(401, paymentConfirm(own, "wrong-token"));
+        assertEquals(200, paymentConfirm(own, "test-payment-token"));
+        assertEquals("PAID", client.get().uri("/api/v1/orders/" + own)
+                .header("Authorization", "Bearer store-a").retrieve().body(JsonNode.class)
+                .path("data").path("status").asText());
+    }
+
+    private int paymentConfirm(String id, String token) {
+        var request = client.post().uri("/api/v1/orders/" + id + "/payment-confirmation")
+                .contentType(MediaType.APPLICATION_JSON).body(Map.of("amountCents", 100));
+        if (token != null) request.header("X-Order-Payment-Token", token);
+        return request.exchange((sent, response) -> response.getStatusCode().value());
+    }
+
     private int cancel(String token, String id) {
         var request = client.post().uri("/api/v1/orders/" + id + "/cancel");
         if (token != null) request.header("Authorization", token);
@@ -173,6 +191,9 @@ class OrderBearerScopeAuditTest {
                 }
                 @Override public Reservation release(String reservationId) {
                     return new Reservation(reservationId, reservationId.substring(2), "RELEASED");
+                }
+                @Override public Reservation confirm(String reservationId) {
+                    return new Reservation(reservationId, reservationId.substring(2), "CONFIRMED");
                 }
             };
         }

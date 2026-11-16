@@ -39,7 +39,8 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getURI().getPath();
         HttpMethod method = exchange.getRequest().getMethod();
-        if ((method == HttpMethod.POST && PUBLIC_AUTH_PATHS.contains(path))
+        if ((method == HttpMethod.POST && (PUBLIC_AUTH_PATHS.contains(path)
+                || path.equals("/api/v1/payments/callback/wechat")))
                 || path.equals("/actuator/health") || path.equals("/actuator/info")) {
             return chain.filter(exchange.mutate().request(request -> request.headers(this::stripActorHeaders)).build());
         }

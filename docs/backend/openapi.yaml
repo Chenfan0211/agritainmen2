@@ -2,8 +2,7 @@ openapi: 3.1.0
 info:
   title: Agritainmen Platform API
   version: 1.0.0
-  description: 四端统一 API。金额使用整数分。写操作中库存预占/订单/支付意图/履约/佣金/提现等资金与库存敏感接口必须携带
-    Idempotency-Key 请求头；其余写接口按各自 schema 要求。
+  description: 四端统一 API。金额使用整数分。库存预占、订单创建、履约等接口按各自定义携带 Idempotency-Key；支付意图按订单 ID 幂等。
 servers:
   - url: https://api.example.com/api/v1
 paths:
@@ -854,7 +853,14 @@ paths:
                 $ref: "#/components/schemas/Order"
   /payments/callback/wechat:
     post:
-      summary: 微信支付沙箱/生产回调
+      summary: 沙箱支付回调
+      description: 本地沙箱调用需携带 PAYMENT_CALLBACK_INTERNAL_TOKEN；微信 V3 验签尚未接入。
+      parameters:
+        - in: header
+          name: X-Payment-Callback-Token
+          required: true
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -863,7 +869,9 @@ paths:
               $ref: "#/components/schemas/PaymentCallback"
       responses:
         "200":
-          description: OK
+          description: 返回 PAID、PAID_PENDING_ORDER、REFUND_REQUIRED 或 FAILED 的支付单
+        "401":
+          description: 回调令牌无效或校验失败
   /fulfillment/orders:
     post:
       summary: 创建履约单
@@ -1286,9 +1294,41 @@ paths:
           description: 订单不存在或不属于当前买家
         "409":
           description: 订单状态不允许取消或库存预占未释放
+  /orders/{id}/payment-confirmation:
+    post:
+      summary: 内部确认订单支付并确认库存预占
+      description: 仅支付服务使用；与待付款取消共用订单行锁。已取消订单返回 UNPAID_CANCELLED，供支付服务登记待退款。
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Order-Payment-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amountCents]
+              properties:
+                amountCents: { type: integer, format: int64, minimum: 1 }
+      responses:
+        "200":
+          description: 返回 PAID 或 UNPAID_CANCELLED 的订单
+        "401":
+          description: 内部令牌无效
+        "409":
+          description: 金额不符或库存预占未确认
   /payments/intents:
     post:
       summary: 创建支付单
+      description: 使用买家 Bearer 读取订单并核对归属、待付款状态和金额；同一订单重复创建返回原支付意图。
       requestBody:
         required: true
         content:
@@ -1300,11 +1340,11 @@ paths:
           description: OK
       parameters:
         - in: header
-          name: Idempotency-Key
+          name: Authorization
           required: true
           schema:
             type: string
-          description: 幂等键：同键同载荷重放返回原结果；同键异载荷返回 409 IDEMPOTENCY_CONFLICT
+          description: 当前买家的 Bearer access token
   /fulfillment/logistics/{trackingNo}:
     get:
       summary: 查询沙箱物流轨迹
@@ -1452,9 +1492,15 @@ paths:
   /payments/orders/{orderId}:
     get:
       summary: 按订单查询支付单
+      description: 仅当前买家可查询；PAID_PENDING_ORDER 表示支付到账但订单同步待重试，REFUND_REQUIRED 表示订单已取消且需退款处理。
       parameters:
         - in: path
           name: orderId
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: Authorization
           required: true
           schema:
             type: string

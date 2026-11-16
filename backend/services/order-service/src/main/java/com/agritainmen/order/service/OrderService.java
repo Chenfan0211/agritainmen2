@@ -133,6 +133,27 @@ public class OrderService {
         return find(orderId);
     }
 
+    @Transactional
+    public OrderView confirmPaid(String orderId, long amountCents) {
+        List<OrderRow> rows = jdbc.query("select * from trade_order where id=? and tenant_id='PLATFORM' and deleted=false for update",
+                (rs, rowNum) -> mapOrder(rs), orderId);
+        if (rows.isEmpty()) throw new BusinessException(ErrorCode.NOT_FOUND, "订单不存在");
+        OrderRow order = rows.get(0);
+        if (order.amountCents != amountCents) throw new BusinessException(ErrorCode.CONFLICT, "支付金额与订单不符");
+        if ("PAID".equals(order.status) || "UNPAID_CANCELLED".equals(order.status)) return toView(order);
+        if (!"PENDING_PAYMENT".equals(order.status)) throw new BusinessException(ErrorCode.CONFLICT, "当前订单状态不可确认支付");
+        InventoryClient.Reservation confirmed = inventoryClient.confirm(order.reservationId);
+        if (confirmed == null || !order.reservationId.equals(confirmed.id()) || !"CONFIRMED".equals(confirmed.status()))
+            throw new BusinessException(ErrorCode.CONFLICT, "库存预占未确认，请重试");
+        int updated = jdbc.update("""
+                update trade_order set status='PAID', updated_at=?, version=version+1
+                 where id=? and tenant_id='PLATFORM' and status='PENDING_PAYMENT' and deleted=false
+                """, Instant.now(), orderId);
+        if (updated != 1) throw new BusinessException(ErrorCode.CONFLICT);
+        outboxService.append("order", orderId, "order.paid", "{\"orderId\":\"" + orderId + "\"}");
+        return find(orderId);
+    }
+
     public String requestHash(String key) {
         List<String> hashes = jdbc.query("select request_hash from trade_order_request where scene='order.create' and idempotency_key=? and deleted=false", (rs, rowNum) -> rs.getString(1), key);
         return hashes.isEmpty() ? null : hashes.get(0);

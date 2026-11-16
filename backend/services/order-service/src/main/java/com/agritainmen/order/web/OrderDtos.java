@@ -18,4 +18,5 @@ public final class OrderDtos {
     public record OrderView(String id, String orderNo, String buyerId, String status, long amountCents, String reservationId,
                             String receiver, String receiverPhone, String address, List<OrderLineView> items, Instant createdAt) {}
     public record PriceQuote(String skuId, String productId, String supplierId, String name, long unitPriceCents) {}
+    public record PaymentConfirmationRequest(@NotNull @Min(1) Long amountCents) {}
 }

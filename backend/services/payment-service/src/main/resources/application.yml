@@ -41,7 +41,12 @@ management:
       probes:
         enabled: true
 agritainmen:
+  clients:
+    order:
+      base-url: ${ORDER_SERVICE_BASE_URL:http://127.0.0.1:8085}
   security:
+    payment:
+      internal-token: ${ORDER_PAYMENT_INTERNAL_TOKEN:}
     jwt:
       secret: ${JWT_SECRET:change-me-at-least-32-bytes-long-secret}
       issuer: agritainmen
@@ -49,3 +54,4 @@ agritainmen:
     seed-enabled: ${AGRITAINMEN_DEMO_SEED_ENABLED:false}
   payment:
     provider: ${AGRITAINMEN_PAYMENT_PROVIDER:sandbox}
+    callback-token: ${PAYMENT_CALLBACK_INTERNAL_TOKEN:}

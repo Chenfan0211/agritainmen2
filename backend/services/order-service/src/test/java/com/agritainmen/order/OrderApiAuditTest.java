@@ -194,6 +194,9 @@ class OrderApiAuditTest {
                 @Override public Reservation release(String reservationId) {
                     return new Reservation(reservationId, reservationId.substring(4), "RELEASED");
                 }
+                @Override public Reservation confirm(String reservationId) {
+                    return new Reservation(reservationId, reservationId.substring(4), "CONFIRMED");
+                }
             };
         }
     }

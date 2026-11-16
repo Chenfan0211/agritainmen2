@@ -105,6 +105,15 @@ class JwtAuthFilterAuditTest {
     }
 
     @Test
+    void onlyPaymentCallbackCanReachServiceWithoutBuyerJwt() {
+        FilterResult callback = invoke(HttpMethod.POST, "/api/v1/payments/callback/wechat", null, "forged");
+        assertTrue(callback.chainCalled());
+        assertEquals(null, callback.forwardedExchange().getRequest().getHeaders().get("X-Actor-Type"));
+        assertUnauthorized(invoke(HttpMethod.GET, "/api/v1/payments/callback/wechat", null, null), "UNAUTHORIZED");
+        assertUnauthorized(invoke(HttpMethod.POST, "/api/v1/payments/intents", null, null), "UNAUTHORIZED");
+    }
+
+    @Test
     void supplierAndFarmOperationsRequireMatchingPermissions() {
         assertAllowed(HttpMethod.GET, "/api/v1/org/suppliers", "admin", "PLATFORM", List.of("supplier.audit"));
         assertAllowed(HttpMethod.POST, "/api/v1/org/suppliers", "admin", "PLATFORM", List.of("supplier.create"));

@@ -45,6 +45,8 @@ agritainmen:
     auth:
       base-url: ${AUTH_SERVICE_BASE_URL:http://127.0.0.1:8081}
   security:
+    payment:
+      internal-token: ${ORDER_PAYMENT_INTERNAL_TOKEN:}
     jwt:
       secret: ${JWT_SECRET:change-me-at-least-32-bytes-long-secret}
       issuer: agritainmen

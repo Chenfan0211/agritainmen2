@@ -29,6 +29,12 @@ docker compose --env-file deploy/compose/.env -f deploy/compose/docker-compose.y
 
 本机没有 Docker 时，仍可运行服务单测；Compose 的启动验收必须在安装 Docker 的环境执行。
 
+## 本地沙箱支付联调
+
+启动 `order-service` 与 `payment-service` 时，给两个进程设置相同的 `ORDER_PAYMENT_INTERNAL_TOKEN`；给 `payment-service` 另设 `PAYMENT_CALLBACK_INTERNAL_TOKEN`。两项均无默认值，未设置时内部确认或沙箱回调会拒绝执行。支付服务的 `ORDER_SERVICE_BASE_URL` 默认是 `http://127.0.0.1:8085`。
+
+先用当前买家的 Bearer 调用 `POST /api/v1/payments/intents`，金额必须与待付款订单的 `amountCents` 一致；再以 `X-Payment-Callback-Token` 调用 `POST /api/v1/payments/callback/wechat` 发送沙箱成功/失败回调。随后查询订单与 `GET /api/v1/payments/orders/{orderId}`：成功为 `PAID`，订单服务暂不可用时为 `PAID_PENDING_ORDER`，取消后到账为 `REFUND_REQUIRED`。回调流水号应保持唯一；`REFUND_REQUIRED` 仅记录待退款事实，不会自动退款。微信 V3 证书和真实回调验签尚未接入。
+
 ## 端口
 
 | 服务 | 端口 |

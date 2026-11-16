@@ -1,5 +1,8 @@
 package com.agritainmen.payment;
 
+import com.agritainmen.common.core.BusinessException;
+import com.agritainmen.common.core.ErrorCode;
+import com.agritainmen.payment.client.OrderPaymentClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -9,11 +12,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -27,8 +29,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Tag("api-audit")
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "spring.profiles.active=test")
-@Import(PaymentApiAuditTest.PermitAllApiAuditSecurity.class)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
+        "spring.profiles.active=test", "agritainmen.payment.callback-token=test-callback-token"})
+@Import(PaymentApiAuditTest.FakeOrderConfiguration.class)
 class PaymentApiAuditTest {
     @Value("${local.server.port}")
     private int port;
@@ -127,29 +130,62 @@ class PaymentApiAuditTest {
         assertTrue(envelope.path("data").isNull());
     }
 
+    @Test
+    void paymentIntentRejectsMissingBuyerTokenAndWrongAmount() {
+        String orderId = unique("ORDER-SCOPE");
+        assertEnvelope(post("/api/v1/payments/intents", Map.of("orderId", orderId,
+                "amountCents", 5990, "channel", "WECHAT"), null), 401, "UNAUTHORIZED");
+        assertEnvelope(createIntent(orderId, 6000), 409, "CONFLICT");
+    }
+
+    @Test
+    void paymentQueryRejectsAnotherBuyer() {
+        String orderId = unique("ORDER-QUERY-SCOPE");
+        createIntent(orderId, 5990);
+        var request = client.get().uri("/api/v1/payments/orders/" + orderId).header("Authorization", "Bearer other");
+        assertEnvelope(exchange(request), 401, "UNAUTHORIZED");
+    }
+
+    @Test
+    void callbackRejectsMissingOrWrongInternalToken() {
+        String orderId = unique("ORDER-CALLBACK-SCOPE");
+        createIntent(orderId, 5990);
+        Map<String, Object> payload = Map.of("provider", "WECHAT", "providerTxnId", unique("TXN"),
+                "orderId", orderId, "success", true);
+        assertEnvelope(post("/api/v1/payments/callback/wechat", payload, null), 401, "UNAUTHORIZED");
+        var wrong = client.post().uri("/api/v1/payments/callback/wechat").contentType(MediaType.APPLICATION_JSON)
+                .header("X-Payment-Callback-Token", "wrong").body(payload);
+        assertEnvelope(exchange(wrong), 401, "UNAUTHORIZED");
+        assertEquals("CREATED", get("/api/v1/payments/orders/" + orderId).getBody().path("data").path("status").asText());
+    }
+
     private ResponseEntity<JsonNode> createIntent(String orderId, long amountCents) {
         return post("/api/v1/payments/intents", Map.of(
                 "orderId", orderId,
                 "amountCents", amountCents,
                 "channel", "WECHAT"
-        ));
+        ), "Bearer buyer-a");
     }
 
     private ResponseEntity<JsonNode> callback(String orderId, String providerTxnId, boolean success) {
-        return post("/api/v1/payments/callback/wechat", Map.of(
+        var payload = Map.of(
                 "provider", "WECHAT",
                 "providerTxnId", providerTxnId,
                 "orderId", orderId,
                 "success", success
-        ));
+        );
+        return exchange(client.post().uri("/api/v1/payments/callback/wechat").contentType(MediaType.APPLICATION_JSON)
+                .header("X-Payment-Callback-Token", "test-callback-token").body(payload));
     }
 
     private ResponseEntity<JsonNode> get(String path) {
-        return exchange(client.get().uri(path));
+        return exchange(client.get().uri(path).header("Authorization", "Bearer buyer-a"));
     }
 
-    private ResponseEntity<JsonNode> post(String path, Object body) {
-        return exchange(client.post().uri(path).contentType(MediaType.APPLICATION_JSON).body(body));
+    private ResponseEntity<JsonNode> post(String path, Object body, String authorization) {
+        var request = client.post().uri(path).contentType(MediaType.APPLICATION_JSON);
+        if (authorization != null) request.header("Authorization", authorization);
+        return exchange(request.body(body));
     }
 
     private ResponseEntity<JsonNode> exchange(RestClient.RequestHeadersSpec<?> request) {
@@ -178,13 +214,15 @@ class PaymentApiAuditTest {
     }
 
     @TestConfiguration(proxyBeanMethods = false)
-    static class PermitAllApiAuditSecurity {
-        @Bean
-        SecurityFilterChain apiAuditFilterChain(HttpSecurity http) throws Exception {
-            return http
-                    .csrf(csrf -> csrf.disable())
-                    .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                    .build();
+    static class FakeOrderConfiguration {
+        @Bean @Primary OrderPaymentClient orderPaymentClient() {
+            return new OrderPaymentClient() {
+                @Override public OrderSnapshot load(String orderId, String authorization) {
+                    if (!"Bearer buyer-a".equals(authorization)) throw new BusinessException(ErrorCode.UNAUTHORIZED);
+                    return new OrderSnapshot(orderId, 5990, "PENDING_PAYMENT");
+                }
+                @Override public String confirm(String orderId, long amountCents) { return "PAID"; }
+            };
         }
     }
 }

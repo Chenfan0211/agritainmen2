@@ -7,6 +7,10 @@ import com.agritainmen.order.service.OrderService;
 import com.agritainmen.order.web.OrderDtos.CreateOrderRequest;
 import com.agritainmen.order.web.OrderDtos.OrderView;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Value;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -14,10 +18,13 @@ import org.springframework.web.bind.annotation.*;
 public class OrderController {
     private final OrderService orderService;
     private final OrderAccessVerifier accessVerifier;
+    private final String internalPaymentToken;
 
-    public OrderController(OrderService orderService, OrderAccessVerifier accessVerifier) {
+    public OrderController(OrderService orderService, OrderAccessVerifier accessVerifier,
+                           @Value("${agritainmen.security.payment.internal-token:}") String internalPaymentToken) {
         this.orderService = orderService;
         this.accessVerifier = accessVerifier;
+        this.internalPaymentToken = internalPaymentToken;
     }
 
     @PostMapping
@@ -53,6 +60,17 @@ public class OrderController {
         OrderView order = orderService.find(id);
         accessVerifier.requireReadable(identity, order.buyerId());
         return ApiResponse.ok(orderService.cancelPending(id));
+    }
+
+    @PostMapping("/{id}/payment-confirmation")
+    public ApiResponse<OrderView> confirmPayment(@PathVariable String id,
+            @Valid @RequestBody OrderDtos.PaymentConfirmationRequest request,
+            @RequestHeader(value = "X-Order-Payment-Token", required = false) String token) {
+        if (internalPaymentToken == null || internalPaymentToken.isBlank())
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "订单支付内部令牌未配置");
+        if (token == null || !MessageDigest.isEqual(internalPaymentToken.getBytes(StandardCharsets.UTF_8), token.getBytes(StandardCharsets.UTF_8)))
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        return ApiResponse.ok(orderService.confirmPaid(id, request.amountCents()));
     }
 
     public record OrderPage(java.util.List<OrderView> items, int page, int pageSize, long total) {}

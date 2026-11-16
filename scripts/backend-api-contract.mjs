@@ -38,6 +38,7 @@ const expected = [
   ['GET', '/api/v1/orders'],
   ['GET', '/api/v1/orders/{id}'],
   ['POST', '/api/v1/orders/{id}/cancel'],
+  ['POST', '/api/v1/orders/{id}/payment-confirmation'],
   ['POST', '/api/v1/payments/intents'],
   ['POST', '/api/v1/payments/callback/wechat'],
   ['GET', '/api/v1/payments/orders/{orderId}'],

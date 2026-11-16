@@ -51,6 +51,14 @@ public class HttpServiceClients {
                 if (response == null || response.data() == null) throw new IllegalStateException("库存释放失败");
                 return response.data();
             }
+
+            @Override
+            public Reservation confirm(String reservationId) {
+                ApiResponse<Reservation> response = client.post().uri("/api/v1/inventory/reservations/{id}/confirm", reservationId)
+                        .retrieve().body(new ParameterizedTypeReference<>() {});
+                if (response == null || response.data() == null) throw new IllegalStateException("库存确认失败");
+                return response.data();
+            }
         };
     }
 }
