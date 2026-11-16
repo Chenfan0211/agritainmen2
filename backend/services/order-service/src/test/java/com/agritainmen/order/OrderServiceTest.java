@@ -15,6 +15,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.dao.DataAccessException;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
@@ -189,6 +190,112 @@ class OrderServiceTest {
         }
     }
 
+    @Test
+    void confirmedInventorySurvivesOrderCommitFailureAndBlocksCancellation() {
+        OrderView order = createForPayment();
+        int before = inventory.confirms.get();
+        jdbc.execute("alter table trade_order add constraint ck_order_paid_block_test check (id <> '"
+                + order.id() + "' or status <> 'PAID')");
+        try {
+            org.junit.jupiter.api.Assertions.assertThrows(DataAccessException.class,
+                    () -> orderService.confirmPaid(order.id(), order.amountCents()));
+            assertEquals("PENDING_PAYMENT", orderService.find(order.id()).status());
+            assertEquals(true, confirmationPending(order.id()));
+            org.junit.jupiter.api.Assertions.assertThrows(com.agritainmen.common.core.BusinessException.class,
+                    () -> orderService.cancelPending(order.id()));
+        } finally {
+            jdbc.execute("alter table trade_order drop constraint ck_order_paid_block_test");
+        }
+        assertEquals("PAID", orderService.confirmPaid(order.id(), order.amountCents()).status());
+        assertEquals(false, confirmationPending(order.id()));
+        assertEquals(before + 1, inventory.confirms.get());
+        assertEquals(1, jdbc.queryForObject("select count(*) from sys_outbox_event where aggregate_id=? and event_type='order.paid'",
+                Integer.class, order.id()));
+    }
+
+    @Test
+    void failedPaymentGuardCommitNeverCallsInventory() {
+        OrderView order = createForPayment();
+        int before = inventory.confirms.get();
+        jdbc.execute("alter table trade_order add constraint ck_order_guard_block_test check (id <> '"
+                + order.id() + "' or confirmation_pending=false)");
+        try {
+            org.junit.jupiter.api.Assertions.assertThrows(DataAccessException.class,
+                    () -> orderService.confirmPaid(order.id(), order.amountCents()));
+        } finally {
+            jdbc.execute("alter table trade_order drop constraint ck_order_guard_block_test");
+        }
+        assertEquals(false, confirmationPending(order.id()));
+        assertEquals(before, inventory.confirms.get());
+        assertEquals("UNPAID_CANCELLED", orderService.cancelPending(order.id()).status());
+    }
+
+    @Test
+    void unavailableInventoryKeepsPaymentConfirmationPending() {
+        OrderView order = createForPayment();
+        inventory.failConfirm.set(true);
+        try {
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                    () -> orderService.confirmPaid(order.id(), order.amountCents()));
+            assertEquals(true, confirmationPending(order.id()));
+            org.junit.jupiter.api.Assertions.assertThrows(com.agritainmen.common.core.BusinessException.class,
+                    () -> orderService.cancelPending(order.id()));
+        } finally {
+            inventory.failConfirm.set(false);
+        }
+        assertEquals("PAID", orderService.confirmPaid(order.id(), order.amountCents()).status());
+        assertEquals(false, confirmationPending(order.id()));
+    }
+
+    @Test
+    void scheduledPaymentConfirmationContinuesAfterOneFailure() {
+        OrderView first = createForPayment();
+        OrderView second = createForPayment();
+        inventory.failConfirm.set(true);
+        try {
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                    () -> orderService.confirmPaid(first.id(), first.amountCents()));
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                    () -> orderService.confirmPaid(second.id(), second.amountCents()));
+        } finally {
+            inventory.failConfirm.set(false);
+        }
+        jdbc.execute("alter table trade_order add constraint ck_order_paid_block_test check (id <> '"
+                + first.id() + "' or status <> 'PAID')");
+        try {
+            orderService.retryPendingConfirmations();
+            assertEquals(true, confirmationPending(first.id()));
+            assertEquals("PAID", orderService.find(second.id()).status());
+        } finally {
+            jdbc.execute("alter table trade_order drop constraint ck_order_paid_block_test");
+        }
+        orderService.retryPendingConfirmations();
+        assertEquals("PAID", orderService.find(first.id()).status());
+    }
+
+    @Test
+    void paymentGuardCommitsBeforeInventoryConfirmation() {
+        OrderView order = createForPayment();
+        AtomicBoolean checked = new AtomicBoolean();
+        inventory.onConfirm = reservationId -> {
+            if (!order.reservationId().equals(reservationId)) return;
+            assertEquals(false, TransactionSynchronizationManager.isActualTransactionActive());
+            assertEquals(true, confirmationPending(order.id()));
+            assertEquals("PENDING_PAYMENT", orderService.find(order.id()).status());
+            checked.set(true);
+        };
+        try {
+            assertEquals("PAID", orderService.confirmPaid(order.id(), order.amountCents()).status());
+            assertEquals(true, checked.get());
+        } finally {
+            inventory.onConfirm = ignored -> {};
+        }
+    }
+
+    private Boolean confirmationPending(String orderId) {
+        return jdbc.queryForObject("select confirmation_pending from trade_order where id=?", Boolean.class, orderId);
+    }
+
     private OrderView createForPayment() {
         return orderService.create("PAY-CONFIRM-" + UUID.randomUUID(),
                 new CreateOrderRequest("F1", List.of(new OrderLineRequest("SKU-1", 1)),
@@ -216,7 +323,9 @@ class OrderServiceTest {
         final Set<String> failIds = ConcurrentHashMap.newKeySet();
         final AtomicInteger confirms = new AtomicInteger();
         final AtomicBoolean failConfirm = new AtomicBoolean();
+        final Set<String> confirmedReservations = ConcurrentHashMap.newKeySet();
         volatile Consumer<String> onRelease = ignored -> {};
+        volatile Consumer<String> onConfirm = ignored -> {};
         @Override public Reservation reserve(String orderId, List<Line> lines, java.time.Instant expiresAt) {
             return new Reservation("RES-" + orderId, orderId, "RESERVED");
         }
@@ -227,8 +336,9 @@ class OrderServiceTest {
             return new Reservation(reservationId, reservationId.substring(4), "RELEASED");
         }
         @Override public Reservation confirm(String reservationId) {
+            onConfirm.accept(reservationId);
             if (failConfirm.get()) throw new IllegalStateException("库存服务不可用");
-            confirms.incrementAndGet();
+            if (confirmedReservations.add(reservationId)) confirms.incrementAndGet();
             return new Reservation(reservationId, reservationId.substring(4), "CONFIRMED");
         }
     }

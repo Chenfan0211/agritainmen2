@@ -1278,7 +1278,7 @@ paths:
   /orders/{id}/cancel:
     post:
       summary: 取消待付款订单并释放库存预占
-      description: 仅当前买家可操作；先提交未支付取消，再释放库存预占。库存服务暂不可用时仍返回已取消订单，由服务端重试释放；重复取消可触发重试。已付款等其他状态返回 409。
+      description: 仅当前买家可操作；先提交未支付取消，再释放库存预占。库存服务暂不可用时仍返回已取消订单，由服务端重试释放；重复取消可触发重试。支付确认中、已付款等状态返回 409。
       parameters:
         - in: path
           name: id
@@ -1297,7 +1297,7 @@ paths:
   /orders/{id}/payment-confirmation:
     post:
       summary: 内部确认订单支付并确认库存预占
-      description: 仅支付服务使用；与待付款取消共用订单行锁。已取消订单返回 UNPAID_CANCELLED，供支付服务登记待退款。
+      description: 仅支付服务使用；先持久化确认中标记，再调用库存确认，最后提交 PAID。确认中不可取消；库存或订单库暂不可用时由服务端重试。取消先赢则返回 UNPAID_CANCELLED，供支付服务登记待退款。
       parameters:
         - in: path
           name: id
@@ -1324,7 +1324,7 @@ paths:
         "401":
           description: 内部令牌无效
         "409":
-          description: 金额不符或库存预占未确认
+          description: 金额不符、订单状态不允许确认或库存预占未确认
   /payments/intents:
     post:
       summary: 创建支付单

@@ -37,6 +37,8 @@ docker compose --env-file deploy/compose/.env -f deploy/compose/docker-compose.y
 
 待付款取消先提交订单的 `UNPAID_CANCELLED` 状态，再释放库存预占。若库存服务暂不可用，订单仍显示已取消，订单服务保留 `release_pending` 并每 30 秒分批重试；再次调用取消接口也会触发重试。本地可通过 H2 测试覆盖失败及重试路径，真实库存服务联调需另行执行。
 
+支付服务发起内部确认后，订单服务先提交 `confirmation_pending`，此时取消接口返回 409；库存确认成功后才将订单提交为 `PAID`。若库存确认或订单入库失败，支付服务保持 `PAID_PENDING_ORDER`，订单服务也会每 30 秒重试确认中订单。即使库存已确认但订单提交失败，重复确认仍可收敛到 `PAID`。这条路径目前通过本地 H2 与替身库存测试，尚未进行真实跨服务联调。
+
 ## 端口
 
 | 服务 | 端口 |

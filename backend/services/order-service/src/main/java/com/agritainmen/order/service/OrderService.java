@@ -110,7 +110,7 @@ public class OrderService {
         System.arraycopy(args, 0, pageArgs, 0, args.length);
         pageArgs[args.length] = pageSize;
         pageArgs[args.length + 1] = (page - 1) * pageSize;
-        List<OrderView> items = jdbc.query("select id, order_no, buyer_id, status, amount_cents, reservation_id, receiver, receiver_phone, address, created_at from trade_order" + where + " order by created_at, id limit ? offset ?",
+        List<OrderView> items = jdbc.query("select id, order_no, buyer_id, status, amount_cents, reservation_id, receiver, receiver_phone, address, created_at, confirmation_pending from trade_order" + where + " order by created_at, id limit ? offset ?",
                 (rs, rowNum) -> toView(mapOrder(rs)), pageArgs);
         return new com.agritainmen.order.web.OrderController.OrderPage(items, page, pageSize, total == null ? 0 : total);
     }
@@ -135,9 +135,11 @@ public class OrderService {
         OrderRow order = rows.get(0);
         if ("UNPAID_CANCELLED".equals(order.status)) return toView(order);
         if (!"PENDING_PAYMENT".equals(order.status)) throw new BusinessException(ErrorCode.CONFLICT, "当前订单状态不可取消");
+        if (order.confirmationPending) throw new BusinessException(ErrorCode.CONFLICT, "订单正在确认支付，不可取消");
         int updated = jdbc.update("""
                 update trade_order set status='UNPAID_CANCELLED', release_pending=true, updated_at=?, version=version+1
-                 where id=? and tenant_id='PLATFORM' and status='PENDING_PAYMENT' and deleted=false
+                 where id=? and tenant_id='PLATFORM' and status='PENDING_PAYMENT'
+                   and confirmation_pending=false and deleted=false
                 """, Instant.now(), orderId);
         if (updated != 1) throw new BusinessException(ErrorCode.CONFLICT);
         outboxService.append("order", orderId, "order.unpaid_cancelled", "{\"orderId\":\"" + orderId + "\"}");
@@ -182,8 +184,14 @@ public class OrderService {
         for (String orderId : orderIds) releaseCancelledReservation(orderId);
     }
 
-    @Transactional
     public OrderView confirmPaid(String orderId, long amountCents) {
+        OrderView current = transactions.execute(status -> markPaymentConfirmationPending(orderId, amountCents));
+        if (current == null) throw new IllegalStateException("支付确认事务未返回结果");
+        if (!"PENDING_PAYMENT".equals(current.status())) return current;
+        return confirmPendingInventory(orderId);
+    }
+
+    private OrderView markPaymentConfirmationPending(String orderId, long amountCents) {
         List<OrderRow> rows = jdbc.query("select * from trade_order where id=? and tenant_id='PLATFORM' and deleted=false for update",
                 (rs, rowNum) -> mapOrder(rs), orderId);
         if (rows.isEmpty()) throw new BusinessException(ErrorCode.NOT_FOUND, "订单不存在");
@@ -191,16 +199,71 @@ public class OrderService {
         if (order.amountCents != amountCents) throw new BusinessException(ErrorCode.CONFLICT, "支付金额与订单不符");
         if ("PAID".equals(order.status) || "UNPAID_CANCELLED".equals(order.status)) return toView(order);
         if (!"PENDING_PAYMENT".equals(order.status)) throw new BusinessException(ErrorCode.CONFLICT, "当前订单状态不可确认支付");
-        InventoryClient.Reservation confirmed = inventoryClient.confirm(order.reservationId);
-        if (confirmed == null || !order.reservationId.equals(confirmed.id()) || !"CONFIRMED".equals(confirmed.status()))
+        if (!order.confirmationPending) {
+            int updated = jdbc.update("""
+                    update trade_order set confirmation_pending=true, updated_at=?, version=version+1
+                     where id=? and tenant_id='PLATFORM' and status='PENDING_PAYMENT'
+                       and confirmation_pending=false and deleted=false
+                    """, Instant.now(), orderId);
+            if (updated != 1) throw new BusinessException(ErrorCode.CONFLICT);
+        }
+        return find(orderId);
+    }
+
+    private OrderView confirmPendingInventory(String orderId) {
+        List<String> reservations = jdbc.query("""
+                select reservation_id from trade_order
+                 where id=? and tenant_id='PLATFORM' and status='PENDING_PAYMENT'
+                   and confirmation_pending=true and deleted=false
+                """, (rs, rowNum) -> rs.getString(1), orderId);
+        if (reservations.isEmpty()) return find(orderId);
+        String reservationId = reservations.get(0);
+        InventoryClient.Reservation confirmed = inventoryClient.confirm(reservationId);
+        if (confirmed == null || !reservationId.equals(confirmed.id()) || !"CONFIRMED".equals(confirmed.status()))
             throw new BusinessException(ErrorCode.CONFLICT, "库存预占未确认，请重试");
+        OrderView paid = transactions.execute(status -> finalizePaid(orderId));
+        if (paid == null) throw new IllegalStateException("订单支付提交事务未返回结果");
+        return paid;
+    }
+
+    private OrderView finalizePaid(String orderId) {
+        List<OrderRow> rows = jdbc.query("select * from trade_order where id=? and tenant_id='PLATFORM' and deleted=false for update",
+                (rs, rowNum) -> mapOrder(rs), orderId);
+        if (rows.isEmpty()) throw new BusinessException(ErrorCode.NOT_FOUND, "订单不存在");
+        OrderRow order = rows.get(0);
+        if ("PAID".equals(order.status)) return toView(order);
+        if (!"PENDING_PAYMENT".equals(order.status) || !order.confirmationPending)
+            throw new BusinessException(ErrorCode.CONFLICT, "订单支付确认状态已变化");
         int updated = jdbc.update("""
-                update trade_order set status='PAID', updated_at=?, version=version+1
-                 where id=? and tenant_id='PLATFORM' and status='PENDING_PAYMENT' and deleted=false
+                update trade_order set status='PAID', confirmation_pending=false, updated_at=?, version=version+1
+                 where id=? and tenant_id='PLATFORM' and status='PENDING_PAYMENT'
+                   and confirmation_pending=true and deleted=false
                 """, Instant.now(), orderId);
         if (updated != 1) throw new BusinessException(ErrorCode.CONFLICT);
         outboxService.append("order", orderId, "order.paid", "{\"orderId\":\"" + orderId + "\"}");
         return find(orderId);
+    }
+
+    @Scheduled(fixedDelayString = "${agritainmen.order.confirm-retry-ms:30000}")
+    public void retryPendingConfirmations() {
+        List<String> orderIds = jdbc.query("""
+                select id from trade_order
+                 where tenant_id='PLATFORM' and status='PENDING_PAYMENT'
+                   and confirmation_pending=true and deleted=false
+                 order by updated_at, id limit 50
+                """, (rs, rowNum) -> rs.getString(1));
+        for (String orderId : orderIds) {
+            try {
+                confirmPendingInventory(orderId);
+            } catch (Exception exception) {
+                log.warn("订单支付确认待重试: orderId={}, reason={}", orderId, exception.toString());
+                jdbc.update("""
+                        update trade_order set updated_at=?
+                         where id=? and tenant_id='PLATFORM' and status='PENDING_PAYMENT'
+                           and confirmation_pending=true and deleted=false
+                        """, Instant.now(), orderId);
+            }
+        }
     }
 
     public String requestHash(String key) {
@@ -226,10 +289,11 @@ public class OrderService {
     private OrderRow mapOrder(ResultSet rs) throws SQLException {
         return new OrderRow(rs.getString("id"), rs.getString("order_no"), rs.getString("buyer_id"), rs.getString("status"),
                 rs.getLong("amount_cents"), rs.getString("reservation_id"), rs.getString("receiver"), rs.getString("receiver_phone"),
-                rs.getString("address"), rs.getTimestamp("created_at").toInstant());
+                rs.getString("address"), rs.getTimestamp("created_at").toInstant(), rs.getBoolean("confirmation_pending"));
     }
 
     private record QuotedLine(PriceQuote quote, int quantity, long amount) {}
     private record OrderRow(String id, String orderNo, String buyerId, String status, long amountCents, String reservationId,
-                            String receiver, String receiverPhone, String address, Instant createdAt) {}
+                            String receiver, String receiverPhone, String address, Instant createdAt,
+                            boolean confirmationPending) {}
 }
