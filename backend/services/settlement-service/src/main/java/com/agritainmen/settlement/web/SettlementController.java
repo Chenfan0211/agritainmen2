@@ -71,9 +71,10 @@ public class SettlementController {
 
     @PostMapping("/withdrawals")
     public ApiResponse<WithdrawalView> requestWithdrawal(@Valid @RequestBody WithdrawalRequest request,
-            @RequestHeader(value = "Authorization", required = false) String authorization) {
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         accessVerifier.requireBeneficiary(authorization, request.requesterId());
-        return ApiResponse.ok(settlementService.requestWithdrawal(request.requesterId(), request.amountCents(), request.method()));
+        return ApiResponse.ok(settlementService.requestWithdrawal(request.requesterId(), request.amountCents(), request.method(), idempotencyKey));
     }
 
     @PostMapping("/withdrawals/{id}/review")

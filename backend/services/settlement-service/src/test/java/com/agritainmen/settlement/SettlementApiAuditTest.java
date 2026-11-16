@@ -9,6 +9,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -32,6 +33,9 @@ class SettlementApiAuditTest {
 
     @Autowired
     private JsonMapper jsonMapper;
+
+    @Autowired
+    private JdbcTemplate jdbc;
 
     private RestClient restClient;
 
@@ -135,14 +139,54 @@ class SettlementApiAuditTest {
         assertError(response, 400, "BAD_REQUEST");
     }
 
+    @Test
+    void withdrawalRequiresIdempotencyKey() throws Exception {
+        ApiHttpResponse response = post("/api/v1/withdrawals", Map.of(
+                "requesterId", unique("REQUESTER"), "amountCents", 100, "method", "WECHAT"), null);
+        assertError(response, 400, "BAD_REQUEST");
+        ApiHttpResponse oversized = post("/api/v1/withdrawals", Map.of(
+                "requesterId", unique("REQUESTER"), "amountCents", 100, "method", "WECHAT"), "X".repeat(129));
+        assertError(oversized, 400, "BAD_REQUEST");
+    }
+
+    @Test
+    void withdrawalReplayKeepsOneApplicationAndRejectsChangedPayload() throws Exception {
+        String requesterId = unique("REQUESTER");
+        String key = unique("WITHDRAWAL");
+        Map<String, Object> body = Map.of("requesterId", requesterId, "amountCents", 100, "method", "WECHAT");
+        String firstId = assertSuccess(post("/api/v1/withdrawals", body, key)).path("id").asText();
+        String replayId = assertSuccess(post("/api/v1/withdrawals", body, key)).path("id").asText();
+        assertEquals(firstId, replayId);
+        assertEquals(1, jdbc.queryForObject("select count(*) from settlement_withdrawal where requester_id=?", Integer.class, requesterId));
+        assertError(post("/api/v1/withdrawals", Map.of("requesterId", requesterId,
+                "amountCents", 101, "method", "WECHAT"), key), 409, "IDEMPOTENCY_CONFLICT");
+        assertError(post("/api/v1/withdrawals", Map.of("requesterId", requesterId,
+                "amountCents", 100, "method", "BANK"), key), 409, "IDEMPOTENCY_CONFLICT");
+    }
+
+    @Test
+    void sameWithdrawalKeyIsIndependentForDifferentRequesters() throws Exception {
+        String key = unique("WITHDRAWAL");
+        String first = assertSuccess(post("/api/v1/withdrawals", Map.of(
+                "requesterId", unique("REQUESTER-A"), "amountCents", 100, "method", "WECHAT"), key)).path("id").asText();
+        String second = assertSuccess(post("/api/v1/withdrawals", Map.of(
+                "requesterId", unique("REQUESTER-B"), "amountCents", 100, "method", "WECHAT"), key)).path("id").asText();
+        assertFalse(first.equals(second));
+    }
+
     private ApiHttpResponse post(String path, Object requestBody) throws Exception {
-        RawHttpResponse raw = restClient.post()
+        return post(path, requestBody, path.equals("/api/v1/withdrawals") ? unique("WITHDRAWAL") : null);
+    }
+
+    private ApiHttpResponse post(String path, Object requestBody, String idempotencyKey) throws Exception {
+        var request = restClient.post()
                 .uri(path)
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON)
                 .headers(headers -> headers.setBearerAuth(path.endsWith("/review") ? "admin-review" : "admin-commission"))
-                .body(jsonMapper.writeValueAsString(requestBody))
-                .exchange((request, response) -> new RawHttpResponse(
+                .body(jsonMapper.writeValueAsString(requestBody));
+        if (idempotencyKey != null) request.header("Idempotency-Key", idempotencyKey);
+        RawHttpResponse raw = request.exchange((sent, response) -> new RawHttpResponse(
                         response.getStatusCode().value(),
                         response.getHeaders().getContentType(),
                         response.getHeaders().getFirst("X-Trace-Id"),

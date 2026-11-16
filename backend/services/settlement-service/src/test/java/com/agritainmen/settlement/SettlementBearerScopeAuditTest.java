@@ -147,12 +147,15 @@ class SettlementBearerScopeAuditTest {
     private int postStatus(String path, String token, Object body) {
         var request = client.post().uri(path).contentType(MediaType.APPLICATION_JSON).body(body);
         if (token != null) request.header("Authorization", "Bearer " + token);
+        if (path.equals("/api/v1/withdrawals")) request.header("Idempotency-Key", UUID.randomUUID().toString());
         return request.exchange((sent, response) -> response.getStatusCode().value());
     }
 
     private JsonNode postBody(String path, String token, Object body) {
-        return client.post().uri(path).contentType(MediaType.APPLICATION_JSON)
-                .header("Authorization", "Bearer " + token).body(body).retrieve().body(JsonNode.class);
+        var request = client.post().uri(path).contentType(MediaType.APPLICATION_JSON)
+                .header("Authorization", "Bearer " + token).body(body);
+        if (path.equals("/api/v1/withdrawals")) request.header("Idempotency-Key", UUID.randomUUID().toString());
+        return request.retrieve().body(JsonNode.class);
     }
 
     private int putStatus(String path, String token, Object body) {

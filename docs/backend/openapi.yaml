@@ -1419,7 +1419,15 @@ paths:
   /withdrawals:
     post:
       summary: 发起提现
-      description: 当前有效团长只能为 Auth 身份绑定的 leaderId 提现；具备 commission.manage 的平台管理员可代提交。重复提交会产生新申请。
+      description: 当前有效团长只能为 Auth 身份绑定的 leaderId 提现；具备 commission.manage 的平台管理员可代提交。同一申请人用同一幂等键和相同金额、方式重试时返回原申请；参数不同返回 409。
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: 同一申请人每次新提现申请使用新键，最多 128 字符。
+          schema:
+            type: string
+            maxLength: 128
       requestBody:
         required: true
         content:
@@ -1429,6 +1437,10 @@ paths:
       responses:
         "200":
           description: OK
+        "400":
+          description: 缺少或无效的幂等键
+        "409":
+          description: 幂等键对应的申请参数不同
   /admin/audit:
     get:
       summary: 查询审计日志

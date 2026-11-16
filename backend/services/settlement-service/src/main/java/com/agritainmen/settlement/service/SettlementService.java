@@ -45,15 +45,34 @@ public class SettlementService {
         return findCommissionById(id);
     }
 
-    @Transactional
-    public WithdrawalView requestWithdrawal(String requesterId, long amountCents, String method) {
+    public WithdrawalView requestWithdrawal(String requesterId, long amountCents, String method, String idempotencyKey) {
+        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 128) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "Idempotency-Key 不能为空且不能超过 128 字符");
+        }
         String id = Ids.uuid("WITHDRAWAL");
         Instant now = Instant.now();
-        jdbc.update("""
-                insert into settlement_withdrawal(id, tenant_id, requester_id, amount_cents, method, status, created_at, updated_at, version, deleted)
-                values (?, 'PLATFORM', ?, ?, ?, 'PENDING', ?, ?, 0, false)
-                """, id, requesterId, amountCents, method, now, now);
+        try {
+            jdbc.update("""
+                    insert into settlement_withdrawal(id, tenant_id, requester_id, amount_cents, method, status, idempotency_key, created_at, updated_at, version, deleted)
+                    values (?, 'PLATFORM', ?, ?, ?, 'PENDING', ?, ?, ?, 0, false)
+                    """, id, requesterId, amountCents, method, idempotencyKey, now, now);
+        } catch (DuplicateKeyException duplicate) {
+            WithdrawalView existing = findWithdrawalByKey(requesterId, idempotencyKey);
+            if (existing == null) throw duplicate;
+            if (existing.amountCents() != amountCents || !existing.method().equals(method)) {
+                throw new BusinessException(ErrorCode.IDEMPOTENCY_CONFLICT);
+            }
+            return existing;
+        }
         return findWithdrawal(id);
+    }
+
+    private WithdrawalView findWithdrawalByKey(String requesterId, String idempotencyKey) {
+        List<WithdrawalView> rows = jdbc.query("""
+                select * from settlement_withdrawal
+                 where tenant_id='PLATFORM' and requester_id=? and idempotency_key=? and deleted=false
+                """, (rs, rowNum) -> mapWithdrawal(rs), requesterId, idempotencyKey);
+        return rows.isEmpty() ? null : rows.get(0);
     }
 
     @Transactional
