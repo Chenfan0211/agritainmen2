@@ -134,3 +134,18 @@ bash deploy/scripts/rollback-compose.sh
 后续本地批次接入了 `/org/me/supplier/warehouse`：供应商以服务端身份和资料版本保存 GCJ-02 仓点坐标及联系人，司机只读，冲突与非法坐标拒绝；API 模式回读后展示真实仓点，保存失败不回落本地。该接口为线路和到仓打卡提供数据基础，尚未实现服务端线路状态机。
 
 2026-11-14 本地批次增加批量接单：供应商一次提交 1–100 个履约单 ID，服务端对归属和 `PENDING` 状态整批校验，跨供应商返回 404，状态冲突返回 409，数据库不产生部分更新。前端仅在整批成功后更新本地视图，失败保留选择并提示刷新核对；线路与打卡仍待订单配送目的地的服务端关联。
+
+### 本地订单与库存独立进程联调（2026-11-16）
+
+本轮在同一台 Windows 机器分别启动真实 `auth-service`、`catalog-service`、`inventory-service`、`order-service`，使用 Java 21、Maven `spring-boot:run -Dspring-boot.run.useTestClasspath=true -Dspring-boot.run.profiles=test`、H2、演示数据及本地 HTTP；未使用替身库存客户端。先在 `backend` 目录执行 `mvn -pl services/auth-service,services/catalog-service,services/inventory-service,services/order-service -am -DskipTests install`。测试配置下仍需显式设置各进程的 H2 `DB_URL`、`DB_USERNAME=sa`、端口和订单服务的 Auth/Catalog/Inventory 基础地址；仅在本地商品与库存进程设置 `SPRING_AUTOCONFIGURE_EXCLUDE`，排除默认 Web/Management Security 自动配置，并将订单服务的 `agritainmen.security.order-source.enabled` 设为 `true`。临时进程和 H2 数据库已在验收后关闭。
+
+| 场景 | 实际 HTTP 结果 |
+|---|---|
+| 管理员演示账号登录，订单取商品报价并预占 1 件 | `POST /api/v1/orders` 返回 `PENDING_PAYMENT`、金额 5990 分、预占 ID；可用库存 99→98 |
+| 同一幂等键同载荷重放 | 返回同一订单 ID，库存未再次扣减 |
+| 取消待付款的 2 件订单 | 返回 `UNPAID_CANCELLED`；可用库存 98→96→98 |
+| 购买 1000 件时库存不足 | 返回 409 `OUT_OF_STOCK`；补货 1000 件后旧键仍返回 409，新键返回 `PENDING_PAYMENT`，可用库存 1098→98；买家列表不包含失败订单 |
+| 库存进程尚未启动时创建订单 | 返回 500 `INTERNAL_ERROR`，买家列表为 0；库存进程启动后后台重试收敛为 `PENDING_PAYMENT`，库存 99→98；同键重放返回同一订单 |
+| 已成功键改用 2 件重放 | 返回 409 `IDEMPOTENCY_CONFLICT`；可用库存保持 98 |
+
+独立启动发现后续部署阻断：商品报价和库存查询在默认配置下均返回 401。两个服务缺少显式业务安全链，现有商品查询和库存 API 审计测试通过排除 Spring 默认安全自动配置才可访问接口；本轮的本地覆盖仅用于联调，不能作为部署配置。下一批需给商品读取/管理写入、库存读取/调整及订单服务的预占/释放/确认分别建立可执行的鉴权策略，再去掉本地覆盖做 HTTP 复测。无 RabbitMQ 时库存服务 `/actuator/health` 返回 503；本轮未验证 RabbitMQ 事件发布、MySQL 行锁行为、网关与 Staging。
