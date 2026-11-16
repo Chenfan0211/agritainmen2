@@ -9,6 +9,7 @@ import com.agritainmen.settlement.web.SettlementDtos.CommissionView;
 import com.agritainmen.settlement.web.SettlementDtos.ReviewRequest;
 import com.agritainmen.settlement.web.SettlementDtos.WithdrawalRequest;
 import com.agritainmen.settlement.web.SettlementDtos.WithdrawalView;
+import com.agritainmen.settlement.web.SettlementDtos.WithdrawalPage;
 import jakarta.validation.Valid;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
@@ -80,10 +81,21 @@ public class SettlementController {
     }
 
     @GetMapping("/withdrawals")
-    public ApiResponse<List<WithdrawalView>> withdrawals(@RequestParam(required = false) String requesterId,
+    public ApiResponse<WithdrawalPage> withdrawals(@RequestParam(required = false) String requesterId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int pageSize,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String keyword,
             @RequestHeader(value = "Authorization", required = false) String authorization) {
         accessVerifier.requireAdmin(authorization, "withdrawal.review", "leader.withdrawal.review");
-        return ApiResponse.ok(settlementService.listWithdrawalsForAdmin(requesterId == null ? "" : requesterId.trim()));
+        if (page < 1 || pageSize < 1 || pageSize > 200) throw new BusinessException(ErrorCode.BAD_REQUEST, "page 必须大于 0，pageSize 必须在 1-200 之间");
+        String normalizedStatus = status == null ? "" : status.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!normalizedStatus.isBlank() && !List.of("PENDING", "APPROVED", "REJECTED").contains(normalizedStatus))
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "无效的提现状态");
+        String normalizedKeyword = keyword == null ? "" : keyword.trim();
+        if (normalizedKeyword.length() > 100) throw new BusinessException(ErrorCode.BAD_REQUEST, "关键词不得超过 100 字符");
+        return ApiResponse.ok(settlementService.listWithdrawalsForAdmin(requesterId == null ? "" : requesterId.trim(),
+                page, pageSize, normalizedStatus, normalizedKeyword));
     }
 
     @PostMapping("/withdrawals")

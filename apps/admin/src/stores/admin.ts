@@ -58,6 +58,21 @@ interface WithdrawalDto {
   reviewedAt?: string | null
 }
 
+interface WithdrawalPageDto {
+  items: WithdrawalDto[]
+  page: number
+  pageSize: number
+  total: number
+  pendingTotal: number
+}
+
+interface WithdrawalQuery {
+  page: number
+  pageSize: number
+  status: string
+  keyword: string
+}
+
 function withdrawalFromDto(dto: WithdrawalDto): WithdrawalRequest {
   return { id: dto.id, requesterType: 'promoter', requesterId: dto.requesterId,
     amount: dto.amountCents / 100, method: dto.method, status: dto.status.toLowerCase() as WithdrawalRequestStatus,
@@ -106,6 +121,13 @@ interface AdminState {
   adminAccounts: AdminAccount[]
   apiRole: AdminRole | null
   apiWithdrawals: WithdrawalRequest[]
+  apiWithdrawalPage: number
+  apiWithdrawalPageSize: number
+  apiWithdrawalStatus: string
+  apiWithdrawalKeyword: string
+  apiWithdrawalTotal: number
+  apiWithdrawalPendingTotal: number
+  apiWithdrawalRequestId: number
   auth: { isLoggedIn: boolean; account: string; accountId: string; roleId: string; roleCode: string; name: string }
 }
 
@@ -177,7 +199,7 @@ function buildCatalogStockLogs(current: CatalogState | null, payload: CatalogPro
   })
 }
 
-function buildAdminTodos(state: Pick<AdminState, 'suppliers' | 'products' | 'productSubmissions' | 'catalogProducts' | 'orders' | 'afterSales' | 'supplierSettlementRecords' | 'commissionSettlementRecords' | 'apiWithdrawals'>): AdminTodo[] {
+function buildAdminTodos(state: Pick<AdminState, 'suppliers' | 'products' | 'productSubmissions' | 'catalogProducts' | 'orders' | 'afterSales' | 'supplierSettlementRecords' | 'commissionSettlementRecords' | 'apiWithdrawals' | 'apiWithdrawalPendingTotal'>): AdminTodo[] {
   const todos: AdminTodo[] = []
   const add = (type: string, title: string, items: Array<{ id: string }>, route: AdminMenuKey, priority: AdminTodo['priority'], createdAt: string, filters?: Record<string, string>) => {
     if (!items.length) return
@@ -210,8 +232,15 @@ function buildAdminTodos(state: Pick<AdminState, 'suppliers' | 'products' | 'pro
   const stockWarningProducts = state.catalogProducts.filter((product) => catalogProductStockWarnings(product).length > 0)
   add('stock-warning', `商品「${stockWarningProducts[0]?.name}」库存低于预警阈值`, stockWarningProducts, 'products', 'medium', stableAdminCreatedAt([]), { stock: 'warning' })
 
-  const withdrawals = (getApiClientConfig().dataMode === 'api' ? state.apiWithdrawals : Object.values(readPlatformWithdrawals() || {})).filter((item) => item.status === 'pending')
-  add('withdrawal', `提现「${withdrawals[0]?.requesterId}」待审核`, withdrawals, 'commissions', 'medium', withdrawals[0]?.createdAt || '', { view: 'withdrawals', status: 'pending' })
+  if (getApiClientConfig().dataMode === 'api') {
+    if (state.apiWithdrawalPendingTotal > 0) todos.push({ id: 'todo:withdrawal', type: 'withdrawal',
+      title: '提现申请待审核', count: state.apiWithdrawalPendingTotal, route: 'commissions', priority: 'medium',
+      createdAt: state.apiWithdrawals.find((item) => item.status === 'pending')?.createdAt || new Date(0).toISOString(),
+      filters: { view: 'withdrawals', status: 'pending' } })
+  } else {
+    const withdrawals = Object.values(readPlatformWithdrawals() || {}).filter((item) => item.status === 'pending')
+    add('withdrawal', `提现「${withdrawals[0]?.requesterId}」待审核`, withdrawals, 'commissions', 'medium', withdrawals[0]?.createdAt || '', { view: 'withdrawals', status: 'pending' })
+  }
   const recovery = readPlatformRecoveryQueue().filter((item) => item.status === 'pending')
   add('recovery', `事务「${recovery[0]?.operationId}」待恢复`, recovery, 'dashboard', 'high', recovery[0]?.createdAt || '', { detail: 'todos', type: 'recovery' })
 
@@ -880,6 +909,13 @@ export const useAdminStore = defineStore('operations', {
     adminAccounts: [],
     apiRole: null,
     apiWithdrawals: [],
+    apiWithdrawalPage: 1,
+    apiWithdrawalPageSize: 20,
+    apiWithdrawalStatus: '',
+    apiWithdrawalKeyword: '',
+    apiWithdrawalTotal: 0,
+    apiWithdrawalPendingTotal: 0,
+    apiWithdrawalRequestId: 0,
     auth: { isLoggedIn: false, account: '', accountId: '', roleId: '', roleCode: '', name: '' }
   }),
   getters: {
@@ -890,7 +926,7 @@ export const useAdminStore = defineStore('operations', {
     ]).size,
     pendingOrders: (state) => state.orders.filter((item) => item.status === 'pending').length,
     pendingAfterSales: (state) => state.afterSales.filter((item) => !['refunded', 'rejected', 'refund-failed'].includes(item.status)).length,
-    pendingWithdrawals: (state) => (getApiClientConfig().dataMode === 'api' ? state.apiWithdrawals : Object.values(readPlatformWithdrawals() || {})).filter((item) => item.status === 'pending').length,
+    pendingWithdrawals: (state) => getApiClientConfig().dataMode === 'api' ? state.apiWithdrawalPendingTotal : Object.values(readPlatformWithdrawals() || {}).filter((item) => item.status === 'pending').length,
     pendingRecovery: () => readPlatformRecoveryQueue().filter((item) => item.status === 'pending').length,
     pendingTodos(state): number {
       return buildAdminTodos(state).reduce((sum, todo) => sum + todo.count, 0)
@@ -923,6 +959,9 @@ export const useAdminStore = defineStore('operations', {
           this.auth = { isLoggedIn: false, account: '', accountId: '', roleId: '', roleCode: '', name: '' }
           this.apiRole = null
           this.apiWithdrawals = []
+          this.apiWithdrawalTotal = 0
+          this.apiWithdrawalPendingTotal = 0
+          this.apiWithdrawalRequestId++
           this.initialized = true
           return
         }
@@ -937,6 +976,9 @@ export const useAdminStore = defineStore('operations', {
           this.auth = { isLoggedIn: false, account: '', accountId: '', roleId: '', roleCode: '', name: '' }
           this.apiRole = null
           this.apiWithdrawals = []
+          this.apiWithdrawalTotal = 0
+          this.apiWithdrawalPendingTotal = 0
+          this.apiWithdrawalRequestId++
           this.error = error instanceof Error ? error.message : '登录已失效，请重新登录'
           return
         }
@@ -1027,7 +1069,7 @@ export const useAdminStore = defineStore('operations', {
           initialized: true
         })
         if (apiMode && (this.can('withdrawal.review') || this.can('leader.withdrawal.review'))) await this.loadWithdrawals()
-        else if (apiMode) this.apiWithdrawals = []
+        else if (apiMode) { this.apiWithdrawals = []; this.apiWithdrawalTotal = 0; this.apiWithdrawalPendingTotal = 0 }
         if (this.auth.isLoggedIn && !apiMode) {
           const account = adminAccounts.find((item) => item.id === this.auth.accountId || item.account === this.auth.account)
           const role = adminRoles.find((item) => item.id === account?.roleId)
@@ -2937,20 +2979,58 @@ export const useAdminStore = defineStore('operations', {
       })
       return result.ok
     },
-    async loadWithdrawals(): Promise<boolean> {
+    async loadWithdrawals(options: Partial<WithdrawalQuery> = {}): Promise<boolean> {
       if (getApiClientConfig().dataMode !== 'api' || !this.auth.isLoggedIn || !(this.can('withdrawal.review') || this.can('leader.withdrawal.review'))) {
         this.apiWithdrawals = []
+        this.apiWithdrawalTotal = 0
+        this.apiWithdrawalPendingTotal = 0
+        this.apiWithdrawalRequestId++
         this.error = '无权查询提现申请'
         return false
       }
+      const page = options.page ?? this.apiWithdrawalPage
+      const pageSize = options.pageSize ?? this.apiWithdrawalPageSize
+      const status = options.status ?? this.apiWithdrawalStatus
+      const keyword = (options.keyword ?? this.apiWithdrawalKeyword).trim()
+      const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
+      if (status) params.set('status', status)
+      if (keyword) params.set('keyword', keyword)
+      const requestId = ++this.apiWithdrawalRequestId
       try {
-        this.apiWithdrawals = (await apiRequest<WithdrawalDto[]>('/api/v1/withdrawals')).map(withdrawalFromDto)
+        const result = await apiRequest<WithdrawalPageDto>('/api/v1/withdrawals?' + params.toString())
+        if (requestId !== this.apiWithdrawalRequestId) return false
+        if (page > Math.max(1, Math.ceil(result.total / pageSize))) return this.loadWithdrawals({ page: Math.max(1, Math.ceil(result.total / pageSize)), pageSize, status, keyword })
+        this.apiWithdrawals = result.items.map(withdrawalFromDto)
+        this.apiWithdrawalPage = result.page
+        this.apiWithdrawalPageSize = result.pageSize
+        this.apiWithdrawalStatus = status
+        this.apiWithdrawalKeyword = keyword
+        this.apiWithdrawalTotal = result.total
+        this.apiWithdrawalPendingTotal = result.pendingTotal
         this.error = ''
         return true
       } catch (error) {
+        if (requestId !== this.apiWithdrawalRequestId) return false
         this.apiWithdrawals = []
+        this.apiWithdrawalTotal = 0
+        this.apiWithdrawalPendingTotal = 0
         this.error = error instanceof Error ? error.message : '提现申请加载失败'
         return false
+      }
+    },
+    async loadWithdrawalsForRequester(requesterId: string, page = 1): Promise<{ items: WithdrawalRequest[]; page: number; pageSize: number; total: number } | null> {
+      if (getApiClientConfig().dataMode !== 'api' || !this.auth.isLoggedIn || !(this.can('withdrawal.review') || this.can('leader.withdrawal.review'))) {
+        this.error = '无权查询提现申请'
+        return null
+      }
+      try {
+        const params = new URLSearchParams({ requesterId, page: String(page), pageSize: '20' })
+        const result = await apiRequest<WithdrawalPageDto>('/api/v1/withdrawals?' + params.toString())
+        this.error = ''
+        return { items: result.items.map(withdrawalFromDto), page: result.page, pageSize: result.pageSize, total: result.total }
+      } catch (error) {
+        this.error = error instanceof Error ? error.message : '提现申请加载失败'
+        return null
       }
     },
     async reviewWithdrawal(id: string, status: WithdrawalRequestStatus, note?: string, permission: AdminPermissionCode = 'withdrawal.review') {
@@ -2968,10 +3048,7 @@ export const useAdminStore = defineStore('operations', {
             method: 'POST', body: { approved: status === 'approved', note: note?.trim() || undefined }
           })
           const reviewed = withdrawalFromDto(dto)
-          const index = this.apiWithdrawals.findIndex((item) => item.id === id)
-          if (index >= 0) this.apiWithdrawals.splice(index, 1, reviewed)
-          else this.apiWithdrawals.unshift(reviewed)
-          this.error = ''
+          await this.loadWithdrawals()
           return reviewed
         } catch (error) {
           const message = error instanceof Error ? error.message : '提现审核失败'
@@ -3293,6 +3370,12 @@ export const useAdminStore = defineStore('operations', {
           saveAdminAccessToken(result.accessToken)
           this.apiRole = roleFromApiProfile(result.profile)
           this.apiWithdrawals = []
+          this.apiWithdrawalPage = 1
+          this.apiWithdrawalStatus = ''
+          this.apiWithdrawalKeyword = ''
+          this.apiWithdrawalTotal = 0
+          this.apiWithdrawalPendingTotal = 0
+          this.apiWithdrawalRequestId++
           this.auth = { isLoggedIn: true, account: account.trim(), accountId: result.profile.actorId,
             roleId: this.apiRole.id, roleCode: this.apiRole.code, name: result.profile.displayName || account.trim() }
           this.initialized = false
@@ -3341,6 +3424,12 @@ export const useAdminStore = defineStore('operations', {
         clearAdminAccessToken()
         this.apiRole = null
         this.apiWithdrawals = []
+        this.apiWithdrawalPage = 1
+        this.apiWithdrawalStatus = ''
+        this.apiWithdrawalKeyword = ''
+        this.apiWithdrawalTotal = 0
+        this.apiWithdrawalPendingTotal = 0
+        this.apiWithdrawalRequestId++
         this.initialized = false
         this.auth = { isLoggedIn: false, account: '', accountId: '', roleId: '', roleCode: '', name: '' }
         return

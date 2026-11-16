@@ -6,6 +6,7 @@ import com.agritainmen.common.core.Ids;
 import com.agritainmen.common.event.OutboxService;
 import com.agritainmen.settlement.web.SettlementDtos.CommissionView;
 import com.agritainmen.settlement.web.SettlementDtos.WithdrawalView;
+import com.agritainmen.settlement.web.SettlementDtos.WithdrawalPage;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -16,7 +17,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 public class SettlementService {
@@ -100,9 +103,32 @@ public class SettlementService {
         return jdbc.query("select * from settlement_withdrawal where tenant_id='PLATFORM' and requester_id=? and deleted=false order by created_at desc, id desc", (rs, rowNum) -> mapWithdrawal(rs), requesterId);
     }
 
-    public List<WithdrawalView> listWithdrawalsForAdmin(String requesterId) {
-        if (!requesterId.isBlank()) return listWithdrawals(requesterId);
-        return jdbc.query("select * from settlement_withdrawal where tenant_id='PLATFORM' and deleted=false order by created_at desc, id desc", (rs, rowNum) -> mapWithdrawal(rs));
+    public WithdrawalPage listWithdrawalsForAdmin(String requesterId, int page, int pageSize, String status, String keyword) {
+        StringBuilder where = new StringBuilder(" where tenant_id='PLATFORM' and deleted=false");
+        List<Object> args = new ArrayList<>();
+        if (!requesterId.isBlank()) {
+            where.append(" and requester_id=?");
+            args.add(requesterId);
+        }
+        if (!status.isBlank()) {
+            where.append(" and status=?");
+            args.add(status);
+        }
+        if (!keyword.isBlank()) {
+            where.append(" and (locate(?, lower(id))>0 or locate(?, lower(requester_id))>0 or locate(?, lower(method))>0)");
+            String search = keyword.toLowerCase(Locale.ROOT);
+            args.add(search);
+            args.add(search);
+            args.add(search);
+        }
+        Long total = jdbc.queryForObject("select count(*) from settlement_withdrawal" + where, Long.class, args.toArray());
+        Long pendingTotal = jdbc.queryForObject("select count(*) from settlement_withdrawal where tenant_id='PLATFORM' and deleted=false and status='PENDING'", Long.class);
+        List<Object> pageArgs = new ArrayList<>(args);
+        pageArgs.add(pageSize);
+        pageArgs.add(((long) page - 1) * pageSize);
+        List<WithdrawalView> items = jdbc.query("select * from settlement_withdrawal" + where + " order by created_at desc, id desc limit ? offset ?",
+                (rs, rowNum) -> mapWithdrawal(rs), pageArgs.toArray());
+        return new WithdrawalPage(items, page, pageSize, total == null ? 0 : total, pendingTotal == null ? 0 : pendingTotal);
     }
 
     private WithdrawalView findWithdrawalByKey(String requesterId, String idempotencyKey) {

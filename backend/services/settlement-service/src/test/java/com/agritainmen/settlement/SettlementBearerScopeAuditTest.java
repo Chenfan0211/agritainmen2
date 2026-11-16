@@ -114,12 +114,40 @@ class SettlementBearerScopeAuditTest {
         JsonNode reviewList = client.get().uri("/api/v1/withdrawals")
                 .header("Authorization", "Bearer admin-review").retrieve().body(JsonNode.class);
         assertEquals("OK", reviewList.path("code").asText());
-        assertEquals(true, reviewList.path("data").valueStream().anyMatch(row -> platformId.equals(row.path("id").asText())));
-        assertEquals(false, reviewList.path("data").valueStream().anyMatch(row -> foreignId.equals(row.path("id").asText())));
+        assertEquals(true, reviewList.path("data").path("items").valueStream().anyMatch(row -> platformId.equals(row.path("id").asText())));
+        assertEquals(false, reviewList.path("data").path("items").valueStream().anyMatch(row -> foreignId.equals(row.path("id").asText())));
         JsonNode filtered = client.get().uri("/api/v1/withdrawals?requesterId=" + "T-" + suffix)
                 .header("Authorization", "Bearer admin-leader-review").retrieve().body(JsonNode.class);
-        assertEquals(1, filtered.path("data").size());
-        assertEquals(platformId, filtered.path("data").get(0).path("id").asText());
+        assertEquals(1, filtered.path("data").path("total").asInt());
+        assertEquals(platformId, filtered.path("data").path("items").get(0).path("id").asText());
+    }
+
+    @Test void reviewerPagesAndFiltersWithoutChangingGlobalPendingCount() {
+        String suffix = UUID.randomUUID().toString();
+        String prefix = "W-PAGE-" + suffix;
+        java.sql.Timestamp created = java.sql.Timestamp.from(java.time.Instant.parse("2030-01-01T00:00:00Z"));
+        for (int index = 1; index <= 3; index++) {
+            jdbc.update("insert into settlement_withdrawal(id,tenant_id,requester_id,amount_cents,method,status,created_at,updated_at,version,deleted) values (?, 'PLATFORM', ?, 100, 'WECHAT', ?, ?, ?, 0, false)",
+                    prefix + "-" + index, "T-" + suffix, index == 1 ? "APPROVED" : "PENDING", created, created);
+        }
+        jdbc.update("insert into settlement_withdrawal(id,tenant_id,requester_id,amount_cents,method,status,created_at,updated_at,version,deleted) values (?, 'OTHER', ?, 100, 'WECHAT', 'PENDING', ?, ?, 0, false)",
+                prefix + "-4", "T-" + suffix, created, created);
+        String base = "/api/v1/withdrawals?pageSize=1&keyword=" + prefix;
+        JsonNode first = client.get().uri(base + "&page=1").header("Authorization", "Bearer admin-review").retrieve().body(JsonNode.class).path("data");
+        JsonNode second = client.get().uri(base + "&page=2").header("Authorization", "Bearer admin-review").retrieve().body(JsonNode.class).path("data");
+        assertEquals(3, first.path("total").asInt());
+        assertEquals(1, first.path("page").asInt());
+        Long globalPending = jdbc.queryForObject("select count(*) from settlement_withdrawal where tenant_id='PLATFORM' and deleted=false and status='PENDING'", Long.class);
+        assertEquals(globalPending.longValue(), first.path("pendingTotal").asLong());
+        assertEquals(prefix + "-3", first.path("items").get(0).path("id").asText());
+        assertEquals(prefix + "-2", second.path("items").get(0).path("id").asText());
+        JsonNode pending = client.get().uri(base + "&page=1&status=PENDING")
+                .header("Authorization", "Bearer admin-leader-review").retrieve().body(JsonNode.class).path("data");
+        assertEquals(2, pending.path("total").asInt());
+        assertEquals(first.path("pendingTotal").asInt(), pending.path("pendingTotal").asInt());
+        assertEquals(400, getStatus("/api/v1/withdrawals?page=0", "admin-review"));
+        assertEquals(400, getStatus("/api/v1/withdrawals?pageSize=201", "admin-review"));
+        assertEquals(400, getStatus("/api/v1/withdrawals?status=UNKNOWN", "admin-review"));
     }
 
     @Test void configurationWritesRequireMatchingAdminPermission() {

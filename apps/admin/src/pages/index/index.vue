@@ -520,9 +520,15 @@ const filteredWithdrawals = computed<WithdrawalRequest[]>(() => {
   return (isApiMode() ? store.apiWithdrawals : Object.values(readPlatformWithdrawals() || {})).filter((item) => {
     const matchesKeyword = !q || `${item.id}${item.requesterType}${item.requesterId}${item.amount}${item.method}${item.reviewedNote || ''}`.toLowerCase().includes(q)
     const matchesStatus = withdrawalStatusFilter.value === '全部' || item.status === withdrawalStatusFilter.value
-    return matchesKeyword && matchesStatus && matchesActiveTodo('commissions', item)
+    return matchesKeyword && matchesStatus && (isApiMode() || matchesActiveTodo('commissions', item))
   }).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
 })
+function loadWithdrawalPage(nextPage: number) {
+  if (!isApiMode()) return
+  void store.loadWithdrawals({ page: nextPage,
+    status: withdrawalStatusFilter.value === '全部' ? '' : withdrawalStatusFilter.value.toUpperCase(),
+    keyword: withdrawalKeyword.value })
+}
 function withdrawalStatusText(status: WithdrawalRequest['status']) { return status === 'pending' ? '待审核' : status === 'approved' ? '已通过' : '已驳回' }
 async function approveWithdrawal(id: string) {
   const result = await store.reviewWithdrawal(id, 'approved')
@@ -671,6 +677,7 @@ function selectModule(key: ModuleKey) {
   keyword.value = ''
   page.value = 1
   if (key === 'commissions' && isApiMode() && !store.can('commission.manage')) commissionTab.value = '提现审核'
+  if (key === 'commissions' && commissionTab.value === '提现审核') loadWithdrawalPage(1)
 }
 
 function promoterTypeLabel(type?: string) {
@@ -2034,6 +2041,13 @@ watch(keyword, () => { page.value = 1 })
 watch([productKeyword, productSupplierFilter, productSourceFilter, productCategoryFilter, productStatusFilter, productChannelFilter, productReviewFilter, productStockFilter], () => { page.value = 1 })
 watch([supplierKeyword, supplierStatusFilter, supplierCategoryFilter, orderKeyword, orderStatusFilter, orderChannelFilter, orderAfterFilter, orderStoreFilter, afterKeyword, settlementKeyword, settlementSupplierFilter, afterTypeFilter, afterStatusFilter, farmKeyword, farmStatusFilter, farmCityFilter, promoterKeyword, promoterTypeFilter, promoterLevelFilter, promoterSettleFilter, categoryKeyword, categoryTypeFilter, commissionKeyword, commissionStatusFilter, supplierSettleKeyword, supplierSettleSupplierFilter, ruleKeyword, dictKeyword, dictStatusFilter, farmAccountFilter, storeAccountKeyword, storeAccountStatusFilter, afterReasonFilter, withdrawalKeyword, withdrawalStatusFilter, roleKeyword, roleStatusFilter, accountKeyword, accountRoleFilter, accountStatusFilter, policyKeyword, logResult], () => { page.value = 1; commissionHistoryPage.value = 1 })
 watch(orderStatusFilter, () => { page.value = 1 })
+let withdrawalFilterTimer: ReturnType<typeof setTimeout> | null = null
+watch([withdrawalKeyword, withdrawalStatusFilter], () => {
+  if (!isApiMode() || commissionTab.value !== '提现审核') return
+  if (withdrawalFilterTimer) clearTimeout(withdrawalFilterTimer)
+  withdrawalFilterTimer = setTimeout(() => loadWithdrawalPage(1), 250)
+})
+watch(commissionTab, (tab) => { if (tab === '提现审核') loadWithdrawalPage(1) })
 const loginAccount = ref(isApiMode() ? '' : 'admin')
 const loginPassword = ref(isApiMode() ? '' : '123456')
 async function submitLogin() {
@@ -2079,6 +2093,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  if (withdrawalFilterTimer) clearTimeout(withdrawalFilterTimer)
   disposeKeyboardButtons()
   disposePlatformChanges?.()
   disposePlatformChanges = null
@@ -2475,8 +2490,9 @@ onBeforeUnmount(() => {
             </view>
           </template>
           <template v-else-if="commissionTab === '提现审核'">
-            <view class="filter-bar"><label class="field is-search"><text>关键词</text><view class="filter-control"><UiIcon name="search" :size="16" /><input v-model="withdrawalKeyword" placeholder="请输入申请人 / 提现单号 / 方式" /></view></label><view class="field"><text>状态</text><SearchableSelect v-model="withdrawalStatusFilter" :options="withdrawalStatusOptions" search-placeholder="筛选状态" placeholder="请选择状态" /></view><button v-if="isApiMode()" class="compact-button" @click="store.loadWithdrawals()">刷新</button></view>
+            <view class="filter-bar"><label class="field is-search"><text>关键词</text><view class="filter-control"><UiIcon name="search" :size="16" /><input v-model="withdrawalKeyword" maxlength="100" placeholder="请输入申请人 / 提现单号 / 方式" /></view></label><view class="field"><text>状态</text><SearchableSelect v-model="withdrawalStatusFilter" :options="withdrawalStatusOptions" search-placeholder="筛选状态" placeholder="请选择状态" /></view><button v-if="isApiMode()" class="compact-button" @click="loadWithdrawalPage(store.apiWithdrawalPage)">刷新</button></view>
             <view class="withdrawal-table">
+              <view v-if="isApiMode() && store.error" class="empty-state">{{ store.error }}</view>
               <view class="withdrawal-table-scroll">
               <view class="table-row table-head withdrawal-grid"><text>申请人</text><text>金额</text><text>方式</text><text>申请时间</text><text>状态</text><text>备注</text><text>操作</text></view>
               <view v-for="item in filteredWithdrawals" :key="item.id" class="table-row withdrawal-grid">
@@ -2484,7 +2500,8 @@ onBeforeUnmount(() => {
                 <view class="row-actions"><template v-if="item.status === 'pending' && (store.can('withdrawal.review') || store.can('leader.withdrawal.review'))"><button @click="confirmAction('确认通过该提现申请？', () => approveWithdrawal(item.id))">通过</button><button class="danger" @click="openWithdrawalReject(item.id)">驳回</button></template><text v-else>—</text></view>
               </view>
               </view>
-              <view v-if="!filteredWithdrawals.length" class="empty-state">暂无提现申请</view>
+              <view v-if="!filteredWithdrawals.length && !(isApiMode() && store.error)" class="empty-state">暂无提现申请</view>
+              <PaginationBar v-if="isApiMode()" :page="store.apiWithdrawalPage" :page-size="store.apiWithdrawalPageSize" :total="store.apiWithdrawalTotal" @change="loadWithdrawalPage($event)" />
             </view>
           </template>
           <template v-else-if="commissionTab === '供应商结算'">

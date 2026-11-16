@@ -27,7 +27,7 @@ describe('admin API withdrawal review', () => {
     const localBefore = JSON.stringify(readPlatformWithdrawals())
     let rows: Array<typeof pending & { reviewedBy?: string; reviewedAt?: string; reviewNote?: string }> = [pending]
     const transport = vi.fn(async (request) => {
-      if (request.url.endsWith('/api/v1/withdrawals') && request.method === 'GET') return ok(rows)
+      if (request.url.includes('/api/v1/withdrawals?') && request.method === 'GET') return ok({ items: rows, page: 1, pageSize: 20, total: rows.length, pendingTotal: rows.filter((row) => row.status === 'PENDING').length })
       if (request.url.endsWith('/api/v1/withdrawals/W-SERVER/review')) {
         expect(request.method).toBe('POST')
         expect(request.headers.Authorization).toBe('Bearer reviewer-token')
@@ -42,7 +42,7 @@ describe('admin API withdrawal review', () => {
     expect(await store.loadWithdrawals()).toBe(true)
     expect(store.apiWithdrawals).toMatchObject([{ id: 'W-SERVER', requesterId: 'T001', amount: 5, status: 'pending' }])
     expect(store.pendingWithdrawals).toBe(1)
-    expect(store.queryAdminTodos().find((todo) => todo.type === 'withdrawal')?.objectIds).toEqual(['W-SERVER'])
+    expect(store.queryAdminTodos().find((todo) => todo.type === 'withdrawal')).toMatchObject({ count: 1, route: 'commissions', filters: { status: 'pending' } })
     const reviewed = await store.reviewWithdrawal('W-SERVER', 'approved', '核对通过', 'leader.withdrawal.review')
     expect(reviewed).toMatchObject({ id: 'W-SERVER', status: 'approved', operator: 'ADMIN-1' })
     expect(store.apiWithdrawals).toMatchObject([{ id: 'W-SERVER', status: 'approved', reviewedNote: '核对通过' }])
@@ -53,7 +53,7 @@ describe('admin API withdrawal review', () => {
   it('refreshes server truth after a concurrent review conflict', async () => {
     let rows: Array<typeof pending & { reviewedBy?: string; reviewedAt?: string; reviewNote?: string }> = [pending]
     const transport = vi.fn(async (request) => {
-      if (request.method === 'GET') return ok(rows)
+      if (request.method === 'GET') return ok({ items: rows, page: 1, pageSize: 20, total: rows.length, pendingTotal: rows.filter((row) => row.status === 'PENDING').length })
       rows = [{ ...pending, status: 'REJECTED', reviewedBy: 'ADMIN-2' }]
       return { status: 409, body: { code: 'CONFLICT', message: '该提现申请已处理' } }
     })
@@ -73,5 +73,66 @@ describe('admin API withdrawal review', () => {
     expect(await store.loadWithdrawals()).toBe(false)
     expect(await store.reviewWithdrawal('W-SERVER', 'approved')).toBeNull()
     expect(transport).not.toHaveBeenCalled()
+  })
+
+  it('keeps global pending totals while showing one filtered server page', async () => {
+    const transport = vi.fn(async (request) => {
+      const url = new URL(request.url)
+      expect(url.searchParams.get('page')).toBe('2')
+      expect(url.searchParams.get('pageSize')).toBe('1')
+      expect(url.searchParams.get('status')).toBe('PENDING')
+      expect(url.searchParams.get('keyword')).toBe('T001')
+      return ok({ items: [pending], page: 2, pageSize: 1, total: 3, pendingTotal: 11 })
+    })
+    configureApiClient({ dataMode: 'api', baseUrl: 'https://api.example.com', getAccessToken: () => 'reviewer-token', transport })
+    const store = reviewerStore()
+    expect(await store.loadWithdrawals({ page: 2, pageSize: 1, status: 'PENDING', keyword: 'T001' })).toBe(true)
+    expect(store.apiWithdrawals).toHaveLength(1)
+    expect(store.apiWithdrawalTotal).toBe(3)
+    expect(store.apiWithdrawalPage).toBe(2)
+    expect(store.pendingWithdrawals).toBe(11)
+    expect(store.queryAdminTodos().find((todo) => todo.type === 'withdrawal')).toMatchObject({ count: 11, route: 'commissions' })
+    expect(store.queryAdminTodos().find((todo) => todo.type === 'withdrawal')?.objectIds).toBeUndefined()
+  })
+
+  it('pages one leader history without replacing the global review page', async () => {
+    configureApiClient({ dataMode: 'api', baseUrl: 'https://api.example.com', getAccessToken: () => 'reviewer-token', transport: async (request) => {
+      const url = new URL(request.url)
+      if (url.searchParams.has('requesterId')) {
+        expect(url.searchParams.get('requesterId')).toBe('T001')
+        expect(url.searchParams.get('page')).toBe('2')
+        return ok({ items: [pending], page: 2, pageSize: 20, total: 21, pendingTotal: 8 })
+      }
+      return ok({ items: [], page: 1, pageSize: 20, total: 0, pendingTotal: 8 })
+    } })
+    const store = reviewerStore()
+    await store.loadWithdrawals()
+    const history = await store.loadWithdrawalsForRequester('T001', 2)
+    expect(history).toMatchObject({ page: 2, total: 21, items: [{ id: 'W-SERVER' }] })
+    expect(store.apiWithdrawals).toEqual([])
+    expect(store.pendingWithdrawals).toBe(8)
+  })
+
+  it('moves to the last valid page after reviewing its final pending item', async () => {
+    let reviewed = false
+    const requestedPages: string[] = []
+    configureApiClient({ dataMode: 'api', baseUrl: 'https://api.example.com', getAccessToken: () => 'reviewer-token', transport: async (request) => {
+      if (request.method === 'POST') {
+        reviewed = true
+        return ok({ ...pending, status: 'APPROVED' })
+      }
+      const page = new URL(request.url).searchParams.get('page') || ''
+      requestedPages.push(page)
+      if (!reviewed) return ok({ items: [pending], page: 2, pageSize: 1, total: 2, pendingTotal: 2 })
+      if (page === '2') return ok({ items: [], page: 2, pageSize: 1, total: 1, pendingTotal: 1 })
+      return ok({ items: [{ ...pending, id: 'W-OTHER' }], page: 1, pageSize: 1, total: 1, pendingTotal: 1 })
+    } })
+    const store = reviewerStore()
+    await store.loadWithdrawals({ page: 2, pageSize: 1, status: 'PENDING' })
+    expect(await store.reviewWithdrawal('W-SERVER', 'approved')).toMatchObject({ status: 'approved' })
+    expect(requestedPages).toEqual(['2', '2', '1'])
+    expect(store.apiWithdrawalPage).toBe(1)
+    expect(store.apiWithdrawals).toMatchObject([{ id: 'W-OTHER' }])
+    expect(store.pendingWithdrawals).toBe(1)
   })
 })

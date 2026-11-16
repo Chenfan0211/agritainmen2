@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.Instant;
+import java.util.List;
 
 public final class SettlementDtos {
     private SettlementDtos() {}
@@ -13,4 +14,5 @@ public final class SettlementDtos {
     public record ReviewRequest(boolean approved, String operator, String note) {}
     public record CommissionView(String id, String sourceId, String beneficiaryId, long amountCents, String direction, String status, Instant createdAt) {}
     public record WithdrawalView(String id, String requesterId, long amountCents, String method, String status, String reviewedBy, String reviewNote, Instant createdAt, Instant reviewedAt) {}
+    public record WithdrawalPage(List<WithdrawalView> items, int page, int pageSize, long total, long pendingTotal) {}
 }

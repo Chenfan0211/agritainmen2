@@ -4,6 +4,7 @@ import { getApiClientConfig, readPlatformWithdrawals, readPricingDefaults } from
 import type { WithdrawalRequest } from '@agritainment/shared'
 import { useAdminStore } from '../stores/admin'
 import { buildAdminLeaders, buildLeaderCommissionRows } from '../data/user-operations'
+import PaginationBar from './PaginationBar.vue'
 import type { AdminLeaderCommissionRow, AdminLeaderRow } from '../data/user-operations'
 
 const store = useAdminStore()
@@ -15,26 +16,47 @@ const selectedId = ref('')
 const rows = ref<AdminLeaderRow[]>([])
 const commissions = ref<AdminLeaderCommissionRow[]>([])
 const withdrawals = ref<WithdrawalRequest[]>([])
+const selectedWithdrawalPage = ref(1)
+const selectedWithdrawalTotal = ref(0)
+let selectedWithdrawalRequestId = 0
 const priceForm = reactive({ level1Amount: 0, level2Amount: 0 })
 const message = ref('')
 const apiMode = getApiClientConfig().dataMode === 'api'
 const canReview = computed(() => store.can('leader.withdrawal.review') || store.can('withdrawal.review'))
 const serverWithdrawals = computed(() => store.apiWithdrawals)
 
-async function reload() {
+async function reload(loadServer = true) {
   rows.value = buildAdminLeaders()
   const defaults = readPricingDefaults()
   priceForm.level1Amount = defaults.level1Amount
   priceForm.level2Amount = defaults.level2Amount
-  if (apiMode && canReview.value) await store.loadWithdrawals()
-  const allWithdrawals = apiMode ? store.apiWithdrawals : Object.values(readPlatformWithdrawals() || {})
-  withdrawals.value = selectedId.value
-    ? allWithdrawals.filter((item) => item.requesterId === selectedId.value).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    : []
+  if (apiMode && canReview.value && loadServer) await store.loadWithdrawals()
+  if (apiMode) {
+    if (selectedId.value && canReview.value) await loadSelectedWithdrawals(selectedWithdrawalPage.value)
+    else withdrawals.value = []
+  } else {
+    const allWithdrawals = Object.values(readPlatformWithdrawals() || {})
+    withdrawals.value = selectedId.value
+      ? allWithdrawals.filter((item) => item.requesterId === selectedId.value).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      : []
+  }
   commissions.value = selectedId.value ? buildLeaderCommissionRows(selectedId.value) : []
 }
 
-onMounted(reload)
+async function loadSelectedWithdrawals(page: number) {
+  const requesterId = selectedId.value
+  const requestId = ++selectedWithdrawalRequestId
+  const result = await store.loadWithdrawalsForRequester(requesterId, page)
+  if (requestId !== selectedWithdrawalRequestId || selectedId.value !== requesterId) return
+  withdrawals.value = result?.items || []
+  selectedWithdrawalPage.value = result?.page || 1
+  selectedWithdrawalTotal.value = result?.total || 0
+}
+
+onMounted(async () => {
+  if (apiMode && canReview.value) await store.loadWithdrawals({ page: 1, status: '', keyword: '' })
+  await reload(false)
+})
 
 const filtered = computed(() => {
   const q = keyword.value.trim().toLowerCase()
@@ -51,11 +73,14 @@ const pendingWithdrawals = computed(() => withdrawals.value.filter((item) => ite
 
 function openDetail(row: AdminLeaderRow) {
   selectedId.value = row.promoterId
+  selectedWithdrawalPage.value = 1
   reload()
 }
 
 function closeDetail() {
   selectedId.value = ''
+  selectedWithdrawalRequestId++
+  selectedWithdrawalTotal.value = 0
   reload()
 }
 
@@ -82,8 +107,7 @@ async function reviewWithdrawal(item: WithdrawalRequest, status: 'approved' | 'r
   message.value = ''
   const result = await store.reviewWithdrawal(item.id, status, status === 'rejected' ? '团长提现资料不符合要求' : undefined, 'leader.withdrawal.review')
   const resultMessage = result ? `提现「${item.id}」已${status === 'approved' ? '通过' : '驳回'}` : store.error || '提现审核失败或当前角色无权限'
-  if (result && apiMode) await reload()
-  else if (!apiMode) await reload()
+  await reload(!apiMode)
   message.value = resultMessage
 }
 
@@ -105,13 +129,15 @@ function money(value: number) {
     </view>
 
     <view v-if="apiMode && canReview" class="leader-detail-drawer">
-      <view class="panel-head"><view><h2>提现审核</h2><text>服务端申请 · 待审核 {{ store.pendingWithdrawals }} 笔</text></view><button class="button secondary" @click="reload">刷新</button></view>
+      <view class="panel-head"><view><h2>提现审核</h2><text>服务端申请 · 待审核 {{ store.pendingWithdrawals }} 笔</text></view><button class="button secondary" @click="reload()">刷新</button></view>
       <text v-if="message" class="config-message">{{ message }}</text>
-      <view v-if="!serverWithdrawals.length" class="empty-state">暂无提现申请</view>
+      <view v-if="store.error" class="empty-state">{{ store.error }}</view>
+      <view v-if="!serverWithdrawals.length && !store.error" class="empty-state">暂无提现申请</view>
       <view v-for="item in serverWithdrawals" :key="item.id" class="history-row withdrawal-row">
         <view><strong>{{ item.requesterId }} · {{ item.id }} · {{ money(item.amount) }}</strong><small>{{ item.status === 'pending' ? '待审核' : item.status === 'approved' ? '已通过' : '已驳回' }} · {{ item.createdAt }}</small></view>
         <view v-if="item.status === 'pending'" class="row-actions"><button @click="reviewWithdrawal(item, 'approved')">通过</button><button class="danger" @click="reviewWithdrawal(item, 'rejected')">驳回</button></view>
       </view>
+      <PaginationBar :page="store.apiWithdrawalPage" :page-size="store.apiWithdrawalPageSize" :total="store.apiWithdrawalTotal" @change="store.loadWithdrawals({ page: $event })" />
     </view>
 
     <view class="filter-bar">
@@ -145,8 +171,9 @@ function money(value: number) {
       <view class="panel-head"><h2>分佣记录</h2><text>共 {{ commissions.length }} 笔</text></view>
       <view v-if="!commissions.length" class="empty-state">暂无分佣记录</view>
       <view v-for="item in commissions" :key="item.id" class="history-row"><strong>{{ item.orderId }} · {{ money(item.amount) }}</strong><small>{{ item.levelLabel }} · {{ item.statusLabel }} · {{ item.createdAt }}</small></view>
-      <view class="panel-head"><h2>提现申请</h2><text>待审核 {{ pendingWithdrawals.length }} 笔</text></view>
-      <view v-if="!withdrawals.length" class="empty-state">暂无提现申请</view>
+      <view class="panel-head"><h2>提现申请</h2><text>{{ apiMode ? `共 ${selectedWithdrawalTotal} 笔` : `待审核 ${pendingWithdrawals.length} 笔` }}</text></view>
+      <view v-if="apiMode && store.error" class="empty-state">{{ store.error }}</view>
+      <view v-if="!withdrawals.length && (!apiMode || !store.error)" class="empty-state">暂无提现申请</view>
       <view v-for="item in withdrawals" :key="item.id" class="history-row withdrawal-row">
         <view><strong>{{ item.id }} · {{ money(item.amount) }}</strong><small>{{ item.status === 'pending' ? '待审核' : item.status === 'approved' ? '已通过' : item.status === 'rejected' ? '已驳回' : item.status }} · {{ item.createdAt }}</small></view>
         <view v-if="item.status === 'pending'" class="row-actions">
@@ -154,6 +181,7 @@ function money(value: number) {
           <button class="danger" :disabled="!canReview" @click="reviewWithdrawal(item, 'rejected')">驳回</button>
         </view>
       </view>
+      <PaginationBar v-if="apiMode" :page="selectedWithdrawalPage" :page-size="20" :total="selectedWithdrawalTotal" @change="loadSelectedWithdrawals($event)" />
     </view>
   </section>
 </template>

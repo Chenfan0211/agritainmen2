@@ -1419,16 +1419,59 @@ paths:
   /withdrawals:
     get:
       summary: 管理员查询提现申请
-      description: 仅具备 withdrawal.review 或 leader.withdrawal.review 权限的平台管理员可查询；可按申请人过滤，按创建时间倒序返回。
+      description: 仅具备 withdrawal.review 或 leader.withdrawal.review 权限的平台管理员可查询；平台租户内按创建时间、ID 倒序分页。pendingTotal 为全局待审核数，不受筛选和分页影响。
       parameters:
         - name: requesterId
           in: query
           required: false
           schema:
             type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, APPROVED, REJECTED]
+        - name: keyword
+          in: query
+          description: 按提现单号、申请人编号或提现方式查找，最多 100 字符。
+          schema:
+            type: string
+            maxLength: 100
       responses:
         "200":
           description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          type: object
+                      page: { type: integer }
+                      pageSize: { type: integer }
+                      total: { type: integer, format: int64 }
+                      pendingTotal: { type: integer, format: int64 }
+                    required: [items, page, pageSize, total, pendingTotal]
+        "400":
+          description: 分页、状态或关键词参数不合法
         "401":
           description: 未登录
         "403":
