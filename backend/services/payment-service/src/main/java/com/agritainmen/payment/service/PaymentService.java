@@ -67,7 +67,8 @@ public class PaymentService {
     public PaymentView callback(CallbackRequest request) {
         PaymentView recorded = transactions.execute(status -> recordCallback(request));
         if (recorded == null) throw new IllegalStateException("支付回调未记录");
-        return "PAID_PENDING_ORDER".equals(recorded.status()) ? reconcile(recorded.orderId()) : recorded;
+        if ("PAID_PENDING_ORDER".equals(recorded.status())) return reconcile(recorded.orderId());
+        return "REFUND_REQUIRED".equals(recorded.status()) ? refundRequired(recorded.orderId()) : recorded;
     }
 
     private PaymentView recordCallback(CallbackRequest request) {
@@ -121,7 +122,7 @@ public class PaymentService {
             default -> null;
         };
         if (next == null) return current;
-        return transactions.execute(status -> {
+        PaymentView settled = transactions.execute(status -> {
             int updated = jdbc.update("""
                     update payment_intent set status=?, updated_at=?, version=version+1
                      where id=? and tenant_id='PLATFORM' and status='PAID_PENDING_ORDER'
@@ -131,6 +132,48 @@ public class PaymentService {
                     "{\"orderId\":\"" + orderId + "\"}");
             return find(current.id());
         });
+        if (settled == null) throw new IllegalStateException("支付订单同步事务未返回结果");
+        return "REFUND_REQUIRED".equals(settled.status()) ? refundRequired(orderId) : settled;
+    }
+
+    private PaymentView refundRequired(String orderId) {
+        PaymentView current = findByOrder(orderId);
+        if (current == null || !"REFUND_REQUIRED".equals(current.status())) return current;
+        if (current.providerTxnId() == null || current.providerTxnId().isBlank()) {
+            log.warn("待退款支付单缺少渠道流水: orderId={}", orderId);
+            deferRefund(current.id());
+            return current;
+        }
+        String refundRequestId = "REFUND-" + current.id();
+        boolean confirmed;
+        try {
+            confirmed = paymentProvider.refund(current.providerTxnId(), refundRequestId, current.amountCents());
+        } catch (Exception exception) {
+            log.warn("支付退款待重试: orderId={}, reason={}", orderId, exception.toString());
+            deferRefund(current.id());
+            return current;
+        }
+        if (!confirmed) {
+            log.warn("支付退款待重试: orderId={}, reason=渠道未确认退款成功", orderId);
+            deferRefund(current.id());
+            return current;
+        }
+        PaymentView refunded = transactions.execute(status -> {
+            int updated = jdbc.update("""
+                    update payment_intent set status='REFUNDED', updated_at=?, version=version+1
+                     where id=? and tenant_id='PLATFORM' and status='REFUND_REQUIRED' and deleted=false
+                    """, Instant.now(), current.id());
+            if (updated == 1) outboxService.append("payment", current.id(), "payment.refunded",
+                    "{\"orderId\":\"" + orderId + "\",\"refundRequestId\":\"" + refundRequestId + "\"}");
+            return find(current.id());
+        });
+        if (refunded == null) throw new IllegalStateException("支付退款事务未返回结果");
+        return refunded;
+    }
+
+    private void deferRefund(String paymentId) {
+        jdbc.update("update payment_intent set updated_at=? where id=? and status='REFUND_REQUIRED'",
+                Instant.now(), paymentId);
     }
 
     @Scheduled(fixedDelayString = "${agritainmen.payment.reconcile-delay-ms:30000}")
@@ -141,6 +184,24 @@ public class PaymentService {
                  order by updated_at, id limit 50
                 """, (rs, rowNum) -> rs.getString(1));
         for (String orderId : orderIds) reconcile(orderId);
+    }
+
+    @Scheduled(fixedDelayString = "${agritainmen.payment.refund-retry-ms:30000}")
+    public void retryRefunds() {
+        List<String> orderIds = jdbc.query("""
+                select order_id from payment_intent
+                 where tenant_id='PLATFORM' and deleted=false and status='REFUND_REQUIRED'
+                 order by updated_at, id limit 50
+                """, (rs, rowNum) -> rs.getString(1));
+        for (String orderId : orderIds) {
+            try {
+                refundRequired(orderId);
+            } catch (Exception exception) {
+                log.warn("支付退款批量重试失败: orderId={}, reason={}", orderId, exception.toString());
+                jdbc.update("update payment_intent set updated_at=? where order_id=? and status='REFUND_REQUIRED'",
+                        Instant.now(), orderId);
+            }
+        }
     }
 
     public PaymentView findForBuyer(String orderId, String authorization) {

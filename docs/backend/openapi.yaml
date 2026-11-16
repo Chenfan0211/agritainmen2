@@ -869,7 +869,7 @@ paths:
               $ref: "#/components/schemas/PaymentCallback"
       responses:
         "200":
-          description: 返回 PAID、PAID_PENDING_ORDER、REFUND_REQUIRED 或 FAILED 的支付单
+          description: 返回 PAID、PAID_PENDING_ORDER、REFUND_REQUIRED、REFUNDED 或 FAILED 的支付单；REFUNDED 仅由已确认成功的沙箱退款产生
         "401":
           description: 回调令牌无效或校验失败
   /fulfillment/orders:
@@ -1492,7 +1492,7 @@ paths:
   /payments/orders/{orderId}:
     get:
       summary: 按订单查询支付单
-      description: 仅当前买家可查询；PAID_PENDING_ORDER 表示支付到账但订单同步待重试，REFUND_REQUIRED 表示订单已取消且需退款处理。
+      description: 仅当前买家可查询；PAID_PENDING_ORDER 表示支付到账但订单同步待重试，REFUND_REQUIRED 表示取消后到账且退款待重试，REFUNDED 表示沙箱渠道已确认全额退款。真实微信 V3 退款尚未接入。
       parameters:
         - in: path
           name: orderId

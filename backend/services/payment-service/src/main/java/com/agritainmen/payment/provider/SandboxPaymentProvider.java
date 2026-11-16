@@ -11,4 +11,10 @@ public class SandboxPaymentProvider implements PaymentProvider {
     public boolean verifyCallback(String providerTxnId, long amountCents) {
         return providerTxnId != null && !providerTxnId.isBlank() && amountCents > 0;
     }
+
+    @Override
+    public boolean refund(String providerTxnId, String refundRequestId, long amountCents) {
+        return providerTxnId != null && !providerTxnId.isBlank()
+                && refundRequestId != null && !refundRequestId.isBlank() && amountCents > 0;
+    }
 }

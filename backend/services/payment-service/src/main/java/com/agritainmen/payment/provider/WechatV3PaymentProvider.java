@@ -12,4 +12,9 @@ public class WechatV3PaymentProvider implements PaymentProvider {
     public boolean verifyCallback(String providerTxnId, long amountCents) {
         throw new BusinessException(ErrorCode.INTERNAL_ERROR, "微信支付 V3 尚未配置平台证书");
     }
+
+    @Override
+    public boolean refund(String providerTxnId, String refundRequestId, long amountCents) {
+        throw new BusinessException(ErrorCode.INTERNAL_ERROR, "微信支付 V3 尚未配置退款接口");
+    }
 }

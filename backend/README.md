@@ -33,7 +33,7 @@ docker compose --env-file deploy/compose/.env -f deploy/compose/docker-compose.y
 
 启动 `order-service` 与 `payment-service` 时，给两个进程设置相同的 `ORDER_PAYMENT_INTERNAL_TOKEN`；给 `payment-service` 另设 `PAYMENT_CALLBACK_INTERNAL_TOKEN`。两项均无默认值，未设置时内部确认或沙箱回调会拒绝执行。支付服务的 `ORDER_SERVICE_BASE_URL` 默认是 `http://127.0.0.1:8085`。
 
-先用当前买家的 Bearer 调用 `POST /api/v1/payments/intents`，金额必须与待付款订单的 `amountCents` 一致；再以 `X-Payment-Callback-Token` 调用 `POST /api/v1/payments/callback/wechat` 发送沙箱成功/失败回调。随后查询订单与 `GET /api/v1/payments/orders/{orderId}`：成功为 `PAID`，订单服务暂不可用时为 `PAID_PENDING_ORDER`，取消后到账为 `REFUND_REQUIRED`。回调流水号应保持唯一；`REFUND_REQUIRED` 仅记录待退款事实，不会自动退款。微信 V3 证书和真实回调验签尚未接入。
+先用当前买家的 Bearer 调用 `POST /api/v1/payments/intents`，金额必须与待付款订单的 `amountCents` 一致；再以 `X-Payment-Callback-Token` 调用 `POST /api/v1/payments/callback/wechat` 发送沙箱成功/失败回调。随后查询订单与 `GET /api/v1/payments/orders/{orderId}`：成功为 `PAID`，订单服务暂不可用时为 `PAID_PENDING_ORDER`，取消后到账进入沙箱全额退款，渠道确认成功后为 `REFUNDED`，失败或响应丢失时为 `REFUND_REQUIRED`。回调流水号应保持唯一；退款重试使用由支付单 ID 派生的固定退款单号，每 30 秒分批重试，重复回调也会重试。微信 V3 证书、真实回调验签和真实退款接口尚未接入；`REFUNDED` 在此仅代表本地沙箱结果。
 
 待付款取消先提交订单的 `UNPAID_CANCELLED` 状态，再释放库存预占。若库存服务暂不可用，订单仍显示已取消，订单服务保留 `release_pending` 并每 30 秒分批重试；再次调用取消接口也会触发重试。本地可通过 H2 测试覆盖失败及重试路径，真实库存服务联调需另行执行。
 

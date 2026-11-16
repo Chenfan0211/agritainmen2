@@ -22,6 +22,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -41,12 +42,15 @@ class PaymentApiAuditTest {
 
     @Autowired
     private JdbcTemplate jdbc;
+    @Autowired
+    private FakeOrderClient orders;
 
     private RestClient client;
 
     @BeforeEach
     void setUp() {
         client = RestClient.builder().baseUrl("http://127.0.0.1:" + port).build();
+        orders.cancelled.set(false);
     }
 
     @Test
@@ -73,6 +77,19 @@ class PaymentApiAuditTest {
         assertEquals("PAID", payment.path("status").asText());
         assertEquals(providerTxnId, payment.path("providerTxnId").asText());
         assertFalse(payment.path("paidAt").isNull());
+    }
+
+    @Test
+    void cancelledOrderAfterSuccessReturnsRefundedPayment() {
+        String orderId = unique("ORDER-REFUND");
+        createIntent(orderId, 5990);
+        orders.cancelled.set(true);
+
+        JsonNode payment = assertEnvelope(callback(orderId, unique("TXN"), true), 200, "OK").path("data");
+
+        assertEquals("REFUNDED", payment.path("status").asText());
+        assertEquals("REFUNDED", assertEnvelope(get("/api/v1/payments/orders/" + orderId), 200, "OK")
+                .path("data").path("status").asText());
     }
 
     @Test
@@ -215,14 +232,17 @@ class PaymentApiAuditTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class FakeOrderConfiguration {
-        @Bean @Primary OrderPaymentClient orderPaymentClient() {
-            return new OrderPaymentClient() {
-                @Override public OrderSnapshot load(String orderId, String authorization) {
-                    if (!"Bearer buyer-a".equals(authorization)) throw new BusinessException(ErrorCode.UNAUTHORIZED);
-                    return new OrderSnapshot(orderId, 5990, "PENDING_PAYMENT");
-                }
-                @Override public String confirm(String orderId, long amountCents) { return "PAID"; }
-            };
+        @Bean @Primary FakeOrderClient orderPaymentClient() { return new FakeOrderClient(); }
+    }
+
+    static class FakeOrderClient implements OrderPaymentClient {
+        final AtomicBoolean cancelled = new AtomicBoolean();
+        @Override public OrderSnapshot load(String orderId, String authorization) {
+            if (!"Bearer buyer-a".equals(authorization)) throw new BusinessException(ErrorCode.UNAUTHORIZED);
+            return new OrderSnapshot(orderId, 5990, "PENDING_PAYMENT");
+        }
+        @Override public String confirm(String orderId, long amountCents) {
+            return cancelled.get() ? "UNPAID_CANCELLED" : "PAID";
         }
     }
 }
