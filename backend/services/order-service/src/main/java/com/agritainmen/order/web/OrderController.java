@@ -46,5 +46,14 @@ public class OrderController {
         return ApiResponse.ok(order);
     }
 
+    @PostMapping("/{id}/cancel")
+    public ApiResponse<OrderView> cancel(@PathVariable String id,
+                                         @RequestHeader(value = "Authorization", required = false) String authorization) {
+        OrderAccessVerifier.Identity identity = accessVerifier.verify(authorization);
+        OrderView order = orderService.find(id);
+        accessVerifier.requireReadable(identity, order.buyerId());
+        return ApiResponse.ok(orderService.cancelPending(id));
+    }
+
     public record OrderPage(java.util.List<OrderView> items, int page, int pageSize, long total) {}
 }

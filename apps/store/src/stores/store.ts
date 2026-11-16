@@ -4,7 +4,7 @@ import type { AfterSale, BusinessMediaValue, CatalogState, MockScenario, Order, 
 import { abortCatalogTransaction, applyCatalogStockOperation, applyPlatformMedia, buildSupplierAccountSeeds, buildSupplierPlatformOrders, calcCartTotal, catalogProductToProduct, catalogProductsForAudience, cProducts, cloneSeed, commitCatalogTransaction, createId, createStrictSnapshotRecoveryHandlerRegistration, enqueuePlatformRecovery, ensureCatalogState, initializePlatformRecoveryHandlers, initialCatalogOrderQuantity, markCatalogTransactionStockApplied, mediaValueToImage, mergeEntitySeeds, mergePersistedDefaults, mergePlatformEntities, mergePlatformStoreAccounts, mergePlatformSupplierAccounts, nextPurchaseStatus, normalizeMinimumOrderQuantity, PLATFORM_AFTERSALES_STORAGE_KEY, PLATFORM_CATALOG_STORAGE_KEY, PLATFORM_ENTITIES_STORAGE_KEY, PLATFORM_ORDERS_STORAGE_KEY, PLATFORM_RECOVERY_QUEUE_STORAGE_KEY, PLATFORM_TRANSACTION_JOURNAL_STORAGE_KEY, prepareCatalogTransaction, pricePolicies, purchaseSteps, readCatalogState, readCatalogTransactionJournal, readPendingCatalogTransactions, readPlatformAfterSales, readPlatformCollectionRevision, readPlatformEntities, readPlatformMedia, readPlatformOrders, readPlatformRecoveryQueue, readPlatformStoreAccounts, readPlatformSupplierAccounts, reconcilePendingPlatformTransactions, resolvePlatformJournal, round2, runLockedPlatformTransaction, storeAccounts, supplierCanReceiveNewOrders, suppliers as supplierSeeds, tieredUnitPrice, validateCatalogSkuOrderQuantity, validateSmsCode, writeCatalogState, writePlatformAfterSale, writePlatformAfterSales, writePlatformOrder, writePlatformOrders } from '@agritainment/shared'
 import { storeInfo, storeInfoForFarm, storeRepository } from '../services/repository'
 import { clearStoreTokens, getStoreRefreshToken, saveStoreTokens } from '../services/api-runtime'
-import { getStoreOrder, listStoreOrders } from '../services/store-order-api'
+import { cancelPendingStoreOrder, getStoreOrder, listStoreOrders } from '../services/store-order-api'
 import { businessPriceLevelDiscount, businessPriceLevelLabel, isBusinessPriceLevel, resolveBusinessPriceLevel, type BusinessPriceLevel } from '../price-level'
 
 interface CartLine {
@@ -1007,7 +1007,20 @@ export const useStoreStore = defineStore('store', {
       return true
     },
     async cancelOrder(id: string, reason: 'manual' | 'timeout' = 'manual') {
-      if (getApiClientConfig().dataMode === 'api') return false
+      if (getApiClientConfig().dataMode === 'api') {
+        const order = this.orders.find((item) => item.id === id)
+        const farmId = this.auth.farmId
+        if (reason !== 'manual' || !this.auth.isLoggedIn || !farmId || !order || order.farmId !== farmId || order.status !== 'pending-payment') return false
+        try {
+          const cancelled = await cancelPendingStoreOrder(id, farmId, this.products)
+          this.orders.splice(this.orders.indexOf(order), 1, cancelled)
+          this.checkoutError = ''
+          return true
+        } catch (error) {
+          this.checkoutError = error instanceof Error ? error.message : '取消订单失败'
+          return false
+        }
+      }
       const order = this.orders.find((item) => item.id === id)
       if (!order || !['pending-payment', 'submitted', 'accepted'].includes(order.status)) return false
       if (order.inventoryReleased) return false

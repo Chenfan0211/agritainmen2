@@ -1267,6 +1267,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Order"
+  /orders/{id}/cancel:
+    post:
+      summary: 取消待付款订单并释放库存预占
+      description: 仅当前买家可操作；重复取消返回原订单。已付款等其他状态返回 409。
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 返回状态为 UNPAID_CANCELLED 的订单
+        "401":
+          description: 未登录或令牌失效
+        "404":
+          description: 订单不存在或不属于当前买家
+        "409":
+          description: 订单状态不允许取消或库存预占未释放
   /payments/intents:
     post:
       summary: 创建支付单

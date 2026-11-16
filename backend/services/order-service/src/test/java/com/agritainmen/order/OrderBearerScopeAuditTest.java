@@ -100,6 +100,25 @@ class OrderBearerScopeAuditTest {
         assertEquals(404, detailStatus);
     }
 
+    @Test void cancellationRequiresCurrentBuyerAndPendingStatus() {
+        String own = create("Bearer store-a", "F001");
+        String other = create("Bearer store-b", "F002");
+        assertEquals(401, cancel(null, own));
+        assertEquals(404, cancel("Bearer store-a", other));
+        assertEquals(404, cancel("Bearer user-a", own));
+        assertEquals(200, cancel("Bearer store-a", own));
+        assertEquals(200, cancel("Bearer store-a", own));
+        assertEquals("UNPAID_CANCELLED", client.get().uri("/api/v1/orders/" + own)
+                .header("Authorization", "Bearer store-a").retrieve().body(JsonNode.class)
+                .path("data").path("status").asText());
+    }
+
+    private int cancel(String token, String id) {
+        var request = client.post().uri("/api/v1/orders/" + id + "/cancel");
+        if (token != null) request.header("Authorization", token);
+        return request.exchange((sent, response) -> response.getStatusCode().value());
+    }
+
     private int status(String token, String buyerId, String key) {
         var request = client.post().uri("/api/v1/orders").contentType(MediaType.APPLICATION_JSON)
                 .header("Idempotency-Key", key);
@@ -148,7 +167,14 @@ class OrderBearerScopeAuditTest {
             return sku -> new PriceQuote(sku, "P-A", "S-A", "商品", 100L);
         }
         @Bean @Primary InventoryClient inventoryClient() {
-            return (orderId, lines, expiresAt) -> new InventoryClient.Reservation("R-" + orderId, orderId, "RESERVED");
+            return new InventoryClient() {
+                @Override public Reservation reserve(String orderId, List<Line> lines, java.time.Instant expiresAt) {
+                    return new Reservation("R-" + orderId, orderId, "RESERVED");
+                }
+                @Override public Reservation release(String reservationId) {
+                    return new Reservation(reservationId, reservationId.substring(2), "RELEASED");
+                }
+            };
         }
     }
 }

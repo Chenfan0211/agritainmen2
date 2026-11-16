@@ -81,7 +81,7 @@ describe('store API history readback', () => {
   })
 
   it('does not mutate API orders through demo lifecycle actions', async () => {
-    configureApiClient({ dataMode: 'api', baseUrl: 'https://api.example.com' })
+    configureApiClient({ dataMode: 'api', baseUrl: 'https://api.example.com', transport: async () => { throw new Error('网络不可用') } })
     const store = signedInStore()
     store.orders = [{ id: 'O1', farmId: 'F1', amount: 10, saved: 0, itemCount: 1, items: [], status: 'pending-payment', createdAt: '2026-11-15', paymentDeadlineAt: '2026-11-15T00:00:00Z', logistics: [] }]
     expect(await store.payOrder('O1')).toBe(false)
@@ -95,6 +95,37 @@ describe('store API history readback', () => {
     expect(await store.advanceOrder('O1')).toBe(false)
     store.orders[0].status = 'delivering'
     expect(await store.confirmReceipt('O1')).toBe(false)
+  })
+
+  it('cancels only a pending API order and applies the server response', async () => {
+    const requests: Array<{ url: string; method: string }> = []
+    configureApiClient({ dataMode: 'api', baseUrl: 'https://api.example.com', transport: async (request) => {
+      requests.push({ url: request.url, method: request.method })
+      return ok(order('O-CANCEL', 'F1', 'UNPAID_CANCELLED'))
+    } })
+    const store = signedInStore()
+    store.orders = [{ id: 'O-CANCEL', farmId: 'F1', amount: 119.8, saved: 0, itemCount: 1, items: [], status: 'pending-payment', createdAt: '2026-11-15', logistics: [] }]
+    expect(await store.cancelOrder('O-CANCEL')).toBe(true)
+    expect(requests).toEqual([{ url: 'https://api.example.com/api/v1/orders/O-CANCEL/cancel', method: 'POST' }])
+    expect(store.orders[0]).toMatchObject({ id: 'O-CANCEL', status: 'unpaid-cancelled', amount: 119.8 })
+    expect(await store.cancelOrder('O-CANCEL')).toBe(false)
+    expect(requests).toHaveLength(1)
+  })
+
+  it('keeps the local API order unchanged when cancellation fails or returns a foreign order', async () => {
+    let foreign = false
+    configureApiClient({ dataMode: 'api', baseUrl: 'https://api.example.com', transport: async () => {
+      if (!foreign) throw new Error('库存释放失败')
+      return ok(order('O-CANCEL', 'F2', 'UNPAID_CANCELLED'))
+    } })
+    const store = signedInStore()
+    store.orders = [{ id: 'O-CANCEL', farmId: 'F1', amount: 119.8, saved: 0, itemCount: 1, items: [], status: 'pending-payment', createdAt: '2026-11-15', logistics: [] }]
+    expect(await store.cancelOrder('O-CANCEL')).toBe(false)
+    expect(store.checkoutError).toContain('库存释放失败')
+    expect(store.orders[0].status).toBe('pending-payment')
+    foreign = true
+    expect(await store.cancelOrder('O-CANCEL')).toBe(false)
+    expect(store.orders[0].status).toBe('pending-payment')
   })
 
   it('loads server history immediately after API password login', async () => {

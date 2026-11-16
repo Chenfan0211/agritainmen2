@@ -104,7 +104,7 @@ Page({
       })),
       countdownText: `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`,
       afterSaleStatus: getApiClientConfig().dataMode === 'api' ? null : this.data.orderId ? readPlatformAfterSaleStatus(this.data.orderId) : null,
-      canCancel: getApiClientConfig().dataMode !== 'api' && canCancelStoreOrder(rawOrder.status),
+      canCancel: getApiClientConfig().dataMode === 'api' ? rawOrder.status === 'pending-payment' : canCancelStoreOrder(rawOrder.status),
       canReceipt: getApiClientConfig().dataMode !== 'api' && rawOrder.status === 'delivering',
       canAfterSale: getApiClientConfig().dataMode !== 'api' && (rawOrder.status === 'received' || rawOrder.status === 'completed'),
       canPay: getApiClientConfig().dataMode !== 'api' && rawOrder.status === 'pending-payment',
@@ -145,7 +145,7 @@ Page({
       content: paid ? '确认取消该已支付订单？库存将释放，退款按平台规则处理。' : '确认取消该待付款订单？',
       success: async (res: any) => {
         if (!res.confirm) return
-        if (!await store.cancelOrder(order.id)) return this.toast('当前订单状态不可取消')
+        if (!await store.cancelOrder(order.id)) return this.toast(store.checkoutError || '当前订单状态不可取消')
         this.syncFromStore()
         this.toast(paid ? '订单已取消，已标记为已支付取消' : '订单已取消，已标记为未支付取消')
       }

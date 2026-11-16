@@ -187,8 +187,14 @@ class OrderApiAuditTest {
         @Bean
         @Primary
         InventoryClient inventoryClient() {
-            return (orderId, lines, expiresAt) ->
-                    new InventoryClient.Reservation("RES-" + orderId, orderId, "RESERVED");
+            return new InventoryClient() {
+                @Override public Reservation reserve(String orderId, java.util.List<Line> lines, java.time.Instant expiresAt) {
+                    return new Reservation("RES-" + orderId, orderId, "RESERVED");
+                }
+                @Override public Reservation release(String reservationId) {
+                    return new Reservation(reservationId, reservationId.substring(4), "RELEASED");
+                }
+            };
         }
     }
 }

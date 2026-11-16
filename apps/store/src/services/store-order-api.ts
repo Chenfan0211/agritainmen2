@@ -89,3 +89,12 @@ export async function getStoreOrder(id: string, farmId: string, products: Produc
   if (order?.id !== id) throw new Error('服务端订单数据无效')
   return mapOrder(order, farmId, products)
 }
+
+export async function cancelPendingStoreOrder(id: string, farmId: string, products: Product[]): Promise<StoreOrder> {
+  if (!id.trim()) throw new Error('订单号不能为空')
+  const order = await apiRequest<ApiOrder>(`/api/v1/orders/${encodeURIComponent(id)}/cancel`, { method: 'POST' })
+  if (order?.id !== id) throw new Error('服务端订单数据无效')
+  const result = mapOrder(order, farmId, products)
+  if (result.status !== 'unpaid-cancelled') throw new Error('服务端取消结果无效')
+  return result
+}
