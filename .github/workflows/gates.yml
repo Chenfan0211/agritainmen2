@@ -22,12 +22,12 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+      - run: pnpm build
       - run: pnpm test
       - run: pnpm audit:typography
       - run: pnpm audit:buttons
       - run: pnpm audit:tokens
       - run: pnpm audit:interfaces
-      - run: pnpm build
       - run: pnpm audit:mp-styles
       - run: pnpm check:supplier-assets
       - run: pnpm check:mp-size
