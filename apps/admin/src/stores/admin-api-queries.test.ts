@@ -16,7 +16,9 @@ describe('admin api P1 queries', () => {
     const transport = vi.fn(async (request) => {
       if (request.url.includes('/auth/me')) return { status: 200, body: { code: 'OK', message: 'ok', data: { actorType: 'admin', actorId: 'A1', tenantId: 'PLATFORM', displayName: '管理员', roles: ['super_admin'], permissions: ['*'] } } }
       if (request.url.includes('/auth/admin/supplier-accounts')) return { status: 200, body: { code: 'OK', message: 'ok', data: [] } }
+      if (request.url.includes('/auth/admin/store-accounts')) return { status: 200, body: { code: 'OK', message: 'ok', data: [] } }
       if (request.url.includes('/org/suppliers')) return { status: 200, body: { code: 'OK', message: 'ok', data: [] } }
+      if (request.url.includes('/org/farm-accounts')) return { status: 200, body: { code: 'OK', message: 'ok', data: [] } }
       if (request.url.includes('/org/farms')) return { status: 200, body: { code: 'OK', message: 'ok', data: [] } }
       if (request.url.includes('/catalog/products')) return { status: 200, body: { code: 'OK', message: 'ok', data: { items: [], page: 1, pageSize: 200, total: 0 } } }
       if (request.url.includes('/inventory/available')) return { status: 200, body: { code: 'OK', message: 'ok', data: {} } }
