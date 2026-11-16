@@ -7,6 +7,7 @@ import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -14,6 +15,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.web.client.RestClient;
@@ -38,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class OrderBearerScopeAuditTest {
     private static final HttpServer AUTH = authServer();
     @Value("${local.server.port}") int port;
+    @Autowired JdbcTemplate jdbc;
     RestClient client;
 
     @DynamicPropertySource
@@ -81,6 +84,25 @@ class OrderBearerScopeAuditTest {
         int status = client.get().uri("/api/v1/orders/MISSING-" + UUID.randomUUID())
                 .exchange((request, response) -> response.getStatusCode().value());
         assertEquals(401, status);
+    }
+
+    @Test void internalCreationStatesAreNotVisibleToBuyer() {
+        String creating = create("Bearer user-a", "U-A");
+        String failed = create("Bearer user-a", "U-A");
+        jdbc.update("update trade_order set status='CREATING' where id=?", creating);
+        jdbc.update("update trade_order set status='CREATE_FAILED' where id=?", failed);
+        for (String id : List.of(creating, failed)) {
+            int detailStatus = client.get().uri("/api/v1/orders/" + id)
+                    .header("Authorization", "Bearer user-a")
+                    .exchange((request, response) -> response.getStatusCode().value());
+            assertEquals(404, detailStatus);
+        }
+        JsonNode list = client.get().uri("/api/v1/orders?buyerId=U-A&pageSize=200")
+                .header("Authorization", "Bearer user-a").retrieve().body(JsonNode.class);
+        for (JsonNode item : list.path("data").path("items")) {
+            assertFalse(creating.equals(item.path("id").asText()));
+            assertFalse(failed.equals(item.path("id").asText()));
+        }
     }
 
     @Test void buyerCannotExpandListOrReadAnotherBuyersOrder() {

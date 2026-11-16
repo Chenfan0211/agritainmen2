@@ -811,6 +811,7 @@ paths:
   /orders:
     get:
       summary: 分页查询订单
+      description: 买家订单列表不包含内部创建中和明确库存不足的订单。
       parameters:
         - in: query
           name: buyerId
@@ -832,6 +833,7 @@ paths:
           description: OK
     post:
       summary: 创建订单
+      description: 先持久化订单创建记录，再预占库存。库存或订单库暂不可用时可使用原幂等键重试，服务端也会分批重试；明确库存不足返回 409 OUT_OF_STOCK，补货后需使用新幂等键重新下单。
       parameters:
         - in: header
           name: Idempotency-Key
@@ -846,11 +848,13 @@ paths:
               $ref: "#/components/schemas/CreateOrderRequest"
       responses:
         "200":
-          description: OK
+          description: 库存已预占，返回 PENDING_PAYMENT 订单
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Order"
+        "409":
+          description: 库存不足或幂等键与原请求冲突
   /payments/callback/wechat:
     post:
       summary: 沙箱支付回调
@@ -1262,6 +1266,7 @@ paths:
   /orders/{id}:
     get:
       summary: 订单详情
+      description: 内部创建中与明确库存不足的订单对买家返回 404。
       parameters:
         - in: path
           name: id

@@ -1,6 +1,8 @@
 package com.agritainmen.order.client;
 
 import com.agritainmen.common.core.ApiResponse;
+import com.agritainmen.common.core.BusinessException;
+import com.agritainmen.common.core.ErrorCode;
 import com.agritainmen.order.web.OrderDtos.PriceQuote;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -9,6 +11,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
 
@@ -28,7 +32,8 @@ public class HttpServiceClients {
 
     @Bean
     @ConditionalOnMissingBean
-    public InventoryClient inventoryClient(@Value("${agritainmen.clients.inventory-base-url:http://inventory-service}") String baseUrl) {
+    public InventoryClient inventoryClient(@Value("${agritainmen.clients.inventory-base-url:http://inventory-service}") String baseUrl,
+                                           JsonMapper jsonMapper) {
         SimpleClientHttpRequestFactory requests = new SimpleClientHttpRequestFactory();
         requests.setConnectTimeout(Duration.ofSeconds(2));
         requests.setReadTimeout(Duration.ofSeconds(5));
@@ -36,10 +41,24 @@ public class HttpServiceClients {
         return new InventoryClient() {
             @Override
             public Reservation reserve(String orderId, java.util.List<Line> lines, java.time.Instant expiresAt) {
-                ApiResponse<Reservation> response = client.post().uri("/api/v1/inventory/reservations")
-                        .header("Idempotency-Key", orderId)
-                        .body(new ReservePayload(orderId, lines, expiresAt))
-                        .retrieve().body(new ParameterizedTypeReference<>() {});
+                ApiResponse<Reservation> response;
+                try {
+                    response = client.post().uri("/api/v1/inventory/reservations")
+                            .header("Idempotency-Key", orderId)
+                            .body(new ReservePayload(orderId, lines, expiresAt))
+                            .retrieve().body(new ParameterizedTypeReference<>() {});
+                } catch (RestClientResponseException exception) {
+                    if (exception.getStatusCode().value() == 409) {
+                        String code = "";
+                        try {
+                            code = jsonMapper.readTree(exception.getResponseBodyAsString()).path("code").asText();
+                        } catch (Exception ignored) {
+                            // Keep the original HTTP failure if the response is not a valid API envelope.
+                        }
+                        if (ErrorCode.OUT_OF_STOCK.code().equals(code)) throw new BusinessException(ErrorCode.OUT_OF_STOCK);
+                    }
+                    throw exception;
+                }
                 if (response == null || response.data() == null) throw new IllegalStateException("库存预占失败");
                 return response.data();
             }

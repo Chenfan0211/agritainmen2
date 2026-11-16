@@ -50,6 +50,8 @@ public class OrderController {
         OrderAccessVerifier.Identity identity = accessVerifier.verify(authorization);
         OrderView order = orderService.find(id);
         accessVerifier.requireReadable(identity, order.buyerId());
+        if ("CREATING".equals(order.status()) || "CREATE_FAILED".equals(order.status()))
+            throw new BusinessException(ErrorCode.NOT_FOUND, "订单不存在");
         return ApiResponse.ok(order);
     }
 

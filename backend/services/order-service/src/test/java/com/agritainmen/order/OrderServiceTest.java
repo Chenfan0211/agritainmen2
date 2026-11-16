@@ -19,9 +19,13 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -48,9 +52,206 @@ class OrderServiceTest {
         assertEquals(first.id(), second.id());
         assertEquals(11980L, first.amountCents());
         assertEquals("PENDING_PAYMENT", first.status());
+        org.junit.jupiter.api.Assertions.assertTrue(first.orderNo().endsWith(first.id().substring("ORDER-".length())));
         org.junit.jupiter.api.Assertions.assertTrue(first.reservationId().startsWith("RES-ORDER-"));
         Integer count = jdbc.queryForObject("select count(*) from trade_order", Integer.class);
         assertEquals(before + 1, count);
+    }
+
+    @Test
+    void failedInventoryReservationKeepsDurableCreateIntent() {
+        String key = "CREATE-RESERVE-FAIL-" + UUID.randomUUID();
+        CreateOrderRequest request = new CreateOrderRequest("F1", List.of(new OrderLineRequest("SKU-1", 1)),
+                "张三", "13800000000", "湖南省长沙市");
+        inventory.failReserve.set(true);
+        try {
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                    () -> orderService.create(key, request));
+        } finally {
+            inventory.failReserve.set(false);
+        }
+        String orderId = jdbc.queryForObject("select order_id from trade_order_request where idempotency_key=?", String.class, key);
+        assertEquals("CREATING", jdbc.queryForObject("select status from trade_order where id=?", String.class, orderId));
+        org.junit.jupiter.api.Assertions.assertFalse(orderService.list("F1", 1, 200).items().stream()
+                .anyMatch(order -> order.id().equals(orderId)));
+        OrderView recovered = orderService.create(key, request);
+        assertEquals(orderId, recovered.id());
+        assertEquals("PENDING_PAYMENT", recovered.status());
+        assertEquals(true, inventory.reservedOrders.contains(orderId));
+        assertEquals(2, inventory.reserveAttempts.get(orderId).get());
+    }
+
+    @Test
+    void scheduledCreationRecoversAfterInventoryServiceReturns() {
+        String key = "CREATE-SCHEDULE-" + UUID.randomUUID();
+        CreateOrderRequest request = new CreateOrderRequest("F1", List.of(new OrderLineRequest("SKU-1", 1)),
+                "张三", "13800000000", "湖南省长沙市");
+        inventory.failReserve.set(true);
+        try {
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                    () -> orderService.create(key, request));
+        } finally {
+            inventory.failReserve.set(false);
+        }
+        String orderId = jdbc.queryForObject("select order_id from trade_order_request where idempotency_key=?", String.class, key);
+        orderService.retryPendingCreations();
+        assertEquals("PENDING_PAYMENT", orderService.find(orderId).status());
+        assertEquals(true, inventory.reservedOrders.contains(orderId));
+        assertEquals(2, inventory.reserveAttempts.get(orderId).get());
+    }
+
+    @Test
+    void reservationIsRetriedWithSamePayloadAfterOrderCommitFailure() {
+        String key = "CREATE-COMMIT-FAIL-" + UUID.randomUUID();
+        CreateOrderRequest request = new CreateOrderRequest("F1", List.of(new OrderLineRequest("SKU-1", 1)),
+                "张三", "13800000000", "湖南省长沙市");
+        inventory.failReserve.set(true);
+        try {
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                    () -> orderService.create(key, request));
+        } finally {
+            inventory.failReserve.set(false);
+        }
+        String orderId = jdbc.queryForObject("select order_id from trade_order_request where idempotency_key=?", String.class, key);
+        inventory.onReserve = reservedOrderId -> {
+            assertEquals(true, TransactionSynchronizationManager.isActualTransactionActive());
+            assertEquals("CREATING", jdbc.queryForObject("select status from trade_order where id=?", String.class, reservedOrderId));
+            assertEquals(1, jdbc.queryForObject("select count(*) from trade_order_item where order_id=?", Integer.class, reservedOrderId));
+        };
+        jdbc.execute("alter table trade_order add constraint ck_order_create_block_test check (id <> '"
+                + orderId + "' or status <> 'PENDING_PAYMENT')");
+        try {
+            org.junit.jupiter.api.Assertions.assertThrows(DataAccessException.class,
+                    () -> orderService.create(key, request));
+            assertEquals("CREATING", orderService.find(orderId).status());
+            assertEquals(true, inventory.reservedOrders.contains(orderId));
+        } finally {
+            inventory.onReserve = ignored -> {};
+            jdbc.execute("alter table trade_order drop constraint ck_order_create_block_test");
+        }
+        orderService.retryPendingCreations();
+        assertEquals("PENDING_PAYMENT", orderService.find(orderId).status());
+        assertEquals(3, inventory.reserveAttempts.get(orderId).get());
+        assertEquals(1, jdbc.queryForObject("select count(*) from sys_outbox_event where aggregate_id=? and event_type='order.created'",
+                Integer.class, orderId));
+    }
+
+    @Test
+    void changedPayloadConflictsWithPendingCreation() {
+        String key = "CREATE-PENDING-CONFLICT-" + UUID.randomUUID();
+        CreateOrderRequest request = new CreateOrderRequest("F1", List.of(new OrderLineRequest("SKU-1", 1)),
+                "张三", "13800000000", "湖南省长沙市");
+        inventory.failReserve.set(true);
+        try {
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                    () -> orderService.create(key, request));
+        } finally {
+            inventory.failReserve.set(false);
+        }
+        org.junit.jupiter.api.Assertions.assertThrows(com.agritainmen.common.core.BusinessException.class,
+                () -> orderService.create(key, new CreateOrderRequest("F1", List.of(new OrderLineRequest("SKU-1", 2)),
+                        "张三", "13800000000", "湖南省长沙市")));
+        String orderId = jdbc.queryForObject("select order_id from trade_order_request where idempotency_key=?", String.class, key);
+        assertEquals(false, inventory.reservedOrders.contains(orderId));
+    }
+
+    @Test
+    void outOfStockDoesNotCreateOrderAfterStockReturns() {
+        String key = "CREATE-OUT-OF-STOCK-" + UUID.randomUUID();
+        CreateOrderRequest request = new CreateOrderRequest("F1", List.of(new OrderLineRequest("SKU-1", 1)),
+                "张三", "13800000000", "湖南省长沙市");
+        inventory.outOfStock.set(true);
+        try {
+            var failure = org.junit.jupiter.api.Assertions.assertThrows(com.agritainmen.common.core.BusinessException.class,
+                    () -> orderService.create(key, request));
+            assertEquals(com.agritainmen.common.core.ErrorCode.OUT_OF_STOCK, failure.errorCode());
+        } finally {
+            inventory.outOfStock.set(false);
+        }
+        String orderId = jdbc.queryForObject("select order_id from trade_order_request where idempotency_key=?", String.class, key);
+        assertEquals("CREATE_FAILED", orderService.find(orderId).status());
+        org.junit.jupiter.api.Assertions.assertFalse(orderService.list("F1", 1, 200).items().stream()
+                .anyMatch(order -> order.id().equals(orderId)));
+        orderService.retryPendingCreations();
+        assertEquals("CREATE_FAILED", orderService.find(orderId).status());
+        assertEquals(false, inventory.reservedOrders.contains(orderId));
+        var replay = org.junit.jupiter.api.Assertions.assertThrows(com.agritainmen.common.core.BusinessException.class,
+                () -> orderService.create(key, request));
+        assertEquals(com.agritainmen.common.core.ErrorCode.OUT_OF_STOCK, replay.errorCode());
+    }
+
+    @Test
+    void scheduledOutOfStockStopsFurtherCreationAttempts() {
+        String key = "CREATE-SCHEDULE-STOCK-" + UUID.randomUUID();
+        CreateOrderRequest request = new CreateOrderRequest("F1", List.of(new OrderLineRequest("SKU-1", 1)),
+                "张三", "13800000000", "湖南省长沙市");
+        inventory.failReserve.set(true);
+        try {
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                    () -> orderService.create(key, request));
+        } finally {
+            inventory.failReserve.set(false);
+        }
+        String orderId = jdbc.queryForObject("select order_id from trade_order_request where idempotency_key=?", String.class, key);
+        inventory.outOfStock.set(true);
+        try {
+            orderService.retryPendingCreations();
+        } finally {
+            inventory.outOfStock.set(false);
+        }
+        orderService.retryPendingCreations();
+        assertEquals("CREATE_FAILED", orderService.find(orderId).status());
+        assertEquals(2, inventory.reserveAttempts.get(orderId).get());
+    }
+
+    @Test
+    void concurrentRetriesDoNotReserveAfterStockFailure() throws Exception {
+        String key = "CREATE-CONCURRENT-STOCK-" + UUID.randomUUID();
+        CreateOrderRequest request = new CreateOrderRequest("F1", List.of(new OrderLineRequest("SKU-1", 1)),
+                "张三", "13800000000", "湖南省长沙市");
+        CountDownLatch entered = new CountDownLatch(1);
+        CountDownLatch secondStarted = new CountDownLatch(1);
+        CountDownLatch proceed = new CountDownLatch(1);
+        inventory.outOfStock.set(true);
+        inventory.onReserve = ignored -> {
+            entered.countDown();
+            try {
+                if (!proceed.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("并发测试等待超时");
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(exception);
+            }
+        };
+        try {
+            CompletableFuture<com.agritainmen.common.core.ErrorCode> first = CompletableFuture.supplyAsync(
+                    () -> createErrorCode(key, request));
+            org.junit.jupiter.api.Assertions.assertTrue(entered.await(5, TimeUnit.SECONDS));
+            CompletableFuture<com.agritainmen.common.core.ErrorCode> second = CompletableFuture.supplyAsync(() -> {
+                secondStarted.countDown();
+                return createErrorCode(key, request);
+            });
+            org.junit.jupiter.api.Assertions.assertTrue(secondStarted.await(5, TimeUnit.SECONDS));
+            proceed.countDown();
+            assertEquals(com.agritainmen.common.core.ErrorCode.OUT_OF_STOCK, first.get(5, TimeUnit.SECONDS));
+            assertEquals(com.agritainmen.common.core.ErrorCode.OUT_OF_STOCK, second.get(5, TimeUnit.SECONDS));
+            String orderId = jdbc.queryForObject("select order_id from trade_order_request where idempotency_key=?", String.class, key);
+            assertEquals("CREATE_FAILED", orderService.find(orderId).status());
+            assertEquals(1, inventory.reserveAttempts.get(orderId).get());
+            assertEquals(false, inventory.reservedOrders.contains(orderId));
+        } finally {
+            proceed.countDown();
+            inventory.onReserve = ignored -> {};
+            inventory.outOfStock.set(false);
+        }
+    }
+
+    private com.agritainmen.common.core.ErrorCode createErrorCode(String key, CreateOrderRequest request) {
+        try {
+            orderService.create(key, request);
+            return null;
+        } catch (com.agritainmen.common.core.BusinessException exception) {
+            return exception.errorCode();
+        }
     }
 
     @Test
@@ -318,6 +519,13 @@ class OrderServiceTest {
     }
 
     static class FakeInventoryClient implements InventoryClient {
+        final AtomicBoolean failReserve = new AtomicBoolean();
+        final AtomicBoolean outOfStock = new AtomicBoolean();
+        final AtomicInteger reserveCalls = new AtomicInteger();
+        final Set<String> reservedOrders = ConcurrentHashMap.newKeySet();
+        final Map<String, java.time.Instant> reserveExpiries = new ConcurrentHashMap<>();
+        final Map<String, AtomicInteger> reserveAttempts = new ConcurrentHashMap<>();
+        volatile Consumer<String> onReserve = ignored -> {};
         final AtomicInteger releases = new AtomicInteger();
         final AtomicBoolean failRelease = new AtomicBoolean();
         final Set<String> failIds = ConcurrentHashMap.newKeySet();
@@ -327,6 +535,14 @@ class OrderServiceTest {
         volatile Consumer<String> onRelease = ignored -> {};
         volatile Consumer<String> onConfirm = ignored -> {};
         @Override public Reservation reserve(String orderId, List<Line> lines, java.time.Instant expiresAt) {
+            reserveAttempts.computeIfAbsent(orderId, ignored -> new AtomicInteger()).incrementAndGet();
+            onReserve.accept(orderId);
+            java.time.Instant previous = reserveExpiries.putIfAbsent(orderId, expiresAt);
+            if (previous != null && !previous.equals(expiresAt)) throw new IllegalStateException("预占重试到期时间变化");
+            if (failReserve.get()) throw new IllegalStateException("库存服务不可用");
+            if (outOfStock.get()) throw new com.agritainmen.common.core.BusinessException(
+                    com.agritainmen.common.core.ErrorCode.OUT_OF_STOCK);
+            if (reservedOrders.add(orderId)) reserveCalls.incrementAndGet();
             return new Reservation("RES-" + orderId, orderId, "RESERVED");
         }
         @Override public Reservation release(String reservationId) {

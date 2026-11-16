@@ -44,16 +44,11 @@ public class OrderService {
         this.transactions = transactions;
     }
 
-    @Transactional
     public OrderView create(String idempotencyKey, CreateOrderRequest request) {
         if (idempotencyKey == null || idempotencyKey.isBlank()) throw new BusinessException(ErrorCode.BAD_REQUEST, "Idempotency-Key 不能为空");
         OrderView existing = findByIdempotencyKey(idempotencyKey);
         if (existing != null) {
-            String storedHash = requestHash(idempotencyKey);
-            if (storedHash == null || !request.toString().equals(storedHash)) {
-                throw new BusinessException(ErrorCode.IDEMPOTENCY_CONFLICT);
-            }
-            return existing;
+            return resumeCreation(idempotencyKey, request, existing);
         }
 
         List<QuotedLine> quoted = new ArrayList<>();
@@ -65,45 +60,130 @@ public class OrderService {
             quoted.add(new QuotedLine(quote, line.quantity(), lineAmount));
         }
         String orderId = Ids.uuid("ORDER");
-        String orderNo = Ids.business("C-MALL");
-        InventoryClient.Reservation reservation = inventoryClient.reserve(orderId,
-                request.items().stream().map(line -> new InventoryClient.Line(line.skuId(), line.quantity())).toList(),
-                Instant.now().plusSeconds(1800));
-        Instant now = Instant.now();
+        String orderNo = Ids.business("C-MALL") + orderId.substring("ORDER-".length());
+        long orderAmount = amount;
         try {
-            jdbc.update("""
-                    insert into trade_order_request(id, tenant_id, scene, idempotency_key, request_hash, order_id, created_at, updated_at, version, deleted)
-                    values (?, 'PLATFORM', 'order.create', ?, ?, ?, ?, ?, 0, false)
-                    """, Ids.uuid("OREQ"), idempotencyKey, request.toString(), orderId, now, now);
+            transactions.execute(status -> stageCreation(idempotencyKey, request, quoted, orderId, orderNo, orderAmount));
         } catch (DuplicateKeyException duplicate) {
             OrderView raced = findByIdempotencyKey(idempotencyKey);
-            if (raced != null) {
-                String storedHash = requestHash(idempotencyKey);
-                if (storedHash == null || !request.toString().equals(storedHash)) {
-                    throw new BusinessException(ErrorCode.IDEMPOTENCY_CONFLICT);
-                }
-                return raced;
-            }
+            if (raced != null) return resumeCreation(idempotencyKey, request, raced);
             throw new BusinessException(ErrorCode.CONFLICT, "该请求正在处理，请稍后重试");
         }
+        return completeCreatingOrder(orderId);
+    }
+
+    private OrderView resumeCreation(String idempotencyKey, CreateOrderRequest request, OrderView existing) {
+        String storedHash = requestHash(idempotencyKey);
+        if (storedHash == null || !request.toString().equals(storedHash))
+            throw new BusinessException(ErrorCode.IDEMPOTENCY_CONFLICT);
+        if ("CREATE_FAILED".equals(existing.status())) throw new BusinessException(ErrorCode.OUT_OF_STOCK);
+        return "CREATING".equals(existing.status()) ? completeCreatingOrder(existing.id()) : existing;
+    }
+
+    private String stageCreation(String idempotencyKey, CreateOrderRequest request, List<QuotedLine> quoted,
+                                 String orderId, String orderNo, long amount) {
+        Instant now = Instant.now();
+        jdbc.update("""
+                insert into trade_order_request(id, tenant_id, scene, idempotency_key, request_hash, order_id, created_at, updated_at, version, deleted)
+                values (?, 'PLATFORM', 'order.create', ?, ?, ?, ?, ?, 0, false)
+                """, Ids.uuid("OREQ"), idempotencyKey, request.toString(), orderId, now, now);
         jdbc.update("""
                 insert into trade_order(id, tenant_id, order_no, buyer_id, status, amount_cents, reservation_id, receiver, receiver_phone, address, created_at, updated_at, version, deleted)
-                values (?, 'PLATFORM', ?, ?, 'PENDING_PAYMENT', ?, ?, ?, ?, ?, ?, ?, 0, false)
-                """, orderId, orderNo, request.buyerId(), amount, reservation.id(), request.receiver(), request.receiverPhone(), request.address(), now, now);
+                values (?, 'PLATFORM', ?, ?, 'CREATING', ?, null, ?, ?, ?, ?, ?, 0, false)
+                """, orderId, orderNo, request.buyerId(), amount, request.receiver(), request.receiverPhone(), request.address(), now, now);
         for (QuotedLine line : quoted) {
             jdbc.update("""
                     insert into trade_order_item(id, tenant_id, order_id, sku_id, product_id, supplier_id, product_name, unit_price_cents, quantity, amount_cents, created_at, updated_at, version, deleted)
                     values (?, 'PLATFORM', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, false)
                     """, Ids.uuid("OITEM"), orderId, line.quote.skuId(), line.quote.productId(), line.quote.supplierId(), line.quote.name(), line.quote.unitPriceCents(), line.quantity, line.amount, now, now);
         }
-        outboxService.append("order", orderId, "order.created", "{\"orderId\":\"" + orderId + "\",\"amountCents\":" + amount + "}");
+        return orderId;
+    }
+
+    private OrderView completeCreatingOrder(String orderId) {
+        CreationResult result = transactions.execute(status -> completeCreatingOrderLocked(orderId));
+        if (result == null) throw new IllegalStateException("订单创建事务未返回结果");
+        if (result.failure != null) throw result.failure;
+        return result.order;
+    }
+
+    private CreationResult completeCreatingOrderLocked(String orderId) {
+        List<OrderRow> rows = jdbc.query("select * from trade_order where id=? and tenant_id='PLATFORM' and deleted=false for update",
+                (rs, rowNum) -> mapOrder(rs), orderId);
+        if (rows.isEmpty()) throw new BusinessException(ErrorCode.NOT_FOUND, "订单不存在");
+        OrderRow order = rows.get(0);
+        if ("CREATE_FAILED".equals(order.status))
+            return new CreationResult(null, new BusinessException(ErrorCode.OUT_OF_STOCK));
+        if (!"CREATING".equals(order.status)) return new CreationResult(toView(order), null);
+        List<InventoryClient.Line> lines = jdbc.query("""
+                select sku_id, quantity from trade_order_item
+                 where order_id=? and tenant_id='PLATFORM' and deleted=false
+                 order by sku_id, id
+                """, (rs, rowNum) -> new InventoryClient.Line(rs.getString(1), rs.getInt(2)), orderId);
+        InventoryClient.Reservation reservation;
+        try {
+            reservation = inventoryClient.reserve(orderId, lines, order.createdAt.plusSeconds(1800));
+        } catch (BusinessException exception) {
+            if (exception.errorCode() == ErrorCode.OUT_OF_STOCK) {
+                jdbc.update("""
+                        update trade_order set status='CREATE_FAILED', updated_at=?, version=version+1
+                         where id=? and tenant_id='PLATFORM' and status='CREATING' and deleted=false
+                        """, Instant.now(), orderId);
+                return new CreationResult(null, exception);
+            }
+            throw exception;
+        }
+        if (reservation == null || reservation.id() == null || reservation.id().isBlank()
+                || !orderId.equals(reservation.orderId()) || !"RESERVED".equals(reservation.status()))
+            throw new BusinessException(ErrorCode.CONFLICT, "库存预占未完成，请重试");
+        return new CreationResult(finalizeCreation(orderId, reservation.id()), null);
+    }
+
+    private OrderView finalizeCreation(String orderId, String reservationId) {
+        List<OrderRow> rows = jdbc.query("select * from trade_order where id=? and tenant_id='PLATFORM' and deleted=false for update",
+                (rs, rowNum) -> mapOrder(rs), orderId);
+        if (rows.isEmpty()) throw new BusinessException(ErrorCode.NOT_FOUND, "订单不存在");
+        OrderRow order = rows.get(0);
+        if ("PENDING_PAYMENT".equals(order.status)) return toView(order);
+        if (!"CREATING".equals(order.status)) throw new BusinessException(ErrorCode.CONFLICT, "订单创建状态已变化");
+        int updated = jdbc.update("""
+                update trade_order set status='PENDING_PAYMENT', reservation_id=?, updated_at=?, version=version+1
+                 where id=? and tenant_id='PLATFORM' and status='CREATING' and deleted=false
+                """, reservationId, Instant.now(), orderId);
+        if (updated != 1) throw new BusinessException(ErrorCode.CONFLICT);
+        outboxService.append("order", orderId, "order.created",
+                "{\"orderId\":\"" + orderId + "\",\"amountCents\":" + order.amountCents + "}");
         return find(orderId);
+    }
+
+    @Scheduled(fixedDelayString = "${agritainmen.order.create-retry-ms:30000}")
+    public void retryPendingCreations() {
+        List<String> orderIds = jdbc.query("""
+                select id from trade_order
+                 where tenant_id='PLATFORM' and status='CREATING' and deleted=false
+                 order by updated_at, id limit 50
+                """, (rs, rowNum) -> rs.getString(1));
+        for (String orderId : orderIds) {
+            try {
+                completeCreatingOrder(orderId);
+            } catch (Exception exception) {
+                if (exception instanceof BusinessException business && business.errorCode() == ErrorCode.OUT_OF_STOCK) {
+                    log.info("订单创建库存不足，停止重试: orderId={}", orderId);
+                    continue;
+                }
+                log.warn("订单创建库存预占待重试: orderId={}, reason={}", orderId, exception.toString());
+                jdbc.update("""
+                        update trade_order set updated_at=?
+                         where id=? and tenant_id='PLATFORM' and status='CREATING' and deleted=false
+                        """, Instant.now(), orderId);
+            }
+        }
     }
 
     public com.agritainmen.order.web.OrderController.OrderPage list(String buyerId, int page, int pageSize) {
         String normalized = buyerId == null ? "" : buyerId.trim();
-        String where = normalized.isBlank() ? " where tenant_id='PLATFORM' and deleted=false"
-                : " where tenant_id='PLATFORM' and deleted=false and buyer_id=?";
+        String where = normalized.isBlank() ? " where tenant_id='PLATFORM' and deleted=false and status not in ('CREATING', 'CREATE_FAILED')"
+                : " where tenant_id='PLATFORM' and deleted=false and status not in ('CREATING', 'CREATE_FAILED') and buyer_id=?";
         Object[] args = normalized.isBlank() ? new Object[0] : new Object[]{normalized};
         Long total = jdbc.queryForObject("select count(*) from trade_order" + where, Long.class, args);
         Object[] pageArgs = new Object[args.length + 2];
@@ -293,6 +373,7 @@ public class OrderService {
     }
 
     private record QuotedLine(PriceQuote quote, int quantity, long amount) {}
+    private record CreationResult(OrderView order, BusinessException failure) {}
     private record OrderRow(String id, String orderNo, String buyerId, String status, long amountCents, String reservationId,
                             String receiver, String receiverPhone, String address, Instant createdAt,
                             boolean confirmationPending) {}
