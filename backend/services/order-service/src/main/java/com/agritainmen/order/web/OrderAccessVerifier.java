@@ -56,6 +56,11 @@ public class OrderAccessVerifier {
             throw new BusinessException(ErrorCode.FORBIDDEN);
     }
 
+    public void requireAdmin(String authorization) {
+        if (!"admin".equals(verify(authorization).actorType()))
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+    }
+
     public String visibleBuyer(String authorization, String requestedBuyerId) {
         Identity identity = verify(authorization);
         if ("admin".equals(identity.actorType())) return requestedBuyerId;

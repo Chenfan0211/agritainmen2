@@ -411,7 +411,7 @@ paths:
           description: OK
   /after-sales:
     get:
-      summary: 售后工单分页查询
+      summary: 平台管理员分页查询售后工单
       parameters:
         - in: query
           name: status
@@ -428,6 +428,10 @@ paths:
       responses:
         "200":
           description: OK
+        "401":
+          description: 未登录或令牌已失效
+        "403":
+          description: 非平台管理员
   /commissions/me:
     get:
       summary: 我的佣金汇总

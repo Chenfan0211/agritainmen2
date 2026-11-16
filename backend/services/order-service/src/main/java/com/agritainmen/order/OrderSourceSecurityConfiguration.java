@@ -24,7 +24,7 @@ public class OrderSourceSecurityConfiguration {
     @Bean
     @Order(2)
     SecurityFilterChain otherOrdersChain(HttpSecurity http) throws Exception {
-        return http.securityMatcher("/api/v1/orders/**")
+        return http.securityMatcher("/api/v1/orders/**", "/api/v1/after-sales", "/api/v1/after-sales/**")
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll()).build();

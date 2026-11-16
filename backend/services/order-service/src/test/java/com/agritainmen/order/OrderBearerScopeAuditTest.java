@@ -96,6 +96,23 @@ class OrderBearerScopeAuditTest {
         assertEquals(401, status);
     }
 
+    @Test void afterSaleListRequiresPlatformAdmin() {
+        String id = "AS-" + UUID.randomUUID();
+        jdbc.update("insert into after_sale_case(id,tenant_id,order_id,sub_order_id,buyer_id,supplier_id,type,status,reason,amount_cents,refunded_cents,created_at,updated_at,version,deleted) values (?, 'PLATFORM', 'O1', 'S1', 'U-A', 'SUP1', 'refund', 'processing', '破损', 100, 0, current_timestamp, current_timestamp, 0, false)", id);
+        assertEquals(401, afterSaleListStatus(null));
+        assertEquals(403, afterSaleListStatus("Bearer user-a"));
+        assertEquals(403, afterSaleListStatus("Bearer store-a"));
+        JsonNode body = client.get().uri("/api/v1/after-sales?pageSize=200")
+                .header("Authorization", "Bearer admin").retrieve().body(JsonNode.class);
+        assertTrue(body.path("data").path("items").toString().contains(id));
+    }
+
+    private int afterSaleListStatus(String token) {
+        var request = client.get().uri("/api/v1/after-sales");
+        if (token != null) request.header("Authorization", token);
+        return request.exchange((sent, response) -> response.getStatusCode().value());
+    }
+
     @Test void internalCreationStatesAreNotVisibleToBuyer() {
         String creating = create("Bearer user-a", "U-A");
         String failed = create("Bearer user-a", "U-A");
@@ -195,10 +212,11 @@ class OrderBearerScopeAuditTest {
                 String actor = "Bearer user-a".equals(token) ? "U-A" : "Bearer user-b".equals(token) ? "U-B"
                         : "Bearer store-unbound".equals(token) ? "SA-1"
                         : "Bearer store-a".equals(token) ? "SA-A"
-                        : "Bearer store-b".equals(token) ? "SA-B" : null;
+                        : "Bearer store-b".equals(token) ? "SA-B"
+                        : "Bearer admin".equals(token) ? "ADMIN-1" : null;
                 int status = actor == null ? 401 : 200;
                 String body = actor == null ? "{\"code\":\"UNAUTHORIZED\"}" :
-                        "{\"code\":\"OK\",\"data\":{\"actorType\":\"" + (actor.startsWith("SA-") ? "store" : "user")
+                        "{\"code\":\"OK\",\"data\":{\"actorType\":\"" + (actor.startsWith("SA-") ? "store" : actor.startsWith("ADMIN-") ? "admin" : "user")
                                 + "\",\"actorId\":\"" + actor + "\",\"tenantId\":\"PLATFORM\""
                                 + ("SA-A".equals(actor) ? ",\"farmId\":\"F001\"" : "SA-B".equals(actor) ? ",\"farmId\":\"F002\"" : "") + "}}";
                 byte[] bytes = body.getBytes(StandardCharsets.UTF_8);

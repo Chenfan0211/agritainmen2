@@ -5,6 +5,7 @@ import com.agritainmen.common.core.BusinessException;
 import com.agritainmen.common.core.ErrorCode;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -16,12 +17,18 @@ import java.util.Map;
 @RequestMapping("/api/v1/after-sales")
 public class AfterSaleController {
     private final JdbcTemplate jdbc;
-    public AfterSaleController(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    private final OrderAccessVerifier accessVerifier;
+    public AfterSaleController(JdbcTemplate jdbc, OrderAccessVerifier accessVerifier) {
+        this.jdbc = jdbc;
+        this.accessVerifier = accessVerifier;
+    }
 
     @GetMapping
     public ApiResponse<PageView> list(@RequestParam(required = false) String status,
                                       @RequestParam(defaultValue = "1") int page,
-                                      @RequestParam(defaultValue = "20") int pageSize) {
+                                      @RequestParam(defaultValue = "20") int pageSize,
+                                      @RequestHeader(value = "Authorization", required = false) String authorization) {
+        accessVerifier.requireAdmin(authorization);
         if (page < 1 || pageSize < 1 || pageSize > 200) throw new BusinessException(ErrorCode.BAD_REQUEST, "page 必须大于 0，pageSize 必须在 1-200 之间");
         String normalized = status == null ? "" : status.trim();
         String where = normalized.isBlank() ? " where deleted=false" : " where deleted=false and status=?";

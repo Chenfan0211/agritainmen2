@@ -38,8 +38,7 @@ spring:
           - id: order-service
             uri: lb://order-service
             predicates:
-            - Path=/api/v1/orders/**
-            - /api/v1/after-sales/**
+            - Path=/api/v1/orders/**,/api/v1/after-sales/**
           - id: payment-service
             uri: lb://payment-service
             predicates:
@@ -51,9 +50,7 @@ spring:
           - id: settlement-service
             uri: lb://settlement-service
             predicates:
-            - Path=/api/v1/commissions/**
-            - /api/v1/withdrawals/**
-            - /api/v1/settlements/**
+            - Path=/api/v1/commissions/**,/api/v1/withdrawals/**,/api/v1/settlements/**
           - id: platform-admin-service
             uri: lb://platform-admin-service
             predicates:
