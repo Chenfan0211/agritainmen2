@@ -47,6 +47,12 @@ class CommissionQueryAuditTest {
         assertEquals("OK", mine.path("code").asText());
         assertEquals(10000, mine.path("data").path("availableCents").asLong());
         assertEquals(5000, mine.path("data").path("withdrawnCents").asLong());
+        assertEquals(15000, mine.path("data").path("earnedCents").asLong());
+        assertEquals(0, mine.path("data").path("approvedWithdrawalCents").asLong());
+        JsonNode ownRecords = client.get().uri("/api/v1/commissions/me/records?beneficiaryId=T1&pageSize=1")
+                .header("Authorization", "Bearer admin-commission").retrieve().body(JsonNode.class);
+        assertEquals(2, ownRecords.path("data").path("total").asInt());
+        assertEquals(1, ownRecords.path("data").path("items").size());
     }
 
 }

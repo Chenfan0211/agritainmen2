@@ -201,7 +201,9 @@ class SettlementApiAuditTest {
                 "amountCents", 500, "method", "WECHAT"))).path("id").asText();
         assertSuccess(post("/api/v1/withdrawals/" + secondId + "/review", Map.of("approved", true)));
         assertEquals(0, mine(requesterId).path("availableCents").asLong());
-        assertEquals(500, mine(requesterId).path("withdrawnCents").asLong());
+        assertEquals(0, mine(requesterId).path("withdrawnCents").asLong());
+        assertEquals(500, mine(requesterId).path("approvedWithdrawalCents").asLong());
+        assertEquals(500, mine(requesterId).path("earnedCents").asLong());
         assertEquals("APPROVED", withdrawals(requesterId).get(0).path("status").asText());
     }
 

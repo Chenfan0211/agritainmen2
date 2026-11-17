@@ -6,6 +6,7 @@ import com.agritainmen.common.core.ErrorCode;
 import com.agritainmen.settlement.service.SettlementService;
 import com.agritainmen.settlement.web.SettlementDtos.AddCommissionRequest;
 import com.agritainmen.settlement.web.SettlementDtos.CommissionView;
+import com.agritainmen.settlement.web.SettlementDtos.CommissionPage;
 import com.agritainmen.settlement.web.SettlementDtos.ReviewRequest;
 import com.agritainmen.settlement.web.SettlementDtos.WithdrawalRequest;
 import com.agritainmen.settlement.web.SettlementDtos.WithdrawalView;
@@ -66,9 +67,23 @@ public class SettlementController {
         accessVerifier.requireBeneficiary(authorization, id);
         long available = settlementService.availableForWithdrawal(id);
         long pending = jdbc.queryForObject("select coalesce(sum(amount_cents),0) from settlement_commission where tenant_id='PLATFORM' and beneficiary_id=? and status='PENDING' and deleted=false", Long.class, id);
-        long withdrawn = jdbc.queryForObject("select coalesce(sum(amount_cents),0) from settlement_commission where tenant_id='PLATFORM' and beneficiary_id=? and status='WITHDRAWN' and deleted=false", Long.class, id)
-                + settlementService.approvedWithdrawalCents(id);
-        return ApiResponse.ok(new MineView(id, available, pending, withdrawn));
+        long withdrawn = jdbc.queryForObject("select coalesce(sum(amount_cents),0) from settlement_commission where tenant_id='PLATFORM' and beneficiary_id=? and status='WITHDRAWN' and deleted=false", Long.class, id);
+        long earned = jdbc.queryForObject("select coalesce(sum(amount_cents),0) from settlement_commission where tenant_id='PLATFORM' and beneficiary_id=? and status in ('PENDING','AVAILABLE','WITHDRAWN') and deleted=false", Long.class, id);
+        return ApiResponse.ok(new MineView(id, available, pending, withdrawn, earned, settlementService.approvedWithdrawalCents(id)));
+    }
+
+    @GetMapping("/commissions/me/records")
+    public ApiResponse<CommissionPage> myCommissionRecords(@RequestParam String beneficiaryId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int pageSize,
+            @RequestParam(required = false) String beforeId,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        String id = beneficiaryId == null ? "" : beneficiaryId.trim();
+        if (id.isBlank()) throw new BusinessException(ErrorCode.BAD_REQUEST, "beneficiaryId 不能为空");
+        accessVerifier.requireBeneficiary(authorization, id);
+        if (page < 1 || pageSize < 1 || pageSize > 200) throw new BusinessException(ErrorCode.BAD_REQUEST, "page 必须大于 0，pageSize 必须在 1-200 之间");
+        if (beforeId != null && (beforeId.isBlank() || beforeId.length() > 128)) throw new BusinessException(ErrorCode.BAD_REQUEST, "beforeId 格式无效");
+        return ApiResponse.ok(settlementService.listCommissions(id, page, pageSize, beforeId));
     }
 
     @GetMapping("/withdrawals/me")
@@ -119,5 +134,5 @@ public class SettlementController {
     }
 
     public record PageView(List<Map<String, Object>> items, int page, int pageSize, long total) {}
-    public record MineView(String beneficiaryId, long availableCents, long pendingCents, long withdrawnCents) {}
+    public record MineView(String beneficiaryId, long availableCents, long pendingCents, long withdrawnCents, long earnedCents, long approvedWithdrawalCents) {}
 }

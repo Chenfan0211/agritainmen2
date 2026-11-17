@@ -7,10 +7,11 @@
   <block wx:else>
     <block wx:if="{{type === 'income'}}">
       <view class="income-hero" data-operation-view="income"><view class="meta">可提现金额（元）</view><view class="val">{{availableCommissionText}}</view><button disabled="{{!canWithdraw}}" bindtap="withdraw">提现</button></view>
-      <view class="metric-grid"><view><view class="meta">累计收入</view><view class="val">¥{{totalIncomeText}}</view></view><view><view class="meta">已结算</view><view class="val">¥{{settledIncomeText}}</view></view><view><view class="meta">待结算</view><view class="val">¥{{pendingCommissionText}}</view></view><view><view class="meta">已提现</view><view class="val">¥{{withdrawnIncomeText}}</view></view></view>
+      <view class="metric-grid"><view><view class="meta">累计收入</view><view class="val">¥{{totalIncomeText}}</view></view><view><view class="meta">已结算</view><view class="val">¥{{settledIncomeText}}</view></view><view><view class="meta">待结算</view><view class="val">¥{{pendingCommissionText}}</view></view><view><view class="meta">已提现</view><view class="val">¥{{withdrawnIncomeText}}</view></view><view wx:if="{{apiMode}}" class="approved-metric"><view class="meta">审核通过待打款</view><view class="val">¥{{approvedWithdrawalText}}</view></view></view>
       <view class="section-title">收入明细</view>
-      <view wx:if="{{!hasCommissionRecords}}" class="empty pc-empty"><view class="pc-state-icon"><ui-icon name="badge-dollar-sign" size="{{26}}" /></view><text>暂无收入记录</text></view>
+      <view wx:if="{{!hasCommissionRecords}}" class="empty pc-empty"><view class="pc-state-icon"><ui-icon name="badge-dollar-sign" size="{{26}}" /></view><text>{{incomeEmptyText}}</text><button wx:if="{{incomeHasError}}" class="primary-btn" bindtap="refreshIncome">重试</button></view>
       <view wx:for="{{commissionRecords}}" wx:for-item="record" wx:key="id" class="list-row"><view><text>{{record.levelLabel}}</text><view class="meta">{{record.metaText}}</view></view><view class="val">¥{{record.amountText}}</view></view>
+      <button wx:if="{{hasMoreCommissionRecords}}" class="commission-load-more" disabled="{{commissionHistoryLoading}}" bindtap="loadMoreCommissionRecords">{{commissionHistoryLoading ? '加载中…' : '加载更多'}}</button>
     </block>
 
     <block wx:elif="{{type === 'fans'}}">

@@ -705,8 +705,16 @@ interface UserState {
   orders: COrder[]
   addresses: CAddress[]
   commissionRecords: CCommissionAllocation[]
-  commissionSummary: { available: number; pending: number; withdrawn: number } | null
+  commissionSummary: { available: number; pending: number; withdrawn: number; earned: number; approved: number } | null
   commissionSummaryBeneficiaryId: string
+  apiCommissionRecords: ApiCommissionRecord[]
+  apiCommissionBeneficiaryId: string
+  apiCommissionPage: number
+  apiCommissionPageSize: number
+  apiCommissionCursor: string
+  apiCommissionTotal: number
+  apiCommissionLoading: boolean
+  apiCommissionLoadToken: number
   apiWithdrawals: WithdrawalRequest[]
   apiWithdrawalPage: number
   apiWithdrawalPageSize: number
@@ -742,6 +750,44 @@ interface ApiWithdrawalView {
   reviewedAt?: string
   reviewedBy?: string
   reviewNote?: string
+}
+interface ApiCommissionView {
+  id: string
+  sourceId: string
+  beneficiaryId: string
+  amountCents: number
+  direction: string
+  status: string
+  createdAt: string
+}
+interface ApiCommissionPage {
+  items: ApiCommissionView[]
+  page: number
+  pageSize: number
+  total: number
+}
+interface ApiCommissionRecord {
+  id: string
+  beneficiaryId: string
+  beneficiaryLevel?: 'level1' | 'level2'
+  amount: number
+  status: CCommissionAllocation['status']
+  createdAt: string
+}
+function isCommissionPage(value: unknown): value is ApiCommissionPage {
+  if (!value || typeof value !== 'object') return false
+  const page = value as Partial<ApiCommissionPage>
+  return Array.isArray(page.items) && Number.isSafeInteger(page.page) && Number(page.page) >= 1
+    && Number.isSafeInteger(page.pageSize) && Number(page.pageSize) >= 1
+    && Number.isSafeInteger(page.total) && Number(page.total) >= 0
+}
+function toUserCommission(row: ApiCommissionView, beneficiaryId: string): ApiCommissionRecord | null {
+  const status = row.status?.toLowerCase()
+  if (!row.id || row.beneficiaryId !== beneficiaryId || !['pending', 'available', 'withdrawn', 'reversed'].includes(status)
+    || !Number.isSafeInteger(row.amountCents) || !row.createdAt) return null
+  return { id: row.id, beneficiaryId, amount: row.amountCents / 100,
+    status: status as ApiCommissionRecord['status'], createdAt: row.createdAt,
+    beneficiaryLevel: row.direction === 'LEVEL_1' ? 'level1' : row.direction === 'LEVEL_2' ? 'level2' : undefined }
 }
 interface ApiWithdrawalPage {
   items: ApiWithdrawalView[]
@@ -858,7 +904,7 @@ let activeUserIdentityRequest: Promise<UserIdentityProfile | null> | null = null
 const userStoreOptions: NativeStoreOptions<UserState> = {
   state: (): UserState => ({
     initialized: false, loading: false, withdrawalsTick: 0, distributorTick: 0, error: '', mockScenario: 'normal', farms: [], products: [], cProducts: [], inventoryRevision: 0, launchProductId: '', promoterId: '', promoterName: '', referralPromoterId: '', userId: '',
-    cart: [], orders: [], addresses: [], commissionRecords: [], commissionSummary: null, commissionSummaryBeneficiaryId: '', apiWithdrawals: [], apiWithdrawalPage: 1, apiWithdrawalPageSize: 10, apiWithdrawalCursor: '', apiWithdrawalTotal: 0, apiWithdrawalPendingTotal: 0, apiWithdrawalLoading: false, apiWithdrawalLoadToken: 0, identityStatus: 'idle', identityProfile: null, identityError: '', identityCheckedAt: 0, openid: '', checkoutError: ''
+    cart: [], orders: [], addresses: [], commissionRecords: [], commissionSummary: null, commissionSummaryBeneficiaryId: '', apiCommissionRecords: [], apiCommissionBeneficiaryId: '', apiCommissionPage: 1, apiCommissionPageSize: 10, apiCommissionCursor: '', apiCommissionTotal: 0, apiCommissionLoading: false, apiCommissionLoadToken: 0, apiWithdrawals: [], apiWithdrawalPage: 1, apiWithdrawalPageSize: 10, apiWithdrawalCursor: '', apiWithdrawalTotal: 0, apiWithdrawalPendingTotal: 0, apiWithdrawalLoading: false, apiWithdrawalLoadToken: 0, identityStatus: 'idle', identityProfile: null, identityError: '', identityCheckedAt: 0, openid: '', checkoutError: ''
   }),
   getters: {
     level: (state): CUserLevel => activeDistributorForState(state)?.level || 'normal',
@@ -875,7 +921,10 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
     defaultAddress: (state) => state.addresses.find((item) => item.isDefault) || state.addresses[0] || null,
     vouchers: (state): VoucherOrder[] => Object.values(readPlatformVoucherOrders() || {}).filter((item) => item.userId === state.userId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     myCommissionRecords: (state) => {
-      if (getApiClientConfig().dataMode === 'api') return []
+      if (getApiClientConfig().dataMode === 'api') {
+        const beneficiaryId = activeDistributorForState(state)?.promoterId
+        return beneficiaryId && beneficiaryId === state.apiCommissionBeneficiaryId ? state.apiCommissionRecords : []
+      }
       const beneficiaryId = activeDistributorForState(state)?.promoterId
       return state.commissionRecords.filter((item) => item.beneficiaryId === beneficiaryId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     },
@@ -1086,6 +1135,66 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
       this.refreshFulfillment()
       return true
     },
+    async refreshCommissionRecords(): Promise<boolean> {
+      if (getApiClientConfig().dataMode !== 'api') return false
+      const beneficiaryId = this.currentDistributor?.promoterId
+      const loadToken = ++this.apiCommissionLoadToken
+      this.apiCommissionLoading = false
+      if (!beneficiaryId) {
+        this.apiCommissionRecords = []; this.apiCommissionBeneficiaryId = ''; this.apiCommissionPage = 1
+        this.apiCommissionCursor = ''; this.apiCommissionTotal = 0
+        return false
+      }
+      try {
+        const result = await apiRequest<ApiCommissionPage>(`/api/v1/commissions/me/records?beneficiaryId=${encodeURIComponent(beneficiaryId)}&page=1&pageSize=10`)
+        if (!isCommissionPage(result)) throw new Error('佣金明细格式异常')
+        const records = result.items.map((row) => toUserCommission(row, beneficiaryId))
+        if (records.some((row) => row === null)) throw new Error('佣金明细格式异常')
+        if (loadToken !== this.apiCommissionLoadToken || this.currentDistributor?.promoterId !== beneficiaryId) return false
+        this.apiCommissionRecords = records as ApiCommissionRecord[]
+        this.apiCommissionBeneficiaryId = beneficiaryId
+        this.apiCommissionPage = result.page
+        this.apiCommissionPageSize = result.pageSize
+        this.apiCommissionCursor = result.items.at(-1)?.id || ''
+        this.apiCommissionTotal = result.total
+        this.error = ''
+        return true
+      } catch (error) {
+        if (loadToken !== this.apiCommissionLoadToken) return false
+        this.apiCommissionRecords = []; this.apiCommissionBeneficiaryId = ''; this.apiCommissionPage = 1
+        this.apiCommissionCursor = ''; this.apiCommissionTotal = 0
+        this.error = error instanceof Error ? error.message : '佣金明细加载失败'
+        return false
+      }
+    },
+    async loadMoreCommissionRecords(): Promise<boolean> {
+      if (getApiClientConfig().dataMode !== 'api' || this.apiCommissionLoading || this.apiCommissionRecords.length >= this.apiCommissionTotal) return false
+      const beneficiaryId = this.currentDistributor?.promoterId
+      if (!beneficiaryId || beneficiaryId !== this.apiCommissionBeneficiaryId) return false
+      const page = this.apiCommissionPage + 1
+      const loadToken = this.apiCommissionLoadToken
+      this.apiCommissionLoading = true
+      try {
+        if (!this.apiCommissionCursor) throw new Error('佣金明细缺少续页游标，请刷新后重试')
+        const result = await apiRequest<ApiCommissionPage>(`/api/v1/commissions/me/records?beneficiaryId=${encodeURIComponent(beneficiaryId)}&page=${page}&pageSize=${this.apiCommissionPageSize}&beforeId=${encodeURIComponent(this.apiCommissionCursor)}`)
+        if (!isCommissionPage(result) || result.page !== page || result.pageSize !== this.apiCommissionPageSize) throw new Error('佣金明细格式异常')
+        const records = result.items.map((row) => toUserCommission(row, beneficiaryId))
+        if (records.some((row) => row === null)) throw new Error('佣金明细格式异常')
+        if (loadToken !== this.apiCommissionLoadToken || this.currentDistributor?.promoterId !== beneficiaryId) return false
+        const known = new Set(this.apiCommissionRecords.map((row) => row.id))
+        this.apiCommissionRecords.push(...(records as ApiCommissionRecord[]).filter((row) => !known.has(row.id)))
+        this.apiCommissionPage = result.page
+        this.apiCommissionCursor = result.items.at(-1)?.id || this.apiCommissionCursor
+        if (result.items.length === 0) this.apiCommissionTotal = this.apiCommissionRecords.length
+        this.error = ''
+        return true
+      } catch (error) {
+        if (loadToken === this.apiCommissionLoadToken) this.error = error instanceof Error ? error.message : '佣金明细加载失败'
+        return false
+      } finally {
+        if (loadToken === this.apiCommissionLoadToken) this.apiCommissionLoading = false
+      }
+    },
     async refreshCommissionSummary() {
       if (getApiClientConfig().dataMode !== 'api') return false
       const beneficiaryId = this.currentDistributor?.promoterId
@@ -1094,6 +1203,8 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
       if (!beneficiaryId) {
         this.commissionSummary = null; this.commissionSummaryBeneficiaryId = ''; this.apiWithdrawals = []
         this.apiWithdrawalPage = 1; this.apiWithdrawalCursor = ''; this.apiWithdrawalTotal = 0; this.apiWithdrawalPendingTotal = 0
+        this.apiCommissionLoadToken += 1; this.apiCommissionRecords = []; this.apiCommissionBeneficiaryId = ''
+        this.apiCommissionCursor = ''; this.apiCommissionTotal = 0; this.apiCommissionLoading = false
         return false
       }
       try {
@@ -1120,6 +1231,8 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
         this.apiWithdrawalCursor = ''
         this.apiWithdrawalTotal = 0
         this.apiWithdrawalPendingTotal = 0
+        this.apiCommissionLoadToken += 1; this.apiCommissionRecords = []; this.apiCommissionBeneficiaryId = ''
+        this.apiCommissionCursor = ''; this.apiCommissionTotal = 0; this.apiCommissionLoading = false
         this.error = error instanceof Error ? error.message : '佣金数据加载失败'
         return false
       }

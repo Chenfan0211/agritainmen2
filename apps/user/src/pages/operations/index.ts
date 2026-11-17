@@ -1,5 +1,5 @@
 // 团长运营页（我的收入 / 下级用户 / 团队订单 / 团队业绩）——原生小程序 Page。
-import { readCDistributorProfiles, readCOrders, readUserBindings } from '@agritainment/shared'
+import { getApiClientConfig, readCDistributorProfiles, readCOrders, readUserBindings } from '@agritainment/shared'
 import { projectDistributorOperations } from '../../services/distributor-operations'
 import { useUserStore } from '../../stores/user'
 
@@ -38,8 +38,10 @@ function buildViewModel(type: OperationType) {
     profiles: readCDistributorProfiles() || {}
   })
   const records = store.myCommissionRecords || []
-  const settledIncome = records.filter((item: any) => item.status === 'available' || item.status === 'withdrawn').reduce((sum: number, item: any) => sum + item.amount, 0)
-  const withdrawnIncome = records.filter((item: any) => item.status === 'withdrawn').reduce((sum: number, item: any) => sum + item.amount, 0)
+  const apiMode = getApiClientConfig().dataMode === 'api'
+  const summary = apiMode && store.commissionSummaryBeneficiaryId === currentDistributor?.promoterId ? store.commissionSummary : null
+  const settledIncome = apiMode ? Math.max(0, (summary?.earned || 0) - (summary?.pending || 0)) : records.filter((item: any) => item.status === 'available' || item.status === 'withdrawn').reduce((sum: number, item: any) => sum + item.amount, 0)
+  const withdrawnIncome = apiMode ? summary?.withdrawn || 0 : records.filter((item: any) => item.status === 'withdrawn').reduce((sum: number, item: any) => sum + item.amount, 0)
   const availableCommission = Number(store.availableCommission) || 0
   const pendingCommission = Number(store.pendingCommission) || 0
 
@@ -49,14 +51,20 @@ function buildViewModel(type: OperationType) {
     hasDistributor: !!currentDistributor,
     availableCommissionText: moneyText(availableCommission),
     canWithdraw: availableCommission > 0,
-    totalIncomeText: moneyText(settledIncome + pendingCommission),
+    apiMode,
+    totalIncomeText: moneyText(apiMode ? summary?.earned || 0 : settledIncome + pendingCommission),
     settledIncomeText: moneyText(settledIncome),
     pendingCommissionText: moneyText(pendingCommission),
     withdrawnIncomeText: moneyText(withdrawnIncome),
+    approvedWithdrawalText: moneyText(summary?.approved || 0),
+    commissionHistoryLoading: store.apiCommissionLoading,
+    hasMoreCommissionRecords: apiMode && store.apiCommissionBeneficiaryId === currentDistributor?.promoterId && records.length < store.apiCommissionTotal,
+    incomeHasError: apiMode && !!store.error,
+    incomeEmptyText: apiMode && store.error ? store.error : '暂无收入记录',
     hasCommissionRecords: records.length > 0,
     commissionRecords: records.map((record: any) => ({
       id: record.id,
-      levelLabel: record.beneficiaryLevel === 'level1' ? '一级团长分佣' : '二级团长分佣',
+      levelLabel: record.beneficiaryLevel === 'level1' ? '一级团长分佣' : record.beneficiaryLevel === 'level2' ? '二级团长分佣' : '团长分佣',
       metaText: `${formatDate(record.createdAt)} · ${commissionStatusLabel(record.status)}`,
       amountText: moneyText(record.amount)
     })),
@@ -98,13 +106,19 @@ Page({
     this.setData(buildViewModel(type))
     this.unsubscribeStore = store.$subscribe(() => this.render())
     if (!store.identityProfile) {
-      void store.authenticate().then(() => store.refreshCommissionSummary()).then(() => this.render(), () => this.render())
+      void store.authenticate().then(async () => {
+        const loaded = await store.refreshCommissionSummary()
+        if (loaded && type === 'income' && getApiClientConfig().dataMode === 'api') await store.refreshCommissionRecords()
+      }).then(() => this.render(), () => this.render())
     }
   },
 
   onShow(this: any) {
     this.render()
-    if (store.identityProfile) void store.refreshCommissionSummary().then(() => this.render(), () => this.render())
+    if (store.identityProfile) void (async () => {
+      const loaded = await store.refreshCommissionSummary()
+      if (loaded && this.data.type === 'income' && getApiClientConfig().dataMode === 'api') await store.refreshCommissionRecords()
+    })().then(() => this.render(), () => this.render())
   },
 
   onUnload(this: any) {
@@ -120,6 +134,18 @@ Page({
     const result = await store.withdrawCommission('微信提现')
     const title = result === 'pending' ? '提现申请已提交' : result === 'duplicate' ? '已有申请处理中' : result === 'invalid' ? '暂无可提现收入' : store.error || '提现申请失败'
     wx.showToast({ title, icon: 'none' })
+    this.render()
+  },
+
+  async loadMoreCommissionRecords(this: any) {
+    const loaded = await store.loadMoreCommissionRecords()
+    if (!loaded && store.error) wx.showToast({ title: store.error, icon: 'none' })
+    this.render()
+  },
+
+  async refreshIncome(this: any) {
+    const loaded = await store.refreshCommissionSummary()
+    if (loaded) await store.refreshCommissionRecords()
     this.render()
   }
 })

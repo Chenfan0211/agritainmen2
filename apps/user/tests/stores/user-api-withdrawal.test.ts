@@ -18,7 +18,7 @@ describe('user api withdrawal', () => {
     const rows: Array<Record<string, unknown>> = []
     const transport = vi.fn(async (request) => {
       if (request.url.includes('/catalog/products')) return ok({ items: [], page: 1, pageSize: 200, total: 0 })
-      if (request.url.includes('/commissions/me')) return ok({ availableCents, pendingCents: 0, withdrawnCents: 0 })
+      if (request.url.includes('/commissions/me')) return ok({ availableCents, pendingCents: 0, withdrawnCents: 0, earnedCents: 500, approvedWithdrawalCents: 0 })
       if (request.url.includes('/withdrawals/me')) return ok(withdrawalPage(rows))
       if (request.url.endsWith('/withdrawals') && request.method === 'POST') {
         expect(request.body).toEqual({ requesterId: 'T001', amountCents: 500, method: 'WECHAT' })
@@ -50,7 +50,7 @@ describe('user api withdrawal', () => {
   it('does not write a local withdrawal when the server rejects the request', async () => {
     const transport = vi.fn(async (request) => {
       if (request.url.includes('/catalog/products')) return ok({ items: [], page: 1, pageSize: 200, total: 0 })
-      if (request.url.includes('/commissions/me')) return ok({ availableCents: 500, pendingCents: 0, withdrawnCents: 0 })
+      if (request.url.includes('/commissions/me')) return ok({ availableCents: 500, pendingCents: 0, withdrawnCents: 0, earnedCents: 500, approvedWithdrawalCents: 0 })
       if (request.url.includes('/withdrawals/me')) return ok(withdrawalPage([]))
       return { status: 409, body: { code: 'CONFLICT', message: '可提现佣金不足' } }
     })
@@ -67,7 +67,7 @@ describe('user api withdrawal', () => {
   it('reloads server withdrawal history after opening the store again', async () => {
     const transport = vi.fn(async (request) => {
       if (request.url.includes('/catalog/products')) return ok({ items: [], page: 1, pageSize: 200, total: 0 })
-      if (request.url.includes('/commissions/me')) return ok({ availableCents: 0, pendingCents: 0, withdrawnCents: 500 })
+      if (request.url.includes('/commissions/me')) return ok({ availableCents: 0, pendingCents: 0, withdrawnCents: 0, earnedCents: 500, approvedWithdrawalCents: 500 })
       if (request.url.includes('/withdrawals/me')) return ok(withdrawalPage([{ id: 'W-HISTORY', requesterId: 'T001', amountCents: 500, method: 'WECHAT', status: 'APPROVED', createdAt: '2026-11-15T10:00:00Z', reviewedAt: '2026-11-16T10:00:00Z', reviewNote: '审核通过' }]))
       throw new Error(`Unexpected ${request.url}`)
     })
@@ -84,7 +84,7 @@ describe('user api withdrawal', () => {
     let revoked = false
     const transport = vi.fn(async (request) => {
       if (request.url.includes('/catalog/products')) return ok({ items: [], page: 1, pageSize: 200, total: 0 })
-      if (request.url.includes('/commissions/me')) return revoked ? { status: 401, body: { code: 'UNAUTHORIZED', message: '登录已失效' } } : ok({ availableCents: 500, pendingCents: 0, withdrawnCents: 0 })
+      if (request.url.includes('/commissions/me')) return revoked ? { status: 401, body: { code: 'UNAUTHORIZED', message: '登录已失效' } } : ok({ availableCents: 500, pendingCents: 0, withdrawnCents: 0, earnedCents: 500, approvedWithdrawalCents: 0 })
       if (request.url.includes('/withdrawals/me')) return ok(withdrawalPage([{ id: 'W-OLD', requesterId: 'T001', amountCents: 100, method: 'WECHAT', status: 'PENDING', createdAt: '2026-11-15T10:00:00Z' }]))
       throw new Error(`Unexpected ${request.url}`)
     })
@@ -107,7 +107,7 @@ describe('user api withdrawal', () => {
     const requests: string[] = []
     const transport = vi.fn(async (request) => {
       if (request.url.includes('/catalog/products')) return ok({ items: [], page: 1, pageSize: 200, total: 0 })
-      if (request.url.includes('/commissions/me')) return ok({ availableCents: 500, pendingCents: 0, withdrawnCents: 0 })
+      if (request.url.includes('/commissions/me')) return ok({ availableCents: 500, pendingCents: 0, withdrawnCents: 0, earnedCents: 500, approvedWithdrawalCents: 0 })
       if (request.url.includes('/withdrawals/me')) {
         const url = new URL(request.url)
         requests.push(url.search)
@@ -146,7 +146,7 @@ describe('user api withdrawal', () => {
     const requests: URL[] = []
     const transport = vi.fn(async (request) => {
       if (request.url.includes('/catalog/products')) return ok({ items: [], page: 1, pageSize: 200, total: 0 })
-      if (request.url.includes('/commissions/me')) return ok({ availableCents: 0, pendingCents: 0, withdrawnCents: 0 })
+      if (request.url.includes('/commissions/me')) return ok({ availableCents: 0, pendingCents: 0, withdrawnCents: 0, earnedCents: 0, approvedWithdrawalCents: 0 })
       if (request.url.includes('/withdrawals/me')) {
         const url = new URL(request.url)
         requests.push(url)
@@ -174,7 +174,7 @@ describe('user api withdrawal', () => {
   it('refuses withdrawal when the history response omits the pending count', async () => {
     const transport = vi.fn(async (request) => {
       if (request.url.includes('/catalog/products')) return ok({ items: [], page: 1, pageSize: 200, total: 0 })
-      if (request.url.includes('/commissions/me')) return ok({ availableCents: 500, pendingCents: 0, withdrawnCents: 0 })
+      if (request.url.includes('/commissions/me')) return ok({ availableCents: 500, pendingCents: 0, withdrawnCents: 0, earnedCents: 500, approvedWithdrawalCents: 0 })
       if (request.url.includes('/withdrawals/me')) return ok({ items: [], page: 1, pageSize: 10, total: 0 })
       throw new Error(`Unexpected ${request.url}`)
     })

@@ -55,9 +55,13 @@ export function createAdminQueryClient(request: AdminQueryRequest = apiRequest) 
       const dto = await request<Record<string, any>>(`/api/v1/commissions?${params.toString()}`)
       return { items: (dto?.items || []).map((row: Record<string, unknown>) => ({ id: text(row.id), sourceId: text(row.source_id), beneficiaryId: text(row.beneficiary_id), amount: cents(row.amount_cents), direction: text(row.direction), status: text(row.status) })), page: Number(dto?.page || 1), pageSize: Number(dto?.pageSize || 20), total: Number(dto?.total || 0) }
     },
-    async myCommission(beneficiaryId: string): Promise<{ available: number; pending: number; withdrawn: number }> {
+    async myCommission(beneficiaryId: string): Promise<{ available: number; pending: number; withdrawn: number; earned: number; approved: number }> {
       const dto = await request<Record<string, unknown>>(`/api/v1/commissions/me?beneficiaryId=${encodeURIComponent(beneficiaryId)}`)
-      return { available: cents(dto?.availableCents), pending: cents(dto?.pendingCents), withdrawn: cents(dto?.withdrawnCents) }
+      if (['availableCents', 'pendingCents', 'withdrawnCents', 'earnedCents', 'approvedWithdrawalCents']
+        .some((field) => typeof dto?.[field] !== 'number' || !Number.isSafeInteger(dto[field]) || Number(dto[field]) < 0)) {
+        throw new Error('佣金汇总格式异常')
+      }
+      return { available: cents(dto?.availableCents), pending: cents(dto?.pendingCents), withdrawn: cents(dto?.withdrawnCents), earned: cents(dto?.earnedCents), approved: cents(dto?.approvedWithdrawalCents) }
     },
     async roles(): Promise<RoleItem[]> {
       const dto = await request<Array<Record<string, unknown>>>('/api/v1/auth/admin/roles')

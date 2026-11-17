@@ -1935,8 +1935,7 @@
         {
           "action": "refreshCommissionSummary",
           "owner": "store",
-          "status": "planned",
-          "stage": "P1",
+          "status": "done",
           "dataDomain": "user-commission",
           "api": [
             "GET",
@@ -1958,6 +1957,26 @@
             "/commissions/me"
           ],
           "synthetic": true
+        },
+        {
+          "action": "refreshCommissionRecords",
+          "owner": "store",
+          "status": "done",
+          "dataDomain": "user-commission",
+          "api": [
+            "GET",
+            "/commissions/me/records"
+          ]
+        },
+        {
+          "action": "loadMoreCommissionRecords",
+          "owner": "store",
+          "status": "done",
+          "dataDomain": "user-commission",
+          "api": [
+            "GET",
+            "/commissions/me/records"
+          ]
         },
         {
           "action": "withdrawCommission",

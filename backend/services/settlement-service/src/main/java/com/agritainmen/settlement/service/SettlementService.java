@@ -5,6 +5,7 @@ import com.agritainmen.common.core.ErrorCode;
 import com.agritainmen.common.core.Ids;
 import com.agritainmen.common.event.OutboxService;
 import com.agritainmen.settlement.web.SettlementDtos.CommissionView;
+import com.agritainmen.settlement.web.SettlementDtos.CommissionPage;
 import com.agritainmen.settlement.web.SettlementDtos.WithdrawalView;
 import com.agritainmen.settlement.web.SettlementDtos.WithdrawalPage;
 import org.springframework.dao.DuplicateKeyException;
@@ -97,6 +98,23 @@ public class SettlementService {
 
     public long approvedWithdrawalCents(String requesterId) {
         return jdbc.queryForObject("select coalesce(sum(amount_cents),0) from settlement_withdrawal where tenant_id='PLATFORM' and requester_id=? and status='APPROVED' and deleted=false", Long.class, requesterId);
+    }
+
+    public CommissionPage listCommissions(String beneficiaryId, int page, int pageSize, String beforeId) {
+        List<CommissionView> items;
+        if (beforeId == null) {
+            items = jdbc.query("select * from settlement_commission where tenant_id='PLATFORM' and beneficiary_id=? and deleted=false order by created_at desc, id desc limit ? offset ?",
+                    (rs, rowNum) -> mapCommission(rs), beneficiaryId, pageSize, ((long) page - 1) * pageSize);
+        } else {
+            List<java.sql.Timestamp> cursors = jdbc.query("select created_at from settlement_commission where tenant_id='PLATFORM' and beneficiary_id=? and id=? and deleted=false",
+                    (rs, rowNum) -> rs.getTimestamp(1), beneficiaryId, beforeId);
+            if (cursors.isEmpty()) throw new BusinessException(ErrorCode.BAD_REQUEST, "beforeId 不属于当前团长或不存在");
+            java.sql.Timestamp createdAt = cursors.get(0);
+            items = jdbc.query("select * from settlement_commission where tenant_id='PLATFORM' and beneficiary_id=? and deleted=false and (created_at < ? or (created_at = ? and id < ?)) order by created_at desc, id desc limit ?",
+                    (rs, rowNum) -> mapCommission(rs), beneficiaryId, createdAt, createdAt, beforeId, pageSize);
+        }
+        Long total = jdbc.queryForObject("select count(*) from settlement_commission where tenant_id='PLATFORM' and beneficiary_id=? and deleted=false", Long.class, beneficiaryId);
+        return new CommissionPage(items, page, pageSize, total == null ? 0 : total);
     }
 
     public WithdrawalPage listWithdrawals(String requesterId, int page, int pageSize, String beforeId) {
