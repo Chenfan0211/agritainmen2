@@ -28,6 +28,7 @@ jobs:
       - run: pnpm audit:buttons
       - run: pnpm audit:tokens
       - run: pnpm audit:interfaces
+      - run: pnpm audit:pages
       - run: pnpm audit:mp-styles
       - run: pnpm check:supplier-assets
       - run: pnpm check:mp-size

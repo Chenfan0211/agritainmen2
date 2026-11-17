@@ -689,6 +689,16 @@
             "/org/leaders"
           ],
           "synthetic": true
+        },
+        {
+          "action": "loadWithdrawalsForRequester",
+          "owner": "store",
+          "status": "done",
+          "dataDomain": "admin-withdrawal",
+          "api": [
+            "GET",
+            "/withdrawals"
+          ]
         }
       ]
     },
@@ -705,6 +715,16 @@
             "/commissions"
           ],
           "synthetic": true
+        },
+        {
+          "action": "loadWithdrawals",
+          "owner": "store",
+          "status": "done",
+          "dataDomain": "admin-withdrawal",
+          "api": [
+            "GET",
+            "/withdrawals"
+          ]
         },
         {
           "action": "settleCommissions",
@@ -731,8 +751,7 @@
         {
           "action": "reviewWithdrawal",
           "owner": "store",
-          "status": "planned",
-          "stage": "P3",
+          "status": "done",
           "dataDomain": "admin-commissions",
           "api": [
             "POST",
@@ -1136,13 +1155,30 @@
           ]
         },
         {
-          "action": "loginWithCode",
+          "action": "loginWithApiPassword",
           "owner": "store",
           "status": "done",
+          "dataDomain": "store-auth",
           "api": [
             "POST",
             "/auth/store/login"
           ]
+        },
+        {
+          "action": "restoreApiSession",
+          "owner": "store",
+          "status": "done",
+          "dataDomain": "store-auth",
+          "api": [
+            "GET",
+            "/auth/me"
+          ]
+        },
+        {
+          "action": "loginWithCode",
+          "owner": "store",
+          "status": "frontend-only",
+          "reason": "演示模式本地校验验证码；API 模式不支持验证码登录"
         },
         {
           "action": "storeAccountRole",
@@ -1199,16 +1235,14 @@
       "page": "order-detail",
       "actions": [
         {
-          "action": "refreshSharedState",
-          "owner": "page",
-          "status": "planned",
-          "stage": "P1",
+          "action": "loadApiOrderDetail",
+          "owner": "store",
+          "status": "done",
           "dataDomain": "store-order-detail",
           "api": [
             "GET",
             "/orders/{id}"
-          ],
-          "synthetic": true
+          ]
         }
       ]
     },
@@ -1941,6 +1975,16 @@
             "GET",
             "/commissions/me"
           ]
+        },
+        {
+          "action": "loadMoreWithdrawals",
+          "owner": "store",
+          "status": "done",
+          "dataDomain": "user-withdrawal",
+          "api": [
+            "GET",
+            "/withdrawals/me"
+          ]
         }
       ]
     },
@@ -1981,8 +2025,7 @@
         {
           "action": "withdrawCommission",
           "owner": "store",
-          "status": "planned",
-          "stage": "P5",
+          "status": "done",
           "dataDomain": "user-operations",
           "api": [
             "POST",
