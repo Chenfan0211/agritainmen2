@@ -44,6 +44,38 @@ class CatalogProductQueryAuditTest {
     }
 
     @Test
+    void liveAndStoreFiltersIncludeAllChannelAndPageByProduct() {
+        jdbc.update("update catalog_product set channel='all' where id='P-1'");
+        jdbc.update("update catalog_product set channel='live' where id='P-2'");
+        jdbc.update("insert into catalog_sku(id,tenant_id,product_id,name,price_cents,enabled,created_at,updated_at,version,deleted) values ('SKU-1-B','PLATFORM','P-1','1kg',2000,true,current_timestamp,current_timestamp,0,false)");
+        JsonNode first = client.get().uri("/api/v1/catalog/products?page=1&pageSize=1&channel=live")
+                .retrieve().body(JsonNode.class).path("data");
+        assertEquals(2, first.path("total").asInt());
+        assertEquals(1, first.path("items").size());
+        assertEquals("P-1", first.path("items").get(0).path("id").asText());
+        assertEquals(2, first.path("items").get(0).path("skus").size());
+        JsonNode second = client.get().uri("/api/v1/catalog/products?page=2&pageSize=1&channel=live")
+                .retrieve().body(JsonNode.class).path("data");
+        assertEquals("P-2", second.path("items").get(0).path("id").asText());
+        JsonNode store = client.get().uri("/api/v1/catalog/products?page=1&pageSize=2&channel=store")
+                .retrieve().body(JsonNode.class).path("data");
+        assertEquals(2, store.path("total").asInt());
+        assertEquals("P-3", store.path("items").get(1).path("id").asText());
+    }
+
+    @Test
+    void excludesOtherTenantProductsAndSkus() {
+        jdbc.update("insert into catalog_product(id,tenant_id,supplier_id,name,category,channel,enabled,created_at,updated_at,version,deleted) values ('P-OTHER','OTHER','S1','Other','fresh','store',true,current_timestamp,current_timestamp,0,false)");
+        jdbc.update("insert into catalog_sku(id,tenant_id,product_id,name,price_cents,enabled,created_at,updated_at,version,deleted) values ('SKU-OTHER','OTHER','P-OTHER','500g',1000,true,current_timestamp,current_timestamp,0,false)");
+        jdbc.update("insert into catalog_sku(id,tenant_id,product_id,name,price_cents,enabled,created_at,updated_at,version,deleted) values ('SKU-FOREIGN','OTHER','P-1','1kg',2000,true,current_timestamp,current_timestamp,0,false)");
+        JsonNode data = client.get().uri("/api/v1/catalog/products?page=1&pageSize=10&channel=store")
+                .retrieve().body(JsonNode.class).path("data");
+        assertEquals(3, data.path("total").asInt());
+        assertEquals(3, data.path("items").size());
+        assertEquals(1, data.path("items").get(0).path("skus").size());
+    }
+
+    @Test
     void rejectsPageSizeAboveServerMaximum() {
         var exception = assertThrows(org.springframework.web.client.RestClientResponseException.class,
                 () -> client.get().uri("/api/v1/catalog/products?page=1&pageSize=201").retrieve().body(JsonNode.class));

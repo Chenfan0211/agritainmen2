@@ -5,7 +5,7 @@ import type { AfterSale, BusinessMediaValue, CatalogState, CAddress, CCartItem, 
 import {
   initialCatalogOrderQuantity,
   CATALOG_SCHEMA_VERSION, abortCatalogTransaction, allocateCCommissions, applyCatalogStockOperation, beginPaymentAttempt, buildSupplierAccountSeeds, cPriceForSku, catalogProductToCProduct, catalogProductsForAudience, cloneSeed, commitCatalogTransaction, cProducts as cProductSeeds, createId, demoCDistributorProfiles, deriveCOrderStatus, ensureCatalogState, ensureConfirmedPaymentRecoveryTask, markCatalogTransactionStockApplied, mergePlatformEntities, mergePlatformSupplierAccounts, migrateLegacyCatalog, normalizeCAddresses, normalizeCCommissionRecords, normalizeCOrders, normalizeCProducts, normalizeMinimumOrderQuantity, prepareCatalogTransaction, products as storeProductSeeds, promoters, readCAddresses, readCCommissionRecords, readCatalogState, readCOrders, readCUserSession, readCDistributorProfiles, readPendingCatalogTransactions, readPlatformJson, round2, seedCCommerceData,
-  confirmCSubOrderReceiptAtSupplier, createUserAtomicRecoveryHandlerRegistrations, getPlatformProviders, initializePlatformRecoveryHandlers, isValidUserAtomicRecoveryJournal, markCSubOrderAfterSaleAtSupplier, readPaymentAttempts, readPlatformAfterSales, readPlatformCollectionRevision, readPlatformCommissionLedger, readPlatformEntities, readPlatformOrders, readPlatformSupplierAccounts, readPlatformWithdrawals, readUserBindings, readPlatformJournal, readUserCommercePurchaseIntents, reconcilePendingPlatformTransactions, resolveCReferralChain, retryPlatformRecoveryTask, runLockedPlatformCollectionTask, runLockedPlatformTransaction, splitCOrderItems, supplierCanReceiveNewOrders, suppliers as supplierSeeds, syncCSubOrderFromSupplier, transitionPaymentAttempt, upsertUserBinding, validateCatalogSkuOrderQuantity, writeUserBindings, writeCAddresses, writeCCommissionRecords, writeCOrder, writeCOrders, writeCUserSession, publishCSubOrderToSupplier, migrateLegacyCommissionsToLedger, readPlatformVoucherOrders, writePlatformAfterSales, writePlatformCommissionLedger, writePlatformCommissionLedgerEntry, writePlatformOrder, writePlatformOrders, writePlatformVoucherOrder, writePlatformVoucherOrders, writePlatformWithdrawal, writeUserCommercePurchaseIntents, preparePlatformJournal, markPlatformJournalStep, resolvePlatformJournal, enqueuePlatformRecovery, writeCatalogState, PLATFORM_AFTERSALES_STORAGE_KEY, PLATFORM_BINDINGS_STORAGE_KEY, PLATFORM_CATALOG_LEGACY_MIGRATION_MARKER_STORAGE_KEY, PLATFORM_CATALOG_STORAGE_KEY, PLATFORM_CATALOG_TRANSACTION_JOURNAL_STORAGE_KEY, PLATFORM_COMMISSION_LEDGER_MIGRATED_STORAGE_KEY, PLATFORM_COMMISSION_LEDGER_STORAGE_KEY, PLATFORM_C_COMMISSIONS_STORAGE_KEY, PLATFORM_C_DISTRIBUTORS_STORAGE_KEY, PLATFORM_C_ORDERS_STORAGE_KEY, PLATFORM_C_PRODUCTS_STORAGE_KEY, PLATFORM_C_SCHEMA_VERSION_STORAGE_KEY, PLATFORM_ORDERS_STORAGE_KEY, PLATFORM_RECOVERY_QUEUE_STORAGE_KEY, PLATFORM_TRANSACTION_JOURNAL_STORAGE_KEY, PLATFORM_USER_COMMERCE_INTENTS_STORAGE_KEY, PLATFORM_VOUCHERS_STORAGE_KEY, PLATFORM_WITHDRAWALS_STORAGE_KEY
+  confirmCSubOrderReceiptAtSupplier, createUserAtomicRecoveryHandlerRegistrations, getPlatformProviders, initializePlatformRecoveryHandlers, isValidUserAtomicRecoveryJournal, markCSubOrderAfterSaleAtSupplier, mediaValueToImage, readPaymentAttempts, readPlatformAfterSales, readPlatformCollectionRevision, readPlatformCommissionLedger, readPlatformEntities, readPlatformOrders, readPlatformSupplierAccounts, readPlatformWithdrawals, readUserBindings, readPlatformJournal, readUserCommercePurchaseIntents, reconcilePendingPlatformTransactions, resolveCReferralChain, retryPlatformRecoveryTask, runLockedPlatformCollectionTask, runLockedPlatformTransaction, splitCOrderItems, supplierCanReceiveNewOrders, suppliers as supplierSeeds, syncCSubOrderFromSupplier, transitionPaymentAttempt, upsertUserBinding, validateCatalogSkuOrderQuantity, writeUserBindings, writeCAddresses, writeCCommissionRecords, writeCOrder, writeCOrders, writeCUserSession, publishCSubOrderToSupplier, migrateLegacyCommissionsToLedger, readPlatformVoucherOrders, writePlatformAfterSales, writePlatformCommissionLedger, writePlatformCommissionLedgerEntry, writePlatformOrder, writePlatformOrders, writePlatformVoucherOrder, writePlatformVoucherOrders, writePlatformWithdrawal, writeUserCommercePurchaseIntents, preparePlatformJournal, markPlatformJournalStep, resolvePlatformJournal, enqueuePlatformRecovery, writeCatalogState, PLATFORM_AFTERSALES_STORAGE_KEY, PLATFORM_BINDINGS_STORAGE_KEY, PLATFORM_CATALOG_LEGACY_MIGRATION_MARKER_STORAGE_KEY, PLATFORM_CATALOG_STORAGE_KEY, PLATFORM_CATALOG_TRANSACTION_JOURNAL_STORAGE_KEY, PLATFORM_COMMISSION_LEDGER_MIGRATED_STORAGE_KEY, PLATFORM_COMMISSION_LEDGER_STORAGE_KEY, PLATFORM_C_COMMISSIONS_STORAGE_KEY, PLATFORM_C_DISTRIBUTORS_STORAGE_KEY, PLATFORM_C_ORDERS_STORAGE_KEY, PLATFORM_C_PRODUCTS_STORAGE_KEY, PLATFORM_C_SCHEMA_VERSION_STORAGE_KEY, PLATFORM_ORDERS_STORAGE_KEY, PLATFORM_RECOVERY_QUEUE_STORAGE_KEY, PLATFORM_TRANSACTION_JOURNAL_STORAGE_KEY, PLATFORM_USER_COMMERCE_INTENTS_STORAGE_KEY, PLATFORM_VOUCHERS_STORAGE_KEY, PLATFORM_WITHDRAWALS_STORAGE_KEY
 } from '@agritainment/shared'
 import { seedDemoUserCart, seedDemoUserDistributor } from '../data/demo-distributor'
 import { seedDemoUserOrders } from '../data/demo-orders'
@@ -901,6 +901,45 @@ const USER_STORE_ID = 'user'
 const USER_STORE_PERSISTENCE = { storageKey: `agritainment-user-${USER_STORE_ID}`, keys: ['farms', 'products', 'cProducts'] }
 let activeUserIdentityRequest: Promise<UserIdentityProfile | null> | null = null
 
+async function loadApiLiveProducts(): Promise<Product[]> {
+  const client = createCatalogApiClient()
+  const products: Product[] = []
+  for (let page = 1; ; page++) {
+    const result = await client.listProducts({ channel: 'live', page, pageSize: 200 })
+    products.push(...result.items)
+    if (!result.items.length || products.length >= result.total) return products
+  }
+}
+
+function apiLiveProductsToCProducts(products: Product[]): CProduct[] {
+  const mapped = new Map<string, CProduct>()
+  for (const product of products) {
+    const supplierId = product.supplierId || product.supplier
+    if (!supplierId) continue
+    let current = mapped.get(product.id)
+    if (!current) {
+      current = {
+        id: product.id, name: product.name, category: product.category, supplierId,
+        supplierName: product.supplierName || supplierId, image: mediaValueToImage(product.image), tags: product.tags || [],
+        status: product.status === 'active' ? 'active' : 'offline', shippingType: 'courier',
+        channels: { live: true }, expressDelivery: product.expressDelivery !== false, productType: product.productType || 'goods', skus: []
+      }
+      mapped.set(product.id, current)
+    }
+    for (const sku of product.skus) {
+      if (current.skus.some((item) => item.id === sku.id)) continue
+      const level1Commission = sku.level1Amount || 0
+      const level2Commission = sku.level2Amount || 0
+      current.skus.push({
+        id: sku.id, name: sku.name, image: sku.image || current.image, stock: sku.stock,
+        basePrice: round2(sku.price - level1Commission - level2Commission), level1Commission, level2Commission,
+        minimumOrderQuantity: normalizeMinimumOrderQuantity(sku.minimumOrderQuantity)
+      })
+    }
+  }
+  return normalizeCProducts([...mapped.values()])
+}
+
 const userStoreOptions: NativeStoreOptions<UserState> = {
   state: (): UserState => ({
     initialized: false, loading: false, withdrawalsTick: 0, distributorTick: 0, error: '', mockScenario: 'normal', farms: [], products: [], cProducts: [], inventoryRevision: 0, launchProductId: '', promoterId: '', promoterName: '', referralPromoterId: '', userId: '',
@@ -1022,6 +1061,21 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
         return { ...line, stock: sku?.stock ?? 0, minimumOrderQuantity, unavailable: !sku || !validateCatalogSkuOrderQuantity(sku, line.quantity).ok }
       })
     },
+    applyApiCatalog(products: Product[]) {
+      this.products = products
+      this.cProducts = apiLiveProductsToCProducts(products)
+      this.cart = this.cart.map((line) => {
+        const product = this.cProducts.find((item) => item.id === line.productId)
+        const sku = product?.skus.find((item) => item.id === line.skuId)
+        return sku ? {
+          ...line, name: product!.name, skuName: sku.name, image: sku.image || product!.image,
+          stock: sku.stock, minimumOrderQuantity: normalizeMinimumOrderQuantity(sku.minimumOrderQuantity),
+          unitPrice: cPriceForSku(sku, line.lockedLevel), basePrice: sku.basePrice,
+          level1Commission: sku.level1Commission, level2Commission: sku.level2Commission,
+          supplierId: product!.supplierId, unavailable: !validateCatalogSkuOrderQuantity(sku, line.quantity).ok
+        } : { ...line, stock: 0, unavailable: true }
+      })
+    },
     refreshCatalog() {
       const catalog = readCatalogState()
       if (catalog) this.applyCatalogState(catalog)
@@ -1050,6 +1104,7 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
         return { ...item, quantity, stock: sku.stock, minimumOrderQuantity, unavailable: !validateCatalogSkuOrderQuantity(sku, quantity).ok }
       })
       this.cart = restored.filter((item): item is CartLine => item !== null)
+      if (getApiClientConfig().dataMode === 'api') this.applyApiCatalog(this.products)
       if (!this.referralPromoterId && session.referralPromoterId) this.referralPromoterId = session.referralPromoterId
     },
     async initialize(force = false) {
@@ -1072,7 +1127,7 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
         }, ...atomicRecoveryHandlers.filter((registration) => registration.key !== USER_COMMERCE_RECOVERY_HANDLER_KEY)])
         const apiMode = getApiClientConfig().dataMode === 'api'
         const baseData = await userRepository.loadDashboard(apiMode ? 'normal' : this.mockScenario)
-        const data = apiMode ? { ...baseData, products: (await createCatalogApiClient().listProducts({ channel: 'live', pageSize: 200 })).items } : baseData
+        const data = apiMode ? { ...baseData, products: await loadApiLiveProducts() } : baseData
         const catalog = apiMode ? null : readCatalogState() || { schemaVersion: CATALOG_SCHEMA_VERSION, revision: 0, products: migrateLegacyCatalog(data.catalogStoreProducts, data.cProducts), appliedOperations: {} }
         const savedOrders = syncPersistedFulfillment(normalizeCOrders(readCOrders() || {}))
         const savedAddresses = normalizeCAddresses(readCAddresses() || {})
@@ -1085,7 +1140,8 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
           addresses: this.userId ? Object.values(savedAddresses).filter((item) => item.userId === this.userId) : [],
           commissionRecords: this.userId ? savedCommissionRecords : [], initialized: true
         })
-        if (catalog) this.applyCatalogState(catalog)
+        if (apiMode) this.applyApiCatalog(data.products)
+        else if (catalog) this.applyCatalogState(catalog)
         await this.reconcilePaymentAttempts()
         if (this.userId) await this.syncWithdrawals()
         if (this.userId) this.restoreSession()
@@ -1266,6 +1322,13 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
       }
     },
     async refreshSharedState() {
+      if (getApiClientConfig().dataMode === 'api') {
+        try {
+          this.applyApiCatalog(await loadApiLiveProducts())
+          this.error = ''
+        } catch (error) { this.error = error instanceof Error ? error.message : '商品目录刷新失败' }
+        return this.orders
+      }
       this.refreshCatalog()
       this.products = readStorePackageProjection()
       const persisted = normalizeCOrders(readCOrders() || {})
@@ -2074,7 +2137,10 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
 } as NativeStoreOptions<UserState>
 
 export function createUserStore() {
-  return createNativeStore<UserState>(USER_STORE_ID, { ...userStoreOptions, persistence: USER_STORE_PERSISTENCE })
+  return createNativeStore<UserState>(USER_STORE_ID, {
+    ...userStoreOptions,
+    persistence: getApiClientConfig().dataMode === 'api' ? undefined : USER_STORE_PERSISTENCE
+  })
 }
 
 let userStoreSingleton: ReturnType<typeof createUserStore> | null = null

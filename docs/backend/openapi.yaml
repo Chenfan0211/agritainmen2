@@ -506,6 +506,7 @@ paths:
   /catalog/products:
     get:
       summary: 分页查询可售商品
+      description: store 和 live 渠道均包含 all 渠道商品；按商品分页，每个商品返回全部可售 SKU。
       parameters:
         - in: query
           name: channel

@@ -9,7 +9,11 @@ import com.agritainmen.common.core.ErrorCode;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class CatalogService {
@@ -43,17 +47,33 @@ public class CatalogService {
         if (page < 1 || pageSize < 1 || pageSize > MAX_PAGE_SIZE) throw new BusinessException(ErrorCode.BAD_REQUEST, "page 必须大于 0，pageSize 必须在 1-200 之间");
         String normalizedChannel = channel == null ? "" : channel.trim().toLowerCase();
         String normalizedKeyword = keyword == null ? "" : keyword.trim().toLowerCase();
-        StringBuilder where = new StringBuilder(" where p.enabled=true and p.deleted=false and s.enabled=true and s.deleted=false");
-        List<Object> args = new java.util.ArrayList<>();
-        if (!normalizedChannel.isBlank()) { where.append(" and p.channel=?"); args.add(normalizedChannel); }
+        StringBuilder where = new StringBuilder(" where p.tenant_id='PLATFORM' and p.enabled=true and p.deleted=false"
+                + " and exists (select 1 from catalog_sku s where s.product_id=p.id and s.tenant_id='PLATFORM' and s.enabled=true and s.deleted=false)");
+        List<Object> args = new ArrayList<>();
+        if (!normalizedChannel.isBlank()) {
+            where.append(" and p.channel ").append("store".equals(normalizedChannel) || "live".equals(normalizedChannel) ? "in (?, 'all')" : "= ?");
+            args.add(normalizedChannel);
+        }
         if (!normalizedKeyword.isBlank()) { where.append(" and lower(p.name) like ?"); args.add("%" + normalizedKeyword + "%"); }
-        Long total = jdbc.queryForObject("select count(distinct p.id) from catalog_product p join catalog_sku s on s.product_id=p.id" + where, Long.class, args.toArray());
-        List<ProductView> items = jdbc.query("""
+        Long total = jdbc.queryForObject("select count(*) from catalog_product p" + where, Long.class, args.toArray());
+        List<String> ids = jdbc.query("select p.id from catalog_product p" + where + " order by p.id limit ? offset ?",
+                (rs, rowNum) -> rs.getString("id"), appendLimit(args, pageSize, (page - 1) * pageSize));
+        if (ids.isEmpty()) return new PageView<>(List.of(), page, pageSize, total == null ? 0 : total);
+        String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
+        List<ProductView> rows = jdbc.query("""
                 select p.id, p.supplier_id, p.name, p.category, p.channel, p.enabled,
                        s.id sku_id, s.name sku_name, s.price_cents, s.enabled sku_enabled
                   from catalog_product p join catalog_sku s on s.product_id=p.id
-                """ + where + " order by p.id, s.id limit ? offset ?", (rs, rowNum) -> new ProductView(rs.getString("id"), rs.getString("supplier_id"), rs.getString("name"), rs.getString("category"), rs.getString("channel"), rs.getBoolean("enabled"), List.of(new SkuView(rs.getString("sku_id"), rs.getString("sku_name"), rs.getLong("price_cents"), rs.getBoolean("sku_enabled")))), appendLimit(args, pageSize, (page - 1) * pageSize));
-        return new PageView<>(items, page, pageSize, total == null ? 0 : total);
+                 where p.id in (""" + placeholders + ") and p.tenant_id='PLATFORM' and s.tenant_id='PLATFORM'"
+                + " and p.enabled=true and p.deleted=false and s.enabled=true and s.deleted=false order by p.id, s.id",
+                (rs, rowNum) -> new ProductView(rs.getString("id"), rs.getString("supplier_id"), rs.getString("name"), rs.getString("category"), rs.getString("channel"), rs.getBoolean("enabled"), List.of(new SkuView(rs.getString("sku_id"), rs.getString("sku_name"), rs.getLong("price_cents"), rs.getBoolean("sku_enabled")))), ids.toArray());
+        Map<String, ProductView> items = new LinkedHashMap<>();
+        for (ProductView row : rows) {
+            ProductView previous = items.get(row.id());
+            if (previous == null) items.put(row.id(), new ProductView(row.id(), row.supplierId(), row.name(), row.category(), row.channel(), row.enabled(), new ArrayList<>(row.skus())));
+            else previous.skus().addAll(row.skus());
+        }
+        return new PageView<>(List.copyOf(items.values()), page, pageSize, total == null ? 0 : total);
     }
 
     private Object[] appendLimit(List<Object> args, int pageSize, int offset) {

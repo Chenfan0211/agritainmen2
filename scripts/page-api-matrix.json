@@ -1921,6 +1921,12 @@
           "reason": "store 内部事务/派生计算辅助"
         },
         {
+          "action": "applyApiCatalog",
+          "owner": "internal",
+          "status": "internal",
+          "reason": "将服务端目录整理为商城商品并同步购物车"
+        },
+        {
           "action": "refreshCatalog",
           "owner": "internal",
           "status": "internal",
