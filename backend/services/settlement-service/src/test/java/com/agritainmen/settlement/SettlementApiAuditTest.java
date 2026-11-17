@@ -214,7 +214,7 @@ class SettlementApiAuditTest {
     }
 
     private JsonNode withdrawals(String requesterId) throws Exception {
-        return get("/api/v1/withdrawals/me?requesterId=" + requesterId);
+        return get("/api/v1/withdrawals/me?requesterId=" + requesterId).path("items");
     }
 
     private JsonNode get(String path) throws Exception {

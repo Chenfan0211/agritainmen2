@@ -99,8 +99,12 @@ public class SettlementService {
         return jdbc.queryForObject("select coalesce(sum(amount_cents),0) from settlement_withdrawal where tenant_id='PLATFORM' and requester_id=? and status='APPROVED' and deleted=false", Long.class, requesterId);
     }
 
-    public List<WithdrawalView> listWithdrawals(String requesterId) {
-        return jdbc.query("select * from settlement_withdrawal where tenant_id='PLATFORM' and requester_id=? and deleted=false order by created_at desc, id desc", (rs, rowNum) -> mapWithdrawal(rs), requesterId);
+    public WithdrawalPage listWithdrawals(String requesterId, int page, int pageSize) {
+        Long total = jdbc.queryForObject("select count(*) from settlement_withdrawal where tenant_id='PLATFORM' and requester_id=? and deleted=false", Long.class, requesterId);
+        Long pendingTotal = jdbc.queryForObject("select count(*) from settlement_withdrawal where tenant_id='PLATFORM' and requester_id=? and status='PENDING' and deleted=false", Long.class, requesterId);
+        List<WithdrawalView> items = jdbc.query("select * from settlement_withdrawal where tenant_id='PLATFORM' and requester_id=? and deleted=false order by created_at desc, id desc limit ? offset ?",
+                (rs, rowNum) -> mapWithdrawal(rs), requesterId, pageSize, ((long) page - 1) * pageSize);
+        return new WithdrawalPage(items, page, pageSize, total == null ? 0 : total, pendingTotal == null ? 0 : pendingTotal);
     }
 
     public WithdrawalPage listWithdrawalsForAdmin(String requesterId, int page, int pageSize, String status, String keyword) {

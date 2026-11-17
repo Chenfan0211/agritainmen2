@@ -708,6 +708,12 @@ interface UserState {
   commissionSummary: { available: number; pending: number; withdrawn: number } | null
   commissionSummaryBeneficiaryId: string
   apiWithdrawals: WithdrawalRequest[]
+  apiWithdrawalPage: number
+  apiWithdrawalPageSize: number
+  apiWithdrawalTotal: number
+  apiWithdrawalPendingTotal: number
+  apiWithdrawalLoading: boolean
+  apiWithdrawalLoadToken: number
   identityStatus: 'idle' | 'loading' | 'ready' | 'error'
   identityProfile: UserIdentityProfile | null
   identityError: string
@@ -735,6 +741,22 @@ interface ApiWithdrawalView {
   reviewedAt?: string
   reviewedBy?: string
   reviewNote?: string
+}
+interface ApiWithdrawalPage {
+  items: ApiWithdrawalView[]
+  page: number
+  pageSize: number
+  total: number
+  pendingTotal: number
+}
+function isWithdrawalPage(value: unknown): value is ApiWithdrawalPage {
+  if (!value || typeof value !== 'object') return false
+  const page = value as Partial<ApiWithdrawalPage>
+  return Array.isArray(page.items) && Number.isSafeInteger(page.page) && Number(page.page) >= 1
+    && Number.isSafeInteger(page.pageSize) && Number(page.pageSize) >= 1
+    && Number.isSafeInteger(page.total) && Number(page.total) >= 0
+    && Number.isSafeInteger(page.pendingTotal) && Number(page.pendingTotal) >= 0
+    && Number(page.pendingTotal) <= Number(page.total)
 }
 function toUserWithdrawal(row: ApiWithdrawalView, leaderId: string): WithdrawalRequest | null {
   const status = row.status?.toLowerCase()
@@ -835,7 +857,7 @@ let activeUserIdentityRequest: Promise<UserIdentityProfile | null> | null = null
 const userStoreOptions: NativeStoreOptions<UserState> = {
   state: (): UserState => ({
     initialized: false, loading: false, withdrawalsTick: 0, distributorTick: 0, error: '', mockScenario: 'normal', farms: [], products: [], cProducts: [], inventoryRevision: 0, launchProductId: '', promoterId: '', promoterName: '', referralPromoterId: '', userId: '',
-    cart: [], orders: [], addresses: [], commissionRecords: [], commissionSummary: null, commissionSummaryBeneficiaryId: '', apiWithdrawals: [], identityStatus: 'idle', identityProfile: null, identityError: '', identityCheckedAt: 0, openid: '', checkoutError: ''
+    cart: [], orders: [], addresses: [], commissionRecords: [], commissionSummary: null, commissionSummaryBeneficiaryId: '', apiWithdrawals: [], apiWithdrawalPage: 1, apiWithdrawalPageSize: 10, apiWithdrawalTotal: 0, apiWithdrawalPendingTotal: 0, apiWithdrawalLoading: false, apiWithdrawalLoadToken: 0, identityStatus: 'idle', identityProfile: null, identityError: '', identityCheckedAt: 0, openid: '', checkoutError: ''
   }),
   getters: {
     level: (state): CUserLevel => activeDistributorForState(state)?.level || 'normal',
@@ -1066,21 +1088,63 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
     async refreshCommissionSummary() {
       if (getApiClientConfig().dataMode !== 'api') return false
       const beneficiaryId = this.currentDistributor?.promoterId
-      if (!beneficiaryId) { this.commissionSummary = null; this.commissionSummaryBeneficiaryId = ''; this.apiWithdrawals = []; return false }
+      const loadToken = ++this.apiWithdrawalLoadToken
+      this.apiWithdrawalLoading = false
+      if (!beneficiaryId) {
+        this.commissionSummary = null; this.commissionSummaryBeneficiaryId = ''; this.apiWithdrawals = []
+        this.apiWithdrawalPage = 1; this.apiWithdrawalTotal = 0; this.apiWithdrawalPendingTotal = 0
+        return false
+      }
       try {
         const summary = await createAdminQueryClient().myCommission(beneficiaryId)
-        const rows = await apiRequest<ApiWithdrawalView[]>(`/api/v1/withdrawals/me?requesterId=${encodeURIComponent(beneficiaryId)}`)
-        if (!Array.isArray(rows)) throw new Error('提现记录格式异常')
+        const result = await apiRequest<ApiWithdrawalPage>(`/api/v1/withdrawals/me?requesterId=${encodeURIComponent(beneficiaryId)}&page=1&pageSize=10`)
+        if (!isWithdrawalPage(result)) throw new Error('提现记录格式异常')
+        if (loadToken !== this.apiWithdrawalLoadToken || this.currentDistributor?.promoterId !== beneficiaryId) return false
         this.commissionSummary = summary
         this.commissionSummaryBeneficiaryId = beneficiaryId
-        this.apiWithdrawals = rows.map((row) => toUserWithdrawal(row, beneficiaryId)).filter((row): row is WithdrawalRequest => row !== null)
+        this.apiWithdrawals = result.items.map((row) => toUserWithdrawal(row, beneficiaryId)).filter((row): row is WithdrawalRequest => row !== null)
+        this.apiWithdrawalPage = result.page
+        this.apiWithdrawalPageSize = result.pageSize
+        this.apiWithdrawalTotal = result.total
+        this.apiWithdrawalPendingTotal = result.pendingTotal
+        this.error = ''
         return true
       } catch (error) {
+        if (loadToken !== this.apiWithdrawalLoadToken) return false
         this.commissionSummary = null
         this.commissionSummaryBeneficiaryId = ''
         this.apiWithdrawals = []
+        this.apiWithdrawalPage = 1
+        this.apiWithdrawalTotal = 0
+        this.apiWithdrawalPendingTotal = 0
         this.error = error instanceof Error ? error.message : '佣金数据加载失败'
         return false
+      }
+    },
+    async loadMoreWithdrawals(): Promise<boolean> {
+      if (getApiClientConfig().dataMode !== 'api' || this.apiWithdrawalLoading || this.apiWithdrawals.length >= this.apiWithdrawalTotal) return false
+      const beneficiaryId = this.currentDistributor?.promoterId
+      if (!beneficiaryId || beneficiaryId !== this.commissionSummaryBeneficiaryId) return false
+      const page = this.apiWithdrawalPage + 1
+      const loadToken = this.apiWithdrawalLoadToken
+      this.apiWithdrawalLoading = true
+      try {
+        const result = await apiRequest<ApiWithdrawalPage>(`/api/v1/withdrawals/me?requesterId=${encodeURIComponent(beneficiaryId)}&page=${page}&pageSize=${this.apiWithdrawalPageSize}`)
+        if (!isWithdrawalPage(result) || result.page !== page || result.pageSize !== this.apiWithdrawalPageSize) throw new Error('提现记录格式异常')
+        if (loadToken !== this.apiWithdrawalLoadToken || this.currentDistributor?.promoterId !== beneficiaryId) return false
+        const known = new Set(this.apiWithdrawals.map((item) => item.id))
+        this.apiWithdrawals.push(...result.items.map((row) => toUserWithdrawal(row, beneficiaryId))
+          .filter((row): row is WithdrawalRequest => row !== null && !known.has(row.id)))
+        this.apiWithdrawalPage = result.page
+        this.apiWithdrawalTotal = result.total
+        this.apiWithdrawalPendingTotal = result.pendingTotal
+        this.error = ''
+        return true
+      } catch (error) {
+        if (loadToken === this.apiWithdrawalLoadToken) this.error = error instanceof Error ? error.message : '提现记录加载失败'
+        return false
+      } finally {
+        if (loadToken === this.apiWithdrawalLoadToken) this.apiWithdrawalLoading = false
       }
     },
     async refreshSharedState() {
@@ -1625,7 +1689,7 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
         if (!leaderId) return 'invalid'
         this.error = ''
         if (!await this.refreshCommissionSummary()) return false
-        if (this.apiWithdrawals.some((item) => item.status === 'pending')) return 'duplicate'
+        if (this.apiWithdrawalPendingTotal > 0 || this.apiWithdrawals.some((item) => item.status === 'pending')) return 'duplicate'
         const amountCents = Math.round((this.commissionSummary?.available || 0) * 100)
         if (amountCents <= 0) return 'invalid'
         try {
@@ -1636,6 +1700,8 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
           const request = toUserWithdrawal(row, leaderId)
           if (!request) throw new Error('提现申请响应格式异常')
           this.apiWithdrawals = [request, ...this.apiWithdrawals.filter((item) => item.id !== request.id)]
+          this.apiWithdrawalTotal += 1
+          this.apiWithdrawalPendingTotal += 1
           if (this.commissionSummary) this.commissionSummary = { ...this.commissionSummary, available: Math.max(0, this.commissionSummary.available - request.amount) }
           return 'pending'
         } catch (error) {

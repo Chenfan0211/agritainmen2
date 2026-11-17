@@ -80,6 +80,33 @@ class SettlementBearerScopeAuditTest {
         assertEquals(200, postStatus("/api/v1/withdrawals", "leader-a", own));
     }
 
+    @Test void leaderPagesOwnWithdrawalsAndKeepsOwnPendingTotal() {
+        String suffix = UUID.randomUUID().toString();
+        java.sql.Timestamp created = java.sql.Timestamp.from(java.time.Instant.parse("2030-01-01T00:00:00Z"));
+        for (int index = 1; index <= 3; index++) {
+            jdbc.update("insert into settlement_withdrawal(id,tenant_id,requester_id,amount_cents,method,status,created_at,updated_at,version,deleted) values (?, 'PLATFORM', 'T001', 100, 'WECHAT', ?, ?, ?, 0, false)",
+                    "W-MINE-" + suffix + "-" + index, index == 1 ? "PENDING" : "APPROVED", created, created);
+        }
+        jdbc.update("insert into settlement_withdrawal(id,tenant_id,requester_id,amount_cents,method,status,created_at,updated_at,version,deleted) values (?, 'OTHER', 'T001', 100, 'WECHAT', 'PENDING', ?, ?, 0, false)",
+                "W-FOREIGN-" + suffix, created, created);
+        try {
+            String path = "/api/v1/withdrawals/me?requesterId=T001&pageSize=1&page=";
+            JsonNode first = client.get().uri(path + "1").header("Authorization", "Bearer leader-a").retrieve().body(JsonNode.class).path("data");
+            JsonNode second = client.get().uri(path + "2").header("Authorization", "Bearer leader-a").retrieve().body(JsonNode.class).path("data");
+            assertEquals("W-MINE-" + suffix + "-3", first.path("items").get(0).path("id").asText());
+            assertEquals("W-MINE-" + suffix + "-2", second.path("items").get(0).path("id").asText());
+            assertEquals(1, first.path("page").asInt());
+            assertEquals(1, first.path("pageSize").asInt());
+            assertEquals(jdbc.queryForObject("select count(*) from settlement_withdrawal where tenant_id='PLATFORM' and requester_id='T001' and deleted=false", Long.class).longValue(), first.path("total").asLong());
+            assertEquals(jdbc.queryForObject("select count(*) from settlement_withdrawal where tenant_id='PLATFORM' and requester_id='T001' and status='PENDING' and deleted=false", Long.class).longValue(), second.path("pendingTotal").asLong());
+            assertEquals(403, getStatus(path + "2", "leader-b"));
+            assertEquals(400, getStatus("/api/v1/withdrawals/me?requesterId=T001&page=0", "leader-a"));
+            assertEquals(400, getStatus("/api/v1/withdrawals/me?requesterId=T001&pageSize=201", "leader-a"));
+        } finally {
+            jdbc.update("delete from settlement_withdrawal where id like ? or id=?", "W-MINE-" + suffix + "%", "W-FOREIGN-" + suffix);
+        }
+    }
+
     @Test void reviewUsesVerifiedOperatorAndWithdrawalPermission() {
         seedCommission("T001", 100);
         seedCommission("T002", 100);

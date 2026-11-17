@@ -953,6 +953,16 @@
 .commission-row .strong-text.reversed {
   color: var(--mobile-muted);
 }
+.withdrawal-load-more {
+  display: block;
+  margin: 12px auto 0;
+  padding: 8px 18px;
+  border: 1px solid var(--mobile-border);
+  border-radius: var(--radius-button);
+  background: var(--mobile-surface);
+  color: var(--color-user-brand);
+  font-size: 12px;
+}
 .settings-list {
   overflow: hidden;
   border-radius: 14px;

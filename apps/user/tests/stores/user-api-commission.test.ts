@@ -14,7 +14,7 @@ describe('user api commission summary', () => {
     const transport = vi.fn(async (request) => {
       if (request.url.includes('/catalog/products')) return { status: 200, body: { code: 'OK', message: 'ok', data: { items: [], page: 1, pageSize: 200, total: 0 } } }
       if (request.url.includes('/commissions/me')) return { status: 200, body: { code: 'OK', message: 'ok', data: { availableCents: 12000, pendingCents: 3000, withdrawnCents: 5000 } } }
-      if (request.url.includes('/withdrawals/me')) return { status: 200, body: { code: 'OK', message: 'ok', data: [] } }
+      if (request.url.includes('/withdrawals/me')) return { status: 200, body: { code: 'OK', message: 'ok', data: { items: [], page: 1, pageSize: 10, total: 0, pendingTotal: 0 } } }
       return { status: 200, body: { code: 'OK', message: 'ok', data: { items: [], page: 1, pageSize: 20, total: 0 } } }
     })
     configureApiClient({ dataMode: 'api', baseUrl: 'https://api.example.com', transport })

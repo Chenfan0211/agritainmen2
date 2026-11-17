@@ -3,6 +3,7 @@
 import type { BusinessMediaValue, CAddress, COrder, CProduct, CProductSku, CSubOrder, CUserLevel, MediaReference, PaymentAttempt, Product } from '@agritainment/shared'
 import {
   createPlatformDictionaryCache,
+  getApiClientConfig,
   defaultProductCategoryImage,
   displayProductTags,
   normalizeMinimumOrderQuantity,
@@ -144,6 +145,9 @@ Page({
     hasCommissionRecords: false,
     withdrawalRequests: [] as any[],
     hasWithdrawalRequests: false,
+    withdrawalTotal: 0,
+    hasMoreWithdrawals: false,
+    withdrawalHistoryLoading: false,
     hasDistributor: false,
     pendingCommissionText: '0.00',
     availableCommissionText: '0.00',
@@ -190,6 +194,7 @@ Page({
     const orders = store.orders as COrder[]
     const commissionRecords = (store.myCommissionRecords || []) as any[]
     const withdrawalRequests = (store.withdrawalRequests || []) as any[]
+    const withdrawalTotal = getApiClientConfig().dataMode === 'api' ? store.apiWithdrawalTotal : withdrawalRequests.length
     const projection = projectDistributorOperations({
       promoterId: store.currentDistributor?.promoterId || '',
       orders: Object.values(readCOrders() || {}),
@@ -385,6 +390,9 @@ Page({
         amountText: moneyText(request.amount)
       })),
       hasWithdrawalRequests: withdrawalRequests.length > 0,
+      withdrawalTotal,
+      hasMoreWithdrawals: getApiClientConfig().dataMode === 'api' && withdrawalRequests.length < withdrawalTotal,
+      withdrawalHistoryLoading: store.apiWithdrawalLoading,
       hasDistributor: !!store.currentDistributor,
       pendingCommissionText: moneyText(store.pendingCommission),
       availableCommissionText: moneyText(store.availableCommission),
@@ -906,6 +914,12 @@ Page({
   async onWithdrawCommission(this: any) {
     const result = await store.withdrawCommission('微信提现')
     toast(result === 'pending' ? '提现申请已提交' : result === 'duplicate' ? '已有提现申请处理中' : result === 'invalid' ? '暂无可提现佣金' : store.error || '提现申请失败')
+    this.render()
+  },
+
+  async onLoadMoreWithdrawals(this: any) {
+    const loaded = await store.loadMoreWithdrawals()
+    if (!loaded && store.error) toast(store.error)
     this.render()
   }
 })

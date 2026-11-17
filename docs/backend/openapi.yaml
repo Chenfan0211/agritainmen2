@@ -1503,16 +1503,48 @@ paths:
   /withdrawals/me:
     get:
       summary: 查询我的提现申请
-      description: 当前有效团长只能查询 Auth 身份绑定的 leaderId；具备 commission.manage 的平台管理员可代查。按创建时间倒序返回申请。
+      description: 当前有效团长只能查询 Auth 身份绑定的 leaderId；具备 commission.manage 的平台管理员可代查。按创建时间、ID 倒序分页；pendingTotal 仅统计该申请人的待审申请，不受分页影响。
       parameters:
         - name: requesterId
           in: query
           required: true
           schema:
             type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 10
       responses:
         "200":
           description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          type: object
+                      page: { type: integer }
+                      pageSize: { type: integer }
+                      total: { type: integer, format: int64 }
+                      pendingTotal: { type: integer, format: int64 }
+                    required: [items, page, pageSize, total, pendingTotal]
+        "400":
+          description: 分页参数不合法
   /admin/audit:
     get:
       summary: 查询审计日志
