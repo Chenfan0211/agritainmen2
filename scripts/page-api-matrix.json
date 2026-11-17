@@ -1042,9 +1042,7 @@
         {
           "action": "submitOrder",
           "owner": "store",
-          "status": "planned",
-          "stage": "P5",
-          "dataDomain": "store-shop",
+          "status": "done",
           "api": [
             "POST",
             "/orders"

@@ -32,9 +32,10 @@ describe('store api order submit', () => {
     store.info = { ...store.info, contact: '王店长', phone: '13900000001', address: '湖南省长沙市门店1号' }
     store.addToCart(store.products[0], undefined, 2)
     const before = cloneSeed(store.cart)
-    const order = await store.submitOrder()
-    if (!order) throw new Error('checkoutError=' + store.checkoutError + ' calls=' + calls.map((call) => call.url).join(','))
-    expect(order).toMatchObject({ id: 'O1', status: 'pending-payment', amount: 119.8 })
+    const orderId = await store.submitOrder()
+    if (!orderId) throw new Error('checkoutError=' + store.checkoutError + ' calls=' + calls.map((call) => call.url).join(','))
+    expect(orderId).toBe('O1')
+    expect(store.orders[0]).toMatchObject({ id: 'O1', status: 'pending-payment', amount: 119.8 })
     expect(store.cart).toHaveLength(0)
     expect(calls.filter((call) => call.url.endsWith('/orders'))).toHaveLength(1)
     expect(before).toHaveLength(1)

@@ -854,7 +854,7 @@ export const useStoreStore = defineStore('store', {
           this.orders.unshift(order)
           this.cart = this.cart.filter((line) => !selectedKeys.has(cartLineKey(line)))
           this.checkoutLineKeys = this.checkoutLineKeys.filter((key) => !selectedKeys.has(key))
-          return order
+          return order.id
         } catch (error) {
           this.checkoutError = error instanceof Error ? error.message : '下单失败，请重试'
           return null
