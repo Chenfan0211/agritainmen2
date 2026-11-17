@@ -710,6 +710,7 @@ interface UserState {
   apiWithdrawals: WithdrawalRequest[]
   apiWithdrawalPage: number
   apiWithdrawalPageSize: number
+  apiWithdrawalCursor: string
   apiWithdrawalTotal: number
   apiWithdrawalPendingTotal: number
   apiWithdrawalLoading: boolean
@@ -857,7 +858,7 @@ let activeUserIdentityRequest: Promise<UserIdentityProfile | null> | null = null
 const userStoreOptions: NativeStoreOptions<UserState> = {
   state: (): UserState => ({
     initialized: false, loading: false, withdrawalsTick: 0, distributorTick: 0, error: '', mockScenario: 'normal', farms: [], products: [], cProducts: [], inventoryRevision: 0, launchProductId: '', promoterId: '', promoterName: '', referralPromoterId: '', userId: '',
-    cart: [], orders: [], addresses: [], commissionRecords: [], commissionSummary: null, commissionSummaryBeneficiaryId: '', apiWithdrawals: [], apiWithdrawalPage: 1, apiWithdrawalPageSize: 10, apiWithdrawalTotal: 0, apiWithdrawalPendingTotal: 0, apiWithdrawalLoading: false, apiWithdrawalLoadToken: 0, identityStatus: 'idle', identityProfile: null, identityError: '', identityCheckedAt: 0, openid: '', checkoutError: ''
+    cart: [], orders: [], addresses: [], commissionRecords: [], commissionSummary: null, commissionSummaryBeneficiaryId: '', apiWithdrawals: [], apiWithdrawalPage: 1, apiWithdrawalPageSize: 10, apiWithdrawalCursor: '', apiWithdrawalTotal: 0, apiWithdrawalPendingTotal: 0, apiWithdrawalLoading: false, apiWithdrawalLoadToken: 0, identityStatus: 'idle', identityProfile: null, identityError: '', identityCheckedAt: 0, openid: '', checkoutError: ''
   }),
   getters: {
     level: (state): CUserLevel => activeDistributorForState(state)?.level || 'normal',
@@ -1092,7 +1093,7 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
       this.apiWithdrawalLoading = false
       if (!beneficiaryId) {
         this.commissionSummary = null; this.commissionSummaryBeneficiaryId = ''; this.apiWithdrawals = []
-        this.apiWithdrawalPage = 1; this.apiWithdrawalTotal = 0; this.apiWithdrawalPendingTotal = 0
+        this.apiWithdrawalPage = 1; this.apiWithdrawalCursor = ''; this.apiWithdrawalTotal = 0; this.apiWithdrawalPendingTotal = 0
         return false
       }
       try {
@@ -1105,6 +1106,7 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
         this.apiWithdrawals = result.items.map((row) => toUserWithdrawal(row, beneficiaryId)).filter((row): row is WithdrawalRequest => row !== null)
         this.apiWithdrawalPage = result.page
         this.apiWithdrawalPageSize = result.pageSize
+        this.apiWithdrawalCursor = result.items.at(-1)?.id || ''
         this.apiWithdrawalTotal = result.total
         this.apiWithdrawalPendingTotal = result.pendingTotal
         this.error = ''
@@ -1115,6 +1117,7 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
         this.commissionSummaryBeneficiaryId = ''
         this.apiWithdrawals = []
         this.apiWithdrawalPage = 1
+        this.apiWithdrawalCursor = ''
         this.apiWithdrawalTotal = 0
         this.apiWithdrawalPendingTotal = 0
         this.error = error instanceof Error ? error.message : '佣金数据加载失败'
@@ -1129,14 +1132,16 @@ const userStoreOptions: NativeStoreOptions<UserState> = {
       const loadToken = this.apiWithdrawalLoadToken
       this.apiWithdrawalLoading = true
       try {
-        const result = await apiRequest<ApiWithdrawalPage>(`/api/v1/withdrawals/me?requesterId=${encodeURIComponent(beneficiaryId)}&page=${page}&pageSize=${this.apiWithdrawalPageSize}`)
+        if (!this.apiWithdrawalCursor) throw new Error('提现记录缺少续页游标，请刷新后重试')
+        const result = await apiRequest<ApiWithdrawalPage>(`/api/v1/withdrawals/me?requesterId=${encodeURIComponent(beneficiaryId)}&page=${page}&pageSize=${this.apiWithdrawalPageSize}&beforeId=${encodeURIComponent(this.apiWithdrawalCursor)}`)
         if (!isWithdrawalPage(result) || result.page !== page || result.pageSize !== this.apiWithdrawalPageSize) throw new Error('提现记录格式异常')
         if (loadToken !== this.apiWithdrawalLoadToken || this.currentDistributor?.promoterId !== beneficiaryId) return false
         const known = new Set(this.apiWithdrawals.map((item) => item.id))
         this.apiWithdrawals.push(...result.items.map((row) => toUserWithdrawal(row, beneficiaryId))
           .filter((row): row is WithdrawalRequest => row !== null && !known.has(row.id)))
         this.apiWithdrawalPage = result.page
-        this.apiWithdrawalTotal = result.total
+        this.apiWithdrawalCursor = result.items.at(-1)?.id || this.apiWithdrawalCursor
+        if (result.items.length === 0) this.apiWithdrawalTotal = this.apiWithdrawals.length
         this.apiWithdrawalPendingTotal = result.pendingTotal
         this.error = ''
         return true

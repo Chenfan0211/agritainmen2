@@ -107,6 +107,36 @@ class SettlementBearerScopeAuditTest {
         }
     }
 
+    @Test void leaderContinuesAfterOwnCursorWhenNewWithdrawalArrives() {
+        String prefix = "W-CURSOR-" + UUID.randomUUID();
+        java.sql.Timestamp old = java.sql.Timestamp.from(java.time.Instant.parse("2030-01-01T00:00:00Z"));
+        java.sql.Timestamp newer = java.sql.Timestamp.from(java.time.Instant.parse("2031-01-01T00:00:00Z"));
+        for (int index = 1; index <= 3; index++) {
+            jdbc.update("insert into settlement_withdrawal(id,tenant_id,requester_id,amount_cents,method,status,created_at,updated_at,version,deleted) values (?, 'PLATFORM', 'T001', 100, 'WECHAT', 'APPROVED', ?, ?, 0, false)",
+                    prefix + "-" + index, old, old);
+        }
+        jdbc.update("insert into settlement_withdrawal(id,tenant_id,requester_id,amount_cents,method,status,created_at,updated_at,version,deleted) values (?, 'PLATFORM', 'T002', 100, 'WECHAT', 'PENDING', ?, ?, 0, false)",
+                prefix + "-OTHER", old, old);
+        jdbc.update("insert into settlement_withdrawal(id,tenant_id,requester_id,amount_cents,method,status,created_at,updated_at,version,deleted) values (?, 'OTHER', 'T001', 100, 'WECHAT', 'PENDING', ?, ?, 0, false)",
+                prefix + "-TENANT", old, old);
+        try {
+            String path = "/api/v1/withdrawals/me?requesterId=T001&pageSize=1&page=";
+            JsonNode first = client.get().uri(path + "1").header("Authorization", "Bearer leader-a").retrieve().body(JsonNode.class).path("data");
+            assertEquals(prefix + "-3", first.path("items").get(0).path("id").asText());
+            jdbc.update("insert into settlement_withdrawal(id,tenant_id,requester_id,amount_cents,method,status,created_at,updated_at,version,deleted) values (?, 'PLATFORM', 'T001', 100, 'WECHAT', 'PENDING', ?, ?, 0, false)",
+                    prefix + "-NEW", newer, newer);
+            JsonNode second = client.get().uri(path + "2&beforeId=" + prefix + "-3")
+                    .header("Authorization", "Bearer leader-a").retrieve().body(JsonNode.class).path("data");
+            assertEquals(prefix + "-2", second.path("items").get(0).path("id").asText());
+            assertEquals(4, second.path("total").asInt());
+            assertEquals(400, getStatus(path + "2&beforeId=" + prefix + "-OTHER", "leader-a"));
+            assertEquals(400, getStatus(path + "2&beforeId=" + prefix + "-TENANT", "leader-a"));
+            assertEquals(400, getStatus(path + "2&beforeId=" + prefix + "-MISSING", "leader-a"));
+        } finally {
+            jdbc.update("delete from settlement_withdrawal where id like ?", prefix + "%");
+        }
+    }
+
     @Test void reviewUsesVerifiedOperatorAndWithdrawalPermission() {
         seedCommission("T001", 100);
         seedCommission("T002", 100);

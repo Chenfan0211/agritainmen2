@@ -1503,7 +1503,7 @@ paths:
   /withdrawals/me:
     get:
       summary: 查询我的提现申请
-      description: 当前有效团长只能查询 Auth 身份绑定的 leaderId；具备 commission.manage 的平台管理员可代查。按创建时间、ID 倒序分页；pendingTotal 仅统计该申请人的待审申请，不受分页影响。
+      description: 当前有效团长只能查询 Auth 身份绑定的 leaderId；具备 commission.manage 的平台管理员可代查。按创建时间、ID 倒序分页；加载更多时传入上一页末条记录的 beforeId，服务端按创建时间和 ID 续查，不受新申请插入影响。不传 beforeId 时沿用页码 offset。total 为实时总数，客户端可保留首次查询总数作为当前加载轮次上限；pendingTotal 实时统计该申请人的待审申请，不受分页影响。
       parameters:
         - name: requesterId
           in: query
@@ -1523,6 +1523,13 @@ paths:
             minimum: 1
             maximum: 200
             default: 10
+        - name: beforeId
+          in: query
+          description: 可选的本人提现申请 ID；传入后从该记录之后继续读取，page 仅作为响应页码。
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
       responses:
         "200":
           description: OK
@@ -1544,7 +1551,7 @@ paths:
                       pendingTotal: { type: integer, format: int64 }
                     required: [items, page, pageSize, total, pendingTotal]
         "400":
-          description: 分页参数不合法
+          description: 分页参数或 beforeId 不合法，或游标不属于当前申请人
   /admin/audit:
     get:
       summary: 查询审计日志

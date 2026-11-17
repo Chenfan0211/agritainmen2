@@ -135,8 +135,40 @@ describe('user api withdrawal', () => {
     store.$patch({ userId: 'U2', identityProfile: { openid: 'openid-2', userId: 'U2', leaderId: 'T002', level: 'level2', status: 'active' } })
     expect(await store.refreshCommissionSummary()).toBe(true)
     expect(store.withdrawalRequests).toEqual([])
+    expect(store.apiWithdrawalCursor).toBe('')
     expect(store.apiWithdrawalTotal).toBe(0)
     expect(JSON.stringify(readPlatformWithdrawals())).toBe(localBefore)
+  })
+
+  it('continues after the last server row when a new withdrawal shifts page offsets', async () => {
+    const rows = Array.from({ length: 12 }, (_, index) => ({ id: `W-${12 - index}`, requesterId: 'T001', amountCents: 100,
+      method: 'WECHAT', status: 'APPROVED', createdAt: `2030-01-01T00:00:${String(12 - index).padStart(2, '0')}Z` }))
+    const requests: URL[] = []
+    const transport = vi.fn(async (request) => {
+      if (request.url.includes('/catalog/products')) return ok({ items: [], page: 1, pageSize: 200, total: 0 })
+      if (request.url.includes('/commissions/me')) return ok({ availableCents: 0, pendingCents: 0, withdrawnCents: 0 })
+      if (request.url.includes('/withdrawals/me')) {
+        const url = new URL(request.url)
+        requests.push(url)
+        const page = Number(url.searchParams.get('page'))
+        const beforeId = url.searchParams.get('beforeId')
+        const start = beforeId ? rows.findIndex((row) => row.id === beforeId) + 1 : (page - 1) * 10
+        return ok({ items: rows.slice(start, start + 10), page, pageSize: 10, total: rows.length,
+          pendingTotal: rows.filter((row) => row.status === 'PENDING').length })
+      }
+      throw new Error(`Unexpected ${request.url}`)
+    })
+    configureApiClient({ dataMode: 'api', baseUrl: 'https://api.example.com', transport })
+    const store = createUserStore()
+    await store.initialize()
+    store.$patch({ userId: 'U1', identityProfile: { openid: 'openid-1', userId: 'U1', leaderId: 'T001', level: 'level1', status: 'active' } })
+    expect(await store.refreshCommissionSummary()).toBe(true)
+    rows.unshift({ id: 'W-NEW', requesterId: 'T001', amountCents: 100, method: 'WECHAT', status: 'PENDING', createdAt: '2031-01-01T00:00:00Z' })
+    expect(await store.loadMoreWithdrawals()).toBe(true)
+    expect(requests.at(-1)?.searchParams.get('beforeId')).toBe('W-3')
+    expect(store.withdrawalRequests.map((row) => row.id)).toEqual(Array.from({ length: 12 }, (_, index) => `W-${12 - index}`))
+    expect(store.apiWithdrawalTotal).toBe(12)
+    expect(store.apiWithdrawalPendingTotal).toBe(1)
   })
 
   it('refuses withdrawal when the history response omits the pending count', async () => {

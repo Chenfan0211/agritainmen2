@@ -75,12 +75,14 @@ public class SettlementController {
     public ApiResponse<WithdrawalPage> myWithdrawals(@RequestParam String requesterId,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int pageSize,
+            @RequestParam(required = false) String beforeId,
             @RequestHeader(value = "Authorization", required = false) String authorization) {
         String id = requesterId == null ? "" : requesterId.trim();
         if (id.isBlank()) throw new BusinessException(ErrorCode.BAD_REQUEST, "requesterId 不能为空");
         accessVerifier.requireBeneficiary(authorization, id);
         if (page < 1 || pageSize < 1 || pageSize > 200) throw new BusinessException(ErrorCode.BAD_REQUEST, "page 必须大于 0，pageSize 必须在 1-200 之间");
-        return ApiResponse.ok(settlementService.listWithdrawals(id, page, pageSize));
+        if (beforeId != null && (beforeId.isBlank() || beforeId.length() > 128)) throw new BusinessException(ErrorCode.BAD_REQUEST, "beforeId 格式无效");
+        return ApiResponse.ok(settlementService.listWithdrawals(id, page, pageSize, beforeId));
     }
 
     @GetMapping("/withdrawals")

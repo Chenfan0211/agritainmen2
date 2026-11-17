@@ -99,11 +99,21 @@ public class SettlementService {
         return jdbc.queryForObject("select coalesce(sum(amount_cents),0) from settlement_withdrawal where tenant_id='PLATFORM' and requester_id=? and status='APPROVED' and deleted=false", Long.class, requesterId);
     }
 
-    public WithdrawalPage listWithdrawals(String requesterId, int page, int pageSize) {
+    public WithdrawalPage listWithdrawals(String requesterId, int page, int pageSize, String beforeId) {
+        List<WithdrawalView> items;
+        if (beforeId == null) {
+            items = jdbc.query("select * from settlement_withdrawal where tenant_id='PLATFORM' and requester_id=? and deleted=false order by created_at desc, id desc limit ? offset ?",
+                    (rs, rowNum) -> mapWithdrawal(rs), requesterId, pageSize, ((long) page - 1) * pageSize);
+        } else {
+            List<java.sql.Timestamp> cursors = jdbc.query("select created_at from settlement_withdrawal where tenant_id='PLATFORM' and requester_id=? and id=? and deleted=false",
+                    (rs, rowNum) -> rs.getTimestamp(1), requesterId, beforeId);
+            if (cursors.isEmpty()) throw new BusinessException(ErrorCode.BAD_REQUEST, "beforeId 不属于当前申请人或不存在");
+            java.sql.Timestamp createdAt = cursors.get(0);
+            items = jdbc.query("select * from settlement_withdrawal where tenant_id='PLATFORM' and requester_id=? and deleted=false and (created_at < ? or (created_at = ? and id < ?)) order by created_at desc, id desc limit ?",
+                    (rs, rowNum) -> mapWithdrawal(rs), requesterId, createdAt, createdAt, beforeId, pageSize);
+        }
         Long total = jdbc.queryForObject("select count(*) from settlement_withdrawal where tenant_id='PLATFORM' and requester_id=? and deleted=false", Long.class, requesterId);
         Long pendingTotal = jdbc.queryForObject("select count(*) from settlement_withdrawal where tenant_id='PLATFORM' and requester_id=? and status='PENDING' and deleted=false", Long.class, requesterId);
-        List<WithdrawalView> items = jdbc.query("select * from settlement_withdrawal where tenant_id='PLATFORM' and requester_id=? and deleted=false order by created_at desc, id desc limit ? offset ?",
-                (rs, rowNum) -> mapWithdrawal(rs), requesterId, pageSize, ((long) page - 1) * pageSize);
         return new WithdrawalPage(items, page, pageSize, total == null ? 0 : total, pendingTotal == null ? 0 : pendingTotal);
     }
 
