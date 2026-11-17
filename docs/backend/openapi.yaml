@@ -1097,6 +1097,27 @@ paths:
       responses:
         "200":
           description: OK
+  /fulfillment/orders/{id}/delivered:
+    post:
+      summary: 供应商确认快递签收
+      description: 仅本供应商的 SHIPPED 快递单可转为 RECEIVED；重复确认或司机配送单返回 409。
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 返回更新后的履约单
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          description: 履约状态或配送方式不允许确认
   /withdrawals/{id}/review:
     post:
       summary: 提现审批

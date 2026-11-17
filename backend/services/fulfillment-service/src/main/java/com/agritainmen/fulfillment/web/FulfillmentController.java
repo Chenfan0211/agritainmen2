@@ -147,6 +147,18 @@ public class FulfillmentController {
         return ApiResponse.ok(find(id, identity));
     }
 
+    @PostMapping("/orders/{id}/delivered")
+    public ApiResponse<Map<String, Object>> courierDelivered(@PathVariable String id,
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        FulfillmentAccessVerifier.Identity identity = supplierIdentity(authorization);
+        find(id, identity);
+        int updated = jdbc.update("update fulfillment_order set status='RECEIVED', updated_at=current_timestamp, version=version+1 "
+                + "where id=? and supplier_id=? and status='SHIPPED' and ship_type='courier' and deleted=false",
+                id, identity.supplierId());
+        if (updated != 1) throw new BusinessException(ErrorCode.CONFLICT, "仅已发货的快递单可确认签收");
+        return ApiResponse.ok(find(id, identity));
+    }
+
     @GetMapping("/logistics/{trackingNo}")
     public ApiResponse<LogisticsProvider.Tracking> tracking(@PathVariable String trackingNo,
             @RequestHeader(value = "Authorization", required = false) String authorization) {

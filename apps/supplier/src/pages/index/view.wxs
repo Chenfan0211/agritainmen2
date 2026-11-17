@@ -20,7 +20,7 @@ function orderActions(vm, order) {
     return actions;
   }
   if (status === 'accepted') return isCourierOrder(order) ? [{ key: 'courier', label: '快递直发' }] : [];
-  if (status === 'shipped' && shipType === 'courier') return [{ key: 'handover-out', label: '出库交接', primary: true }];
+  if (status === 'shipped' && shipType === 'courier') return vm.apiMode ? [{ key: 'courier-delivered', label: '确认快递签收', primary: true }] : [{ key: 'handover-out', label: '出库交接', primary: true }];
   if (status === 'delivering' && shipType === 'courier') return [{ key: 'courier-delivered', label: '确认快递签收', primary: true }];
   return [];
 }

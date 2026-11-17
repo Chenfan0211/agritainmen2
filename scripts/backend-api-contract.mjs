@@ -48,6 +48,7 @@ const expected = [
   ['POST', '/api/v1/fulfillment/orders/batch-accept'],
   ['POST', '/api/v1/fulfillment/orders/{id}/assign-driver'],
   ['POST', '/api/v1/fulfillment/orders/{id}/ship'],
+  ['POST', '/api/v1/fulfillment/orders/{id}/delivered'],
   ['GET', '/api/v1/fulfillment/logistics/{trackingNo}'],
   ['POST', '/api/v1/commissions'],
   ['GET', '/api/v1/commissions/me/records'],

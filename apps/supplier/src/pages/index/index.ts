@@ -1150,8 +1150,8 @@ async function runAction(key: string, order: Order) {
   if (key === 'handover-out') { openHandoverOut(order); return }
   if (key === 'courier-delivered') {
     await runBusy('courier-delivered', async () => {
-      if (await store.markCourierDelivered(order.id)) toast('已确认快递签收')
-      closeSheet()
+      if (await store.markCourierDelivered(order.id)) { toast('已确认快递签收'); closeSheet() }
+      else toast(store.error || '确认快递签收失败')
     })
   }
 }

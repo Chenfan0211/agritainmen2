@@ -24,4 +24,14 @@ describe('supplier WXS order actions', () => {
       { key: 'courier', label: '快递直发' },
     ])
   })
+
+  it('offers direct courier receipt confirmation only in API mode', () => {
+    const source = readFileSync(resolve(process.cwd(), 'apps/supplier/src/pages/index/view.wxs'), 'utf8')
+    const context = { module: { exports: {} as Record<string, (...args: any[]) => unknown> } }
+    runInNewContext(source, context)
+    const actions = context.module.exports.e74
+    const order = { supplierFulfillment: { status: 'shipped', shipType: 'courier' } }
+    expect(actions({ apiMode: true }, order)).toEqual([{ key: 'courier-delivered', label: '确认快递签收', primary: true }])
+    expect(actions({ apiMode: false }, order)).toEqual([{ key: 'handover-out', label: '出库交接', primary: true }])
+  })
 })

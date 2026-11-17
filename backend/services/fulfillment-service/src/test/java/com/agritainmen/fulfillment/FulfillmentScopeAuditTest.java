@@ -234,6 +234,30 @@ class FulfillmentScopeAuditTest {
         assertTrue(shipped.path("driver_id").isNull());
     }
 
+    @Test void courierDeliveryRequiresOwnShippedCourierOrder() {
+        String path = "/api/v1/fulfillment/orders/F-S1/delivered";
+        assertEquals(401, assertThrows(RestClientResponseException.class,
+                () -> client.post().uri(path).retrieve().body(JsonNode.class)).getStatusCode().value());
+        assertEquals(403, assertThrows(RestClientResponseException.class,
+                () -> client.post().uri(path).header("Authorization", "Bearer d1").retrieve().body(JsonNode.class)).getStatusCode().value());
+        assertEquals(404, assertThrows(RestClientResponseException.class,
+                () -> client.post().uri("/api/v1/fulfillment/orders/F-S2/delivered")
+                        .header("Authorization", "Bearer s1").retrieve().body(JsonNode.class)).getStatusCode().value());
+        assertEquals(409, assertThrows(RestClientResponseException.class,
+                () -> client.post().uri(path).header("Authorization", "Bearer s1").retrieve().body(JsonNode.class)).getStatusCode().value());
+        jdbc.update("update fulfillment_order set status='SHIPPED',ship_type='driver' where id='F-S1'");
+        assertEquals(409, assertThrows(RestClientResponseException.class,
+                () -> client.post().uri(path).header("Authorization", "Bearer s1").retrieve().body(JsonNode.class)).getStatusCode().value());
+        jdbc.update("update fulfillment_order set ship_type='courier',tracking_no='TRACK-S1' where id='F-S1'");
+        JsonNode received = client.post().uri(path).header("Authorization", "Bearer s1")
+                .retrieve().body(JsonNode.class).path("data");
+        assertEquals("RECEIVED", received.path("status").asText());
+        assertEquals("courier", received.path("ship_type").asText());
+        assertEquals(409, assertThrows(RestClientResponseException.class,
+                () -> client.post().uri(path).header("Authorization", "Bearer s1").retrieve().body(JsonNode.class)).getStatusCode().value());
+        assertEquals("PENDING", jdbc.queryForObject("select status from fulfillment_order where id='F-S2'", String.class));
+    }
+
     @Test void supplierAssignsOnlyOwnActiveDriverAndShipmentUsesCurrentAssignment() {
         client.post().uri("/api/v1/fulfillment/orders/F-S1/accept")
                 .header("Authorization", "Bearer s1").retrieve().body(JsonNode.class);

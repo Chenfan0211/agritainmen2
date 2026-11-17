@@ -2207,8 +2207,19 @@ export const useSupplierStore = defineStore('supplier', {
     },
     async markCourierDelivered(orderId: string) {
       if (this.auth.role !== 'supplier') return false
-      const order = this.orders.find((item) => item.id === orderId)
+      const order = this.orders.find((item) => item.id === orderId && item.supplierId === this.auth.supplierId)
       if (!order) return false
+      if (getApiClientConfig().dataMode === 'api') {
+        if (order.supplierFulfillment?.status !== 'shipped' || order.supplierFulfillment.shipType !== 'courier') return false
+        try {
+          const updated = await apiRequest<{ id: string; status: string; ship_type: string }>(`/api/v1/fulfillment/orders/${encodeURIComponent(orderId)}/delivered`, { method: 'POST' })
+          if (updated.id !== orderId || updated.status !== 'RECEIVED' || updated.ship_type !== 'courier') throw new Error('签收结果与当前履约单不一致，请刷新后核对')
+          order.status = 'delivered'
+          order.supplierFulfillment = { ...order.supplierFulfillment, status: 'received', updatedAt: new Date().toISOString() }
+          this.error = ''
+          return true
+        } catch (error) { this.error = error instanceof Error ? error.message : '确认快递签收失败'; return false }
+      }
       return this.commitOrder(confirmCourierDelivered(order, { id: this.auth.supplierId || SUPPLIER_DEMO_ID, name: this.auth.name || supplierInfo.name, role: 'supplier' }))
     },
     async addDriver(input: { name: string; phone: string; account: string; password: string }): Promise<{ ok: boolean; error?: string }> {

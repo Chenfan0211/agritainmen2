@@ -36,6 +36,32 @@ describe('supplier api fulfillment actions', () => {
     expect(store.orders[0].supplierFulfillment?.driverId).toBeUndefined()
   })
 
+  it('confirms courier delivery through API and keeps local state on rejection', async () => {
+    let reject = true
+    const calls: string[] = []
+    configureApiClient({ dataMode: 'api', baseUrl: 'https://api.example.com', transport: async (request) => {
+      calls.push(request.url)
+      if (request.url.endsWith('/auth/me')) return { status: 200, body: { code: 'OK', data: { actorType: 'supplier', supplierId: 'S1' } } }
+      if (request.url.endsWith('/org/me/supplier')) return { status: 200, body: { code: 'OK', data: { id: 'S1', name: '测试供应商', status: 'cooperating', certified: true } } }
+      if (request.url.endsWith('/auth/supplier/drivers')) return { status: 200, body: { code: 'OK', data: [] } }
+      if (request.url.includes('/fulfillment/orders?')) return { status: 200, body: { code: 'OK', data: { items: [{ id: 'F1', order_id: 'O1', supplier_id: 'S1', status: 'SHIPPED', ship_type: 'courier', tracking_no: 'SF1' }], page: 1, pageSize: 200, total: 1 } } }
+      if (request.url.endsWith('/delivered')) return reject
+        ? { status: 409, body: { code: 'CONFLICT', message: '履约状态已变化' } }
+        : { status: 200, body: { code: 'OK', data: { id: 'F1', status: 'RECEIVED', ship_type: 'courier' } } }
+      throw new Error(request.url)
+    } })
+    const store = useSupplierStore()
+    store.auth = { ...store.auth, isLoggedIn: true, role: 'supplier', supplierId: 'S1' }
+    await store.initialize()
+    expect(await store.markCourierDelivered('F1')).toBe(false)
+    expect(store.orders[0].supplierFulfillment?.status).toBe('shipped')
+    expect(store.error).toContain('履约状态已变化')
+    reject = false
+    expect(await store.markCourierDelivered('F1')).toBe(true)
+    expect(store.orders[0]).toMatchObject({ status: 'delivered', supplierFulfillment: { status: 'received', shipType: 'courier' } })
+    expect(calls.filter((url) => url.endsWith('/delivered'))).toHaveLength(2)
+  })
+
   it('assigns and reassigns active drivers before driver shipment', async () => {
     const calls: Array<{ url: string; body?: unknown }> = []
     configureApiClient({ dataMode: 'api', baseUrl: 'https://api.example.com', transport: async (request) => {
